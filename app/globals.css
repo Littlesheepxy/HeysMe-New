@@ -1,0 +1,898 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* 🎨 品牌阴影类定义 - 确保编译成功 */
+@layer utilities {
+  .shadow-brand {
+    box-shadow: 0 4px 14px 0 rgba(16, 185, 129, 0.2);
+  }
+  
+  .shadow-brand-sm {
+    box-shadow: 0 2px 8px 0 rgba(16, 185, 129, 0.15);
+  }
+  
+  .shadow-brand-lg {
+    box-shadow: 0 10px 25px -3px rgba(16, 185, 129, 0.3), 0 4px 6px -2px rgba(16, 185, 129, 0.2);
+  }
+  
+  .shadow-brand-xl {
+    box-shadow: 0 20px 40px -4px rgba(16, 185, 129, 0.4);
+  }
+  
+  .shadow-brand-2xl {
+    box-shadow: 0 25px 50px -12px rgba(16, 185, 129, 0.5);
+  }
+  
+  .shadow-brand-glow {
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
+  }
+  
+  .shadow-brand-glow-lg {
+    box-shadow: 0 0 40px rgba(16, 185, 129, 0.6);
+  }
+  
+  .shadow-cyan-glow {
+    box-shadow: 0 0 20px rgba(6, 182, 212, 0.5);
+  }
+  
+  .shadow-glass-shadow {
+    box-shadow: 0 8px 32px 0 rgba(16, 185, 129, 0.1);
+  }
+  
+  .shadow-message-user {
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+  }
+  
+  .shadow-message-ai {
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  }
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 222.2 84% 4.9%;
+    --card: 0 0% 100%;
+    --card-foreground: 222.2 84% 4.9%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 222.2 84% 4.9%;
+    --primary: 160 84% 39%;
+    --primary-foreground: 210 40% 98%;
+    --secondary: 210 40% 96%;
+    --secondary-foreground: 222.2 84% 4.9%;
+    --muted: 210 40% 96%;
+    --muted-foreground: 215.4 16.3% 46.9%;
+    --accent: 210 40% 96%;
+    --accent-foreground: 222.2 84% 4.9%;
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 214.3 31.8% 91.4%;
+    --input: 214.3 31.8% 91.4%;
+    --ring: 160 84% 39%;
+    --radius: 0.5rem;
+    --chart-1: 12 76% 61%;
+    --chart-2: 173 58% 39%;
+    --chart-3: 197 37% 24%;
+    --chart-4: 43 74% 66%;
+    --chart-5: 27 87% 67%;
+    --sidebar-background: 166 76% 97%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 160 84% 39%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 154 75% 87%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 156 73% 84%;
+    --sidebar-ring: 160 84% 39%;
+
+    --brand-primary: 160 84% 39%;
+    --brand-secondary: 188 78% 41%;
+    --brand-accent: 188 61% 41%;
+    --brand-light: 166 76% 97%;
+    --brand-surface: 151 81% 94%;
+  }
+
+  .dark {
+    --background: 222.2 84% 4.9%;
+    --foreground: 210 40% 98%;
+    --card: 222.2 84% 4.9%;
+    --card-foreground: 210 40% 98%;
+    --popover: 222.2 84% 4.9%;
+    --popover-foreground: 210 40% 98%;
+    --primary: 160 84% 39%;
+    --primary-foreground: 222.2 47.4% 11.2%;
+    --secondary: 217.2 32.6% 17.5%;
+    --secondary-foreground: 210 40% 98%;
+    --muted: 217.2 32.6% 17.5%;
+    --muted-foreground: 215 20.2% 65.1%;
+    --accent: 217.2 32.6% 17.5%;
+    --accent-foreground: 210 40% 98%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 210 40% 98%;
+    --border: 217.2 32.6% 17.5%;
+    --input: 217.2 32.6% 17.5%;
+    --ring: 160 84% 39%;
+    --chart-1: 220 70% 50%;
+    --chart-2: 160 60% 45%;
+    --chart-3: 30 80% 55%;
+    --chart-4: 280 65% 60%;
+    --chart-5: 340 75% 55%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 160 84% 39%;
+    --sidebar-primary-foreground: 220.9 39.3% 11%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 160 84% 39%;
+
+    --brand-primary: 160 84% 39%;
+    --brand-secondary: 188 78% 41%;
+    --brand-accent: 188 61% 41%;
+    --brand-light: 240 5.9% 10%;
+    --brand-surface: 240 3.7% 15.9%;
+  }
+}
+
+@layer base {
+  * {
+    border-color: hsl(var(--border));
+  }
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', 'Inter', sans-serif;
+    font-feature-settings: 'cv02', 'cv03', 'cv04', 'cv11';
+    font-variant-ligatures: common-ligatures;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    line-height: 1.6;
+  }
+  
+  /* 优化标题字体 */
+  h1, h2, h3, h4, h5, h6 {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue', sans-serif;
+    font-weight: 600;
+    line-height: 1.25;
+    letter-spacing: -0.025em;
+  }
+  
+  /* 优化代码字体 */
+  code, pre, kbd, samp {
+    font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Roboto Mono', 'Source Code Pro', 'Menlo', 'Consolas', monospace;
+    font-feature-settings: 'liga' 0;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  
+  /* 优化段落文本 */
+  p {
+    line-height: 1.7;
+    margin-bottom: 1rem;
+  }
+  
+  /* 优化列表 */
+  ul, ol {
+    line-height: 1.6;
+  }
+  
+  /* 优化链接 */
+  a {
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+  }
+}
+
+/* 🎨 品牌青绿色滚动条系统 */
+.brand-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #10B981 transparent;
+}
+
+.brand-scrollbar::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+.brand-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* 隐藏滚动条但保持滚动功能 */
+.scrollbar-hide {
+  -ms-overflow-style: none;  /* IE and Edge */
+  scrollbar-width: none;  /* Firefox */
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;  /* Chrome, Safari and Opera */
+}
+
+.brand-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #10B981, #06B6D4);
+  border-radius: 6px;
+  border: 1px solid transparent;
+  background-clip: content-box;
+}
+
+.brand-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #059669, #0891B2);
+}
+
+.brand-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* 🎨 页面级别滚动条 - 统一品牌色 */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: #10B981 #F0FDFA;
+}
+
+html::-webkit-scrollbar {
+  width: 12px;
+}
+
+html::-webkit-scrollbar-track {
+  background: #F0FDFA;
+}
+
+html::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #10B981, #06B6D4);
+  border-radius: 6px;
+  border: 2px solid #F0FDFA;
+}
+
+html::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #059669, #0891B2);
+}
+
+/* VS Code 风格的滚动条 - 使用品牌色 */
+.vscode-scrollbar {
+  scrollbar-width: thin;
+  scrollbar-color: #10B981 transparent;
+}
+
+.vscode-scrollbar::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+.vscode-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.vscode-scrollbar::-webkit-scrollbar-thumb {
+  background-color: #10B981;
+  border-radius: 5px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+.vscode-scrollbar::-webkit-scrollbar-thumb:hover {
+  background-color: #059669;
+}
+
+.vscode-scrollbar::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* 🎨 代码编辑器专用样式 */
+.code-editor {
+  font-feature-settings: 'liga' 1, 'calt' 1;
+  font-variant-ligatures: contextual;
+  text-rendering: optimizeLegibility;
+}
+
+.code-line:hover {
+  background-color: rgba(16, 185, 129, 0.05);
+}
+
+.code-line-number:hover {
+  color: #10B981;
+}
+
+/* 🎨 语法高亮动画 */
+.syntax-highlight {
+  transition: color 0.1s ease;
+}
+
+/* 🎨 文件树动画 - 品牌色悬停 */
+.file-tree-item {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.file-tree-item:hover {
+  transform: translateX(2px);
+  background-color: rgba(16, 185, 129, 0.1);
+  border-left: 2px solid #10B981;
+}
+
+/* 🎨 选择高亮 - 品牌色 */
+::selection {
+  background-color: rgba(16, 185, 129, 0.3);
+  color: #064E3B;
+}
+
+::-moz-selection {
+  background-color: rgba(16, 185, 129, 0.3);
+  color: #064E3B;
+}
+
+/* 🎨 自定义深色模式样式 */
+.dark {
+  color-scheme: dark;
+}
+
+.dark html {
+  scrollbar-color: #10B981 #1F2937;
+}
+
+.dark html::-webkit-scrollbar-track {
+  background: #1F2937;
+}
+
+.dark html::-webkit-scrollbar-thumb {
+  border-color: #1F2937;
+}
+
+/* 🎨 品牌渐变背景 */
+.bg-gradient-light {
+  background: linear-gradient(135deg, #F0FDFA 0%, #ECFEFF 50%, #F0F9FF 100%);
+}
+
+.bg-gradient-dark {
+  background: linear-gradient(135deg, #0F172A 0%, #164E63 50%, #065F46 100%);
+}
+
+/* 🎨 品牌色卡片样式 */
+.card-light {
+  @apply bg-white/90 backdrop-blur-xl border-emerald-100/60 shadow-brand-sm;
+}
+
+.card-dark {
+  @apply bg-gray-800/90 backdrop-blur-xl border-emerald-700/30 shadow-brand-sm;
+}
+
+/* 🎨 品牌渐变按钮 */
+.btn-gradient-light {
+  background: linear-gradient(135deg, #34D399 0%, #2DD4BF 50%, #22D3EE 100%);
+  color: white;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.btn-gradient-light:hover {
+  background: linear-gradient(135deg, #10B981 0%, #06B6D4 100%);
+  transform: translateY(-1px);
+  box-shadow: 0 10px 25px -3px rgba(16, 185, 129, 0.4);
+}
+
+.btn-gradient-dark {
+  background: linear-gradient(135deg, #10B981 0%, #06B6D4 100%);
+  color: white;
+}
+
+.btn-gradient-dark:hover {
+  background: linear-gradient(135deg, #059669 0%, #0891B2 100%);
+}
+
+/* 🎨 品牌玻璃拟态效果 */
+.glass-brand {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+  box-shadow: 0 8px 32px 0 rgba(16, 185, 129, 0.1);
+}
+
+.glass-brand-strong {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(6, 182, 212, 0.15) 100%);
+  backdrop-filter: blur(20px);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  box-shadow: 0 12px 40px 0 rgba(16, 185, 129, 0.15);
+}
+
+/* 🎨 消息气泡样式 */
+.message-user {
+  background: linear-gradient(135deg, #34D399 0%, #2DD4BF 50%, #22D3EE 100%);
+  color: white;
+  box-shadow: 0 4px 12px rgba(16, 185, 129, 0.25);
+  border-radius: 1.5rem 1.5rem 0.375rem 1.5rem;
+  animation: message-slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.message-ai {
+  background: #F8FAFC;
+  color: #334155;
+  border: 1px solid #E2E8F0;
+  border-left: 3px solid #10B981;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+  border-radius: 1.5rem 1.5rem 1.5rem 0.375rem;
+  animation: message-slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dark .message-ai {
+  background: #1E293B;
+  color: #E2E8F0;
+  border-color: #334155;
+  border-left-color: #10B981;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+/* 🎨 输入区域样式 */
+.input-brand {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  border: 2px solid transparent;
+}
+
+.input-brand:focus {
+  border-color: #10B981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+  outline: none;
+}
+
+.input-brand:focus-within {
+  border-color: #10B981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+/* 🎨 品牌高光划过效果动画 */
+@keyframes brand-shimmer {
+  0% {
+    transform: translateX(-100%) skewX(-12deg);
+    opacity: 0;
+  }
+  25% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+  75% {
+    opacity: 0.6;
+  }
+  100% {
+    transform: translateX(200%) skewX(-12deg);
+    opacity: 0;
+  }
+}
+
+@keyframes brand-shimmer-intense {
+  0% {
+    transform: translateX(-100%) skewX(-12deg);
+    background: linear-gradient(90deg, transparent 0%, rgba(16, 185, 129, 0) 25%, rgba(16, 185, 129, 0.8) 50%, rgba(6, 182, 212, 0.8) 51%, rgba(6, 182, 212, 0) 75%, transparent 100%);
+  }
+  100% {
+    transform: translateX(200%) skewX(-12deg);
+    background: linear-gradient(90deg, transparent 0%, rgba(16, 185, 129, 0) 25%, rgba(16, 185, 129, 0.8) 50%, rgba(6, 182, 212, 0.8) 51%, rgba(6, 182, 212, 0) 75%, transparent 100%);
+  }
+}
+
+@keyframes brand-blink {
+  0%, 50%, 100% { opacity: 1; }
+  25%, 75% { opacity: 0.3; }
+}
+
+@keyframes brand-loading-dots {
+  0%, 80%, 100% { 
+    transform: scale(0); 
+    background-color: #10B981;
+  }
+  40% { 
+    transform: scale(1.0); 
+    background-color: #06B6D4;
+  }
+}
+
+/* 🎨 ChatGPT风格的白光扫描动画 */
+@keyframes white-shimmer {
+  0% {
+    transform: translateX(-100%);
+  }
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* 🎨 品牌动画类 */
+.animate-brand-shimmer {
+  animation: brand-shimmer 2s infinite;
+}
+
+.animate-brand-shimmer-intense {
+  animation: brand-shimmer-intense 2s infinite;
+}
+
+.animate-brand-blink {
+  animation: brand-blink 2s infinite;
+}
+
+.animate-brand-loading-dots {
+  animation: brand-loading-dots 1.4s infinite ease-in-out;
+}
+
+/* 🎨 自定义滚动条 */
+.custom-scrollbar::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: linear-gradient(135deg, #10B981, #06B6D4);
+  border-radius: 3px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: linear-gradient(135deg, #059669, #0891B2);
+}
+
+/* 🎨 交互悬停效果 */
+.interactive-hover {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.interactive-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 25px -3px rgba(16, 185, 129, 0.3);
+}
+
+/* 🎨 淡入动画 */
+.fade-in {
+  animation: brand-fadeIn 0.6s ease-out;
+}
+
+@keyframes brand-fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(20px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 🎨 聚焦状态 - 品牌色 */
+.focus-brand:focus {
+  outline: 2px solid #10B981;
+  outline-offset: 2px;
+}
+
+/* 🎨 输入框品牌样式 */
+.input-brand:focus {
+  border-color: #10B981;
+  box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+}
+
+/* 🎨 按钮波纹效果 */
+.btn-ripple {
+  position: relative;
+  overflow: hidden;
+}
+
+.btn-ripple::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.5);
+  transform: translate(-50%, -50%);
+  transition: width 0.6s, height 0.6s;
+}
+
+.btn-ripple:active::before {
+  width: 300px;
+  height: 300px;
+}
+
+/* 🎨 进度条品牌样式 */
+.progress-brand {
+  background: linear-gradient(90deg, #10B981 0%, #06B6D4 50%, #22D3EE 100%);
+  background-size: 200% 100%;
+  animation: brand-gradient-shift 2s linear infinite;
+}
+
+/* 🎨 骨架屏品牌样式 */
+.skeleton-brand {
+  background: linear-gradient(90deg, #F0FDFA 25%, #ECFDF5 50%, #F0FDFA 75%);
+  background-size: 200% 100%;
+  animation: brand-shimmer 1.5s infinite;
+}
+
+/* 🎨 侧边栏滑动动画 */
+.sidebar-slide-in {
+  animation: brand-slide-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.sidebar-slide-out {
+  animation: brand-slide-out 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+/* 🎨 loading文本的光照扫描效果 - 保留原有效果 */
+.loading-text {
+  position: relative;
+  background: linear-gradient(135deg, #64748B, #10B981, #06B6D4, #64748B);
+  background-size: 300% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: brand-loading-scan 2s linear infinite;
+}
+
+.loading-text::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: -100%;
+  width: 100%;
+  height: 100%;
+  background: linear-gradient(90deg, 
+    transparent 0%, 
+    rgba(16, 185, 129, 0.3) 20%, 
+    rgba(6, 182, 212, 0.6) 60%, 
+    transparent 100%
+  );
+  animation: brand-loading-scan 2s linear infinite;
+}
+
+/* 🎨 头部渐变样式 */
+.header-brand {
+  background: linear-gradient(135deg, #10B981 0%, #0891B2 100%);
+  color: white;
+}
+
+/* 🎨 卡片悬停效果 */
+.card-hover-brand:hover {
+  border-color: #10B981;
+  box-shadow: 0 10px 25px -3px rgba(16, 185, 129, 0.3);
+  transform: translateY(-2px);
+}
+
+/* 🎨 品牌色高亮 */
+.highlight-brand {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.1));
+  border-left: 3px solid #10B981;
+}
+
+/* 🎨 加载状态指示器 */
+.loading-indicator {
+  display: inline-flex;
+  gap: 4px;
+  align-items: center;
+}
+
+.loading-dot {
+  width: 6px;
+  height: 6px;
+  background: #10B981;
+  border-radius: 50%;
+  animation: brand-loading-dots 1.4s infinite ease-in-out;
+}
+
+.loading-dot:nth-child(1) { animation-delay: -0.32s; }
+.loading-dot:nth-child(2) { animation-delay: -0.16s; }
+.loading-dot:nth-child(3) { animation-delay: 0s; }
+
+/* 🎨 响应式适配 */
+@media (max-width: 768px) {
+  .message-user, .message-ai {
+    max-width: 85%;
+  }
+  
+  .sidebar-mobile {
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+  
+  .sidebar-mobile.open {
+    transform: translateX(0);
+  }
+
+  /* 移动端自动折叠侧边栏 */
+  .sidebar-auto-collapse {
+    width: 80px;
+  }
+}
+
+/* 🎨 侧边栏动画优化 */
+.sidebar-transition {
+  transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1), 
+              opacity 0.2s ease-in-out,
+              transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.sidebar-content-fade {
+  transition: opacity 0.2s ease-in-out;
+}
+
+/* 🎨 键盘快捷键提示动画 */
+@keyframes shortcut-hint {
+  0%, 100% {
+    opacity: 0.7;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+.shortcut-hint {
+  animation: shortcut-hint 2s ease-in-out infinite;
+}
+
+/* 🎨 会话项悬停动画增强 */
+.session-item {
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.session-item:hover {
+  transform: translateX(4px);
+}
+
+.session-item-active {
+  transform: translateX(2px);
+}
+
+/* 🎨 可访问性增强 */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+  
+  .sidebar-transition,
+  .sidebar-content-fade,
+  .session-item {
+    transition: none !important;
+  }
+}
+
+/* 🎨 高对比度模式支持 */
+@media (prefers-contrast: high) {
+  .brand-gradient,
+  .btn-gradient-light,
+  .btn-gradient-dark {
+    background: #10B981;
+  }
+  
+  .message-user {
+    background: #10B981;
+    border: 2px solid #064E3B;
+  }
+  
+  .message-ai {
+    border: 2px solid #10B981;
+  }
+}
+
+/* 🎨 自定义品牌动画 */
+@keyframes brand-pulse {
+  0%, 100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.1);
+  }
+}
+
+@keyframes brand-breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.9;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 1;
+  }
+}
+
+/* 🎨 优雅的品牌光效动画 */
+@keyframes brand-glow-pulse {
+  0%, 100% {
+    opacity: 0;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+@keyframes brand-shine-sweep {
+  0%, 90%, 100% {
+    opacity: 0;
+    background-position: -200% 0;
+  }
+  10%, 80% {
+    opacity: 0.3;
+    background-position: 200% 0;
+  }
+}
+
+/* 备选方案：彩虹渐变流动 */
+@keyframes brand-rainbow-flow {
+  0%, 100% {
+    background-position: 0% 50%;
+    opacity: 0.6;
+  }
+  50% {
+    background-position: 100% 50%;
+    opacity: 1;
+  }
+}
+
+/* 备选方案：呼吸光效 */
+@keyframes brand-breathe-glow {
+  0%, 100% {
+    opacity: 0.4;
+    filter: blur(0px);
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.9;
+    filter: blur(0.5px);
+    transform: scale(1.02);
+  }
+}
+
+.animate-brand-pulse {
+  animation: brand-pulse 3s ease-in-out infinite;
+}
+
+.animate-brand-breathe {
+  animation: brand-breathe 4s ease-in-out infinite;
+}
+
+/* 🔧 Stagewise 工具栏样式隔离 */
+/* 确保 stagewise 工具栏不会影响项目的文本颜色和样式 */
+[data-stagewise-toolbar] {
+  isolation: isolate;
+  position: fixed !important;
+  z-index: 999999 !important;
+}
+
+[data-stagewise-toolbar] * {
+  color: initial !important;
+  font-family: initial !important;
+  font-size: initial !important;
+  line-height: initial !important;
+  text-decoration: initial !important;
+}
+
+/* 防止 stagewise 影响主要内容区域的文本 */
+body:not([data-stagewise-toolbar]) {
+  color: hsl(var(--foreground)) !important;
+}
+
+/* 确保我们的品牌色文本不被覆盖 */
+.text-brand-primary,
+.text-emerald-600,
+.text-emerald-500,
+.text-cyan-600,
+.text-cyan-500 {
+  color: #10B981 !important;
+}
+
+.text-gray-800 {
+  color: rgb(31, 41, 55) !important;
+}
+
+.text-gray-600 {
+  color: rgb(75, 85, 99) !important;
+}
+
+.text-gray-500 {
+  color: rgb(107, 114, 128) !important;
+}
