@@ -730,11 +730,15 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
     if (isCodingMode) {
       handleCodingAgentResponse(response);
       
+      // 🔧 关键修复：对于Coding模式，只累积分离后的纯文本内容
       if (toolExecutor && response.immediate_display?.reply) {
-        const accumulatedText = accumulatedAIResponse + response.immediate_display.reply;
-        setAccumulatedAIResponse(accumulatedText);
+        // 使用已经分离后的纯文本内容进行累积
+        const cleanReply = response.immediate_display.reply;
+        const accumulatedCleanText = accumulatedAIResponse + cleanReply;
+        setAccumulatedAIResponse(accumulatedCleanText);
         
-        toolExecutor.processStreamChunk(accumulatedText).catch(error => {
+        // 🔧 只处理纯文本内容，不包含代码块
+        toolExecutor.processStreamChunk(accumulatedCleanText).catch(error => {
           console.error('🔧 [工具执行] 处理流式内容失败:', error);
         });
       }
@@ -753,7 +757,7 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
             index === prev.length - 1 
               ? {
                   ...msg,
-                  // 🔧 修复：累积分离后的纯文本内容，而不是覆盖
+                  // 🔧 关键修复：对于CodingAgent，只累积reply内容（已经是分离后的纯文本）
                   content: (msg.content || '') + (response.immediate_display?.reply || ''),
                   metadata: {
                     ...msg.metadata,
@@ -769,6 +773,7 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
             timestamp: new Date(),
             type: 'agent_response',
             agent: response.immediate_display?.agent_name || 'system',
+            // 🔧 关键修复：CodingAgent的reply已经是分离后的纯文本，直接使用
             content: response.immediate_display?.reply || '',
             metadata: {
               streaming: !response.system_state?.done,

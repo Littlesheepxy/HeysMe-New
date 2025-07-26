@@ -262,6 +262,13 @@ export class CodingAgent extends BaseAgent {
         lastSentTextLength = pureText.length;
         
         console.log(`🎯 [内容分离] 纯文本长度: ${pureText.length}, 新增文本: ${newTextToSend.length}, 提取文件: ${extractedFiles.length}`);
+        console.log(`📝 [新增文本预览] "${newTextToSend.substring(0, 100)}${newTextToSend.length > 100 ? '...' : ''}"`); // 🔧 只输出分离后的文本预览
+        
+        // 🔧 详细检查：如果新增文本包含代码块标记，输出警告
+        if (newTextToSend.includes('```') || newTextToSend.includes('typescript:') || newTextToSend.includes('json:')) {
+          console.error('❌ [分离失败] 新增文本仍包含代码块标记！');
+          console.error('❌ [分离失败] 新增文本内容:', newTextToSend);
+        }
         
         // 🆕 发送分离后的纯文本内容到对话框
         yield this.createResponse({
@@ -280,7 +287,7 @@ export class CodingAgent extends BaseAgent {
               message_id: messageId,
               chunk_count: chunkCount,
               is_update: chunkCount > 1,
-              latest_chunk: chunk,
+              latest_chunk: newTextToSend, // 🔧 关键修复：传递分离后的纯文本，而不是原始chunk
               accumulated_length: fullAccumulatedText.length,
               // 🆕 明确标识为增量内容
               content_mode: 'incremental',
@@ -456,6 +463,8 @@ export class CodingAgent extends BaseAgent {
       const messageId = `incremental-${Date.now()}`;
       let chunkCount = 0;
       let accumulatedResponse = '';
+      // 🆕 增加增量模式的文本累积器
+      let lastSentTextLength = 0;
 
       // 🔧 使用专门的增量编辑系统prompt
       const systemPrompt = `你是一个专业的全栈开发工程师和代码助手，专门处理已有项目的增量修改。
@@ -498,10 +507,28 @@ export class CodingAgent extends BaseAgent {
         
         console.log(`📊 [增量流式] 第${chunkCount}个块，新增长度: ${chunk.length}`);
         
-        // 🆕 直接发送文本内容
+        // 🔧 关键修复：对增量模式也进行文本和代码分离
+        const separated = this.separateTextAndCode(accumulatedResponse);
+        const pureText = separated.text;
+        const extractedFiles = separated.codeFiles;
+        
+        // 🔧 计算新增的纯文本内容（增量发送）
+        const newTextToSend = pureText.substring(lastSentTextLength);
+        lastSentTextLength = pureText.length;
+        
+        console.log(`📊 [增量内容分离] 纯文本长度: ${pureText.length}, 新增文本: ${newTextToSend.length}, 提取文件: ${extractedFiles.length}`);
+        console.log(`📝 [增量文本预览] "${newTextToSend.substring(0, 100)}${newTextToSend.length > 100 ? '...' : ''}"`); // 🔧 只输出分离后的文本预览
+        
+        // 🔧 详细检查：如果新增文本包含代码块标记，输出警告
+        if (newTextToSend.includes('```') || newTextToSend.includes('typescript:') || newTextToSend.includes('json:')) {
+          console.error('❌ [增量分离失败] 新增文本仍包含代码块标记！');
+          console.error('❌ [增量分离失败] 新增文本内容:', newTextToSend);
+        }
+        
+        // 🔧 关键修复：只发送分离后的纯文本内容到对话框
         yield this.createResponse({
           immediate_display: {
-            reply: chunk, // 直接发送原始chunk
+            reply: newTextToSend, // 🔧 只发送纯文本，不包含代码块
             agent_name: this.name,
             timestamp: new Date().toISOString()
           },
@@ -515,24 +542,33 @@ export class CodingAgent extends BaseAgent {
               message_id: messageId,
               chunk_count: chunkCount,
               is_update: chunkCount > 1,
-              latest_chunk: chunk,
+              latest_chunk: newTextToSend, // 🔧 关键修复：传递分离后的纯文本，而不是原始chunk
               mode: 'incremental',
               // 🆕 明确标识为增量内容
               content_mode: 'incremental',
               stream_type: chunkCount === 1 ? 'start' : 'delta',
               agent_type: 'CodingAgent',
               // 🔧 保持现有文件信息
-              hasCodeFiles: existingFiles.length > 0,
-              codeFilesReady: existingFiles.length > 0,
-              projectFiles: existingFiles,
-              totalFiles: existingFiles.length,
+              hasCodeFiles: existingFiles.length > 0 || extractedFiles.length > 0,
+              codeFilesReady: existingFiles.length > 0 || extractedFiles.length > 0,
+              projectFiles: existingFiles.length > 0 ? existingFiles : extractedFiles.map(f => ({
+                filename: f.filename,
+                content: f.content,
+                description: f.description || `增量生成的${f.language}文件`,
+                language: f.language,
+                type: 'file'
+              })),
+              totalFiles: existingFiles.length > 0 ? existingFiles.length : extractedFiles.length,
               // 🆕 增量编辑特有信息
               userRequest: userInput,
               projectContext: projectContext,
-              accumulatedResponse: accumulatedResponse.substring(0, 200) + '...',
+              accumulatedResponse: pureText.substring(0, 200) + '...', // 🔧 使用分离后的纯文本
               // 🆕 工具调用支持
               toolsAvailable: INCREMENTAL_EDIT_TOOLS.map(t => t.name),
-              supportsToolCalls: true
+              supportsToolCalls: true,
+              // 🆕 新文件检测
+              hasNewFiles: extractedFiles.length > 0,
+              newFilesCount: extractedFiles.length
             }
           }
         });
@@ -587,32 +623,92 @@ export class CodingAgent extends BaseAgent {
     text: string;
     codeFiles: CodeFile[];
   } {
+    console.log('🚨🚨🚨 [CRITICAL] separateTextAndCode 方法被调用！');
+    console.log('🚨🚨🚨 [CRITICAL] 输入内容长度:', content.length);
+    console.log('🚨🚨🚨 [CRITICAL] 输入内容前200字符:', content.substring(0, 200));
+    
     // 首先尝试提取代码块
     const codeFiles = this.extractCodeBlocksFromText(content);
     
     // 移除所有代码块，保留纯文本
     let textOnly = content;
     
-    // 匹配各种代码块格式并移除
+    // 🔧 精确的代码块匹配模式 - 按优先级排序，避免重复匹配
     const codeBlockPatterns = [
-      /```[\s\S]*?```/g,  // 标准代码块
-      /`[^`\n]*`/g,       // 行内代码
+      // 1. 完整的代码块（最高优先级）
+      /```[\w]*[\s\S]*?```/g,
+      // 2. 不完整的代码块（只有开始，没有结束）
+      /```[\w]*[\s\S]*$/g,
+      // 3. 行内代码（单个反引号）
+      /`[^`\n]+`/g,
     ];
     
-    codeBlockPatterns.forEach(pattern => {
+    // 4. 文件名和格式标记模式（在代码块移除后处理）
+    const fileNamePatterns = [
+      // 形如 "typescript:app/page.tsx" 的前缀行
+      /^[\w]+:[^\n]+$/gm,
+      // 形如 "## app/page.tsx" 的标题行
+      /^##?\s+[^\n]*\.[^\n]*$/gm,
+      // 形如 "**文件名.ext**" 的粗体文件名
+      /\*\*[^*]*\.[^*]+\*\*/g,
+      // 形如 "文件名.ext:" 的文件名标记
+      /^[^\n:]+\.[^\n:]+:\s*$/gm,
+    ];
+    
+    // 🔧 分步骤精确移除
+    console.log('🔧 [分离步骤1] 移除代码块');
+    codeBlockPatterns.forEach((pattern, index) => {
+      const beforeLength = textOnly.length;
       textOnly = textOnly.replace(pattern, '');
+      const afterLength = textOnly.length;
+      console.log(`🔧 [模式${index + 1}] 移除了 ${beforeLength - afterLength} 个字符`);
     });
     
-    // 清理文本格式
+    console.log('🔧 [分离步骤2] 移除文件名标记');
+    fileNamePatterns.forEach((pattern, index) => {
+      const beforeLength = textOnly.length;
+      textOnly = textOnly.replace(pattern, '');
+      const afterLength = textOnly.length;
+      console.log(`🔧 [文件名模式${index + 1}] 移除了 ${beforeLength - afterLength} 个字符`);
+    });
+    
+    // 🔧 更严格的文本清理
     textOnly = textOnly
-      .replace(/\n{3,}/g, '\n\n')      // 合并多余换行
-      .replace(/^\s+|\s+$/g, '')       // 移除首尾空白
-      .replace(/\s*\n\s*/g, '\n')      // 规范化换行
+      .replace(/\n{3,}/g, '\n\n')           // 合并多余换行
+      .replace(/^\s+|\s+$/g, '')            // 移除首尾空白
+      .replace(/\s*\n\s*/g, '\n')           // 规范化换行
+      .replace(/\s{2,}/g, ' ')              // 合并多余空格
+      .replace(/^\n+|\n+$/g, '')            // 移除开头结尾换行
+      .trim();
+    
+    // 🔧 移除只包含特殊字符的行
+    textOnly = textOnly
+      .split('\n')
+      .filter(line => {
+        const cleaned = line.trim();
+        // 过滤掉只包含特殊字符、数字、文件扩展名等的行
+        if (!cleaned) return false;
+        if (/^[`#*\-_=\s]*$/.test(cleaned)) return false;  // 只有标记符号
+        if (/^\d+\.\s*$/.test(cleaned)) return false;      // 只有数字和点
+        if (/^[.\w]+\.(ts|tsx|js|jsx|json|css|html|md)$/i.test(cleaned)) return false; // 只有文件名
+        return true;
+      })
+      .join('\n')
       .trim();
     
     // 如果文本为空，生成默认说明
     if (!textOnly && codeFiles.length > 0) {
       textOnly = `我正在为您生成一个完整的项目，包含 ${codeFiles.length} 个文件。\n\n项目结构：\n${codeFiles.map(f => `• ${f.filename}`).join('\n')}`;
+    }
+    
+    // 🔧 最后一次检查，确保没有遗漏的代码块格式
+    if (textOnly.includes('```') || textOnly.includes('typescript:') || textOnly.includes('json:')) {
+      console.warn('⚠️ [文本分离] 检测到可能遗漏的代码格式，进行最后清理');
+      textOnly = textOnly
+        .replace(/```[\s\S]*?```/g, '')     // 再次移除任何遗漏的代码块
+        .replace(/\w+:[^\s\n]+[\s\S]*?(?=\n\n|\n$|$)/g, '')  // 移除语言:文件名格式
+        .replace(/\n{2,}/g, '\n\n')         // 规范化换行
+        .trim();
     }
     
     return {
@@ -697,10 +793,27 @@ export class CodingAgent extends BaseAgent {
     console.log('🤖 [代码块提取] 开始分析文本，长度:', text.length);
     console.log('🤖 [代码块提取] 文本预览:', text.substring(0, 200));
     
+    // 🔧 简单测试：检查文本中是否包含代码块标记
+    const hasCodeBlocks = text.includes('```');
+    const hasColonFormat = /```\w+:[^\s]+/.test(text);
+    console.log(`🔍 [格式检测] 包含代码块: ${hasCodeBlocks}, 包含冒号格式: ${hasColonFormat}`);
+    
+    if (hasColonFormat) {
+      // 找到第一个冒号格式的示例
+      const colonMatch = text.match(/```(\w+):([^\s\n]+)/);
+      if (colonMatch) {
+        console.log(`🎯 [格式示例] 找到冒号格式: ${colonMatch[0]}, 语言: ${colonMatch[1]}, 文件名: ${colonMatch[2]}`);
+      }
+    }
+    
     // 🔧 改进的代码块匹配模式
     const patterns = [
-      // 🆕 模式1: ```typescript:app/page.tsx (新的推荐格式，优先匹配)
-      /```(\w+):([^\n\s]+)\s*\n([\s\S]*?)```/gi,
+      // 🆕 模式1: ```typescript:app/page.tsx 或 ```json:package.json (新的推荐格式，优先匹配)
+      /```(\w+):([^\n\s]+)[\s\S]*?\n([\s\S]*?)```/gi,
+      // 🆕 模式1b: ```json:package.json { (紧接着内容的格式)
+      /```(\w+):([^\n\s]+)\s*\{([\s\S]*?)\}[\s\S]*?```/gi,
+      // 🆕 模式1c: ```typescript:app/page.tsx export (紧接着内容的格式)
+      /```(\w+):([^\n\s]+)\s*([\s\S]*?)```/gi,
       // 模式2: ```typescript filename="app/page.tsx"
       /```(\w+)\s+filename="([^"]+)"\s*\n([\s\S]*?)```/gi,
       // 模式3: ```app/page.tsx  (直接使用文件名作为语言标识)
@@ -725,29 +838,38 @@ export class CodingAgent extends BaseAgent {
       while ((match = regex.exec(text)) !== null) {
         let filename: string | undefined, content: string | undefined, language: string | undefined;
         
+        console.log(`✅ [模式${patternIndex + 1}] 匹配成功! 匹配组数: ${match.length}, 匹配内容预览: "${match[0].substring(0, 100)}..."`);
+        
         if (patternIndex === 0) {
           // 🆕 模式1: ```typescript:app/page.tsx
           [, language, filename, content] = match;
         } else if (patternIndex === 1) {
+          // 🆕 模式1b: ```json:package.json {
+          [, language, filename, content] = match;
+          content = '{' + content + '}'; // 🔧 补回大括号
+        } else if (patternIndex === 2) {
+          // 🆕 模式1c: ```typescript:app/page.tsx export
+          [, language, filename, content] = match;
+        } else if (patternIndex === 3) {
           // 模式2: ```typescript filename="app/page.tsx"
           [, language, filename, content] = match;
-        } else if (patternIndex === 2) {
+        } else if (patternIndex === 4) {
           // 模式3: 文件名作为语言标识
           [, filename, content] = match;
           language = this.getLanguageFromExtension(filename);
-        } else if (patternIndex === 3) {
+        } else if (patternIndex === 5) {
           // 模式4: 标准代码块，需要推断文件名
           [, language, content] = match;
           filename = this.inferFilenameFromContent(content, language || 'text');
-        } else if (patternIndex === 4) {
+        } else if (patternIndex === 6) {
           // 模式5: **文件名**格式
           [, filename, language, content] = match;
           language = language || this.getLanguageFromExtension(filename);
-        } else if (patternIndex === 5) {
+        } else if (patternIndex === 7) {
           // 模式6: ## 文件名格式
           [, filename, language, content] = match;
           language = language || this.getLanguageFromExtension(filename);
-        } else if (patternIndex === 6) {
+        } else if (patternIndex === 8) {
           // 模式7: 文件名:格式
           [, filename, language, content] = match;
           language = language || this.getLanguageFromExtension(filename);
