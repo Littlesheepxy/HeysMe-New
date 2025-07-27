@@ -419,7 +419,7 @@ export default function HomePage() {
    - 其他组件文件
    - 样式文件
 
-这样可以确保 WebContainer 能够立即开始依赖安装。
+这样可以确保 Vercel 部署能够立即开始依赖安装。
 
 #### 🚫 **禁止使用**：
 - ❌ 不使用next.config.js（除非必要）

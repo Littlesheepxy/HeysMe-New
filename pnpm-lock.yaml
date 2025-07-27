@@ -140,9 +140,9 @@ importers:
       '@types/react-virtualized':
         specifier: ^9.22.2
         version: 9.22.2
-      '@webcontainer/api':
-        specifier: ^1.6.1
-        version: 1.6.1
+      '@vercel/sdk':
+        specifier: latest
+        version: 1.10.0(zod@3.25.76)
       ai:
         specifier: latest
         version: 4.3.19(react@19.1.0)(zod@3.25.76)
@@ -3046,8 +3046,15 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@webcontainer/api@1.6.1':
-    resolution: {integrity: sha512-2RS2KiIw32BY1Icf6M1DvqSmcon9XICZCDgS29QJb2NmF12ZY2V5Ia+949hMKB3Wno+P/Y8W+sPP59PZeXSELg==}
+  '@vercel/sdk@1.10.0':
+    resolution: {integrity: sha512-Z3bTFhDkQoEt2wviWxbvmkrkTPxVCYZaRlkV2Y3O/oRwVRnYiZ1tAK7NkjnSNtc19vARRkEAma/DfiaqVMlPzQ==}
+    hasBin: true
+    peerDependencies:
+      '@modelcontextprotocol/sdk': '>=1.5.0 <1.10.0'
+      zod: ^3
+    peerDependenciesMeta:
+      '@modelcontextprotocol/sdk':
+        optional: true
 
   '@xmldom/xmldom@0.8.10':
     resolution: {integrity: sha512-2WALfTl4xo2SkGCYRt6rDTFfk9R1czmBvUQy12gK2KuRKIpWEhcbbzy8EZXtz/jkRqHX8bFEc6FC1HjX4TUWYw==}
@@ -10631,7 +10638,9 @@ snapshots:
   '@unrs/resolver-binding-win32-x64-msvc@1.11.1':
     optional: true
 
-  '@webcontainer/api@1.6.1': {}
+  '@vercel/sdk@1.10.0(zod@3.25.76)':
+    dependencies:
+      zod: 3.25.76
 
   '@xmldom/xmldom@0.8.10': {}
 

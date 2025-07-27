@@ -11,7 +11,7 @@ Heysme/
 │   └── MessageBubble.tsx                # 消息气泡 - 显示对话内容
 ├── components/editor/
 │   ├── CodePreviewToggle.tsx            # 代码预览切换 - 右侧预览区
-│   └── WebContainerPreview.tsx          # 容器预览 - 实际渲染
+│   └── VercelPreview.tsx          # Vercel预览 - 实际部署
 ├── hooks/
 │   └── use-chat-system-v2.ts            # 聊天系统钩子 - 流式处理
 ├── lib/agents/coding/
@@ -383,7 +383,7 @@ export function CodePreviewToggle({
 
 ---
 
-### 6. `components/editor/WebContainerPreview.tsx` - 实际预览渲染
+### 6. `components/editor/VercelPreview.tsx` - 实际预览部署
 
 **作用：** 将代码文件转换为可运行的预览
 
@@ -445,7 +445,7 @@ graph LR
     J --> K[更新generatedCode状态]
     K --> L[CodeModeView显示]
     L --> M[CodePreviewToggle渲染]
-    M --> N[WebContainerPreview预览]
+    M --> N[VercelPreview预览]
 ```
 
 ## 🎯 关键设计模式

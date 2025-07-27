@@ -14,7 +14,7 @@ components/
 ├── editor/               # 代码编辑相关组件（重命名自layout）
 │   ├── CodeEditorPanel.tsx
 │   ├── CodePreviewToggle.tsx
-│   ├── WebContainerPreview.tsx
+│   ├── VercelPreview.tsx
 │   ├── SmartToggleBar.tsx
 │   └── inline-editor.tsx        # 从根目录移入
 ├── forms/                # 表单相关组件
@@ -66,7 +66,7 @@ components/
 ├── editor/               # 代码编辑相关组件 ✅
 │   ├── CodeEditorPanel.tsx
 │   ├── CodePreviewToggle.tsx
-│   ├── WebContainerPreview.tsx
+│   ├── VercelPreview.tsx
 │   ├── SmartToggleBar.tsx
 │   ├── inline-editor.tsx
 │   └── index.ts

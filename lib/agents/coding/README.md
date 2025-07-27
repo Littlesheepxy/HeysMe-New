@@ -129,7 +129,7 @@ export class ClineSyncManager {
 **内容概要:**
 - 📋 完整的文件创建和预览流程分析
 - 🔄 从AI生成到用户编辑的数据流转
-- 🎨 FileTree、CodeEditor、WebContainer集成方式
+- 🎨 FileTree、CodeEditor、Vercel预览集成方式
 - 🚀 用户体验优化策略
 
 ### 8. **index.ts** - 模块导出
@@ -250,7 +250,7 @@ if (sessionStatus?.currentStage === 'coding') {
 - Next.js 15.0+
 
 ### 关键依赖
-- `@webcontainer/api` - WebContainer集成
+- `@vercel/sdk` - Vercel部署集成
 - `framer-motion` - 动画效果
 - `monaco-editor` - 代码编辑器
 

@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -48,6 +48,12 @@ export function CodeModeView({
   const { theme } = useTheme();
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // 🆕 自动预览状态管理
+  const [autoPreviewEnabled, setAutoPreviewEnabled] = useState(true); // 默认开启自动预览
+  
+  // 🎯 检测项目是否完成 - 基于生成状态和文件数量
+  const isProjectComplete = !isGenerating && generatedCode.length > 0;
 
   // 自动滚动到底部
   useEffect(() => {
@@ -194,6 +200,10 @@ export function CodeModeView({
               onDeploy={onDeploy}
               onEditCode={onEditCode}
               onSendMessage={onSendChatMessage}
+              // 🆕 自动预览相关
+              autoDeployEnabled={autoPreviewEnabled}
+              isProjectComplete={isProjectComplete}
+              onAutoDeployStatusChange={setAutoPreviewEnabled}
             />
           </div>
         </div>

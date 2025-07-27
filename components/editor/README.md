@@ -7,7 +7,7 @@ HeysMe项目的编辑器模块，提供代码预览、编辑和可视化交互�
 ```
 components/editor/
 ├── CodePreviewToggle.tsx     # 主要的代码预览切换组件
-├── WebContainerPreview.tsx   # WebContainer预览渲染组件
+├── VercelPreview.tsx   # Vercel预览部署组件
 ├── CodeEditorPanel.tsx       # 代码编辑面板组件
 ├── FileTree.tsx              # 文件树组件
 ├── StagewiseToolbar.tsx      # 可视化编辑工具栏
@@ -49,12 +49,12 @@ interface CodePreviewToggleProps {
 
 ---
 
-### 2. WebContainerPreview.tsx
-**WebContainer预览渲染组件** - 15KB, 478行
+### 2. VercelPreview.tsx
+**Vercel预览部署组件** - 25KB, 722行
 
 #### 功能特性
-- **模拟预览**: 将React代码转换为可运行的HTML预览
-- **WebContainer集成**: 支持真实的容器化运行环境
+- **生产部署**: 真实的 Vercel 部署预览
+- **Vercel集成**: 支持完整的部署生命周期管理
 - **代码处理**: 自动处理import/export语句，适配浏览器环境
 - **CSS集成**: 自动注入样式文件到预览页面
 - **可视化编辑**: 支持StagewiseIO可视化编辑工具集成
@@ -224,7 +224,7 @@ type EditMode = 'view' | 'edit';
 
 ### 1. 代码生成 → 预览流程
 ```
-AI生成代码 → CodePreviewToggle → WebContainerPreview → 显示预览
+AI生成代码 → CodePreviewToggle → VercelPreview → 显示预览
 ```
 
 ### 2. 可视化编辑流程
@@ -249,7 +249,7 @@ AI生成代码 → CodePreviewToggle → WebContainerPreview → 显示预览
 - **Monaco Editor**: VS Code同源的代码编辑器
 - **React Arborist**: 现代化文件树组件
 - **StagewiseIO**: 可视化编辑工具
-- **WebContainer**: 浏览器内容器化运行环境
+- **Vercel部署**: 真实的生产级部署预览
 - **Babel Standalone**: 浏览器端JSX转译
 
 ### UI组件
@@ -281,7 +281,7 @@ AI生成代码 → CodePreviewToggle → WebContainerPreview → 显示预览
 
 ### 2. 预览优化
 - iframe沙盒隔离
-- 模拟预览优先，WebContainer备用
+- Vercel 部署预览优先，模拟预览备用
 - 自动处理代码兼容性
 
 ### 3. 编辑体验
@@ -297,7 +297,7 @@ AI生成代码 → CodePreviewToggle → WebContainerPreview → 显示预览
 3. 在`getFileTypeColor`中添加颜色样式
 
 ### 扩展预览功能
-1. 修改`WebContainerPreview`的`generatePreviewHTML`方法
+1. 修改`VercelPreview`的部署配置方法
 2. 添加新的依赖库到CDN引用
 3. 更新代码处理逻辑
 

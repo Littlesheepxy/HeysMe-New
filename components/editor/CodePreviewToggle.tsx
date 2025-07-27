@@ -36,7 +36,8 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useTheme } from '@/contexts/theme-context';
-import WebContainerPreview from './WebContainerPreview';
+import VercelPreview from './VercelPreview';
+import VercelDeploy from './VercelDeploy';
 import { CodeEditorPanel } from './CodeEditorPanel';
 import { Separator } from '@/components/ui/separator';
 import { ShareDialog } from '@/components/dialogs/share-dialog';
@@ -66,9 +67,13 @@ interface CodePreviewToggleProps {
   onDeploy?: () => void;
   onEditCode?: (filename: string) => void;
   onSendMessage?: (message: string, options?: any) => void;
+  // 🆕 自动部署相关
+  autoDeployEnabled?: boolean;
+  isProjectComplete?: boolean;
+  onAutoDeployStatusChange?: (enabled: boolean) => void;
 }
 
-type ViewMode = 'code' | 'preview';
+type ViewMode = 'code' | 'preview' | 'deploy';
 type DeviceType = 'desktop' | 'mobile';
 type EditMode = 'none' | 'text' | 'ai';
 
@@ -317,15 +322,47 @@ export function CodePreviewToggle({
   onDownload,
   onDeploy,
   onEditCode,
-  onSendMessage
+  onSendMessage,
+  autoDeployEnabled = false,
+  isProjectComplete = false,
+  onAutoDeployStatusChange
 }: CodePreviewToggleProps) {
   const { theme } = useTheme();
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
   const [deviceType, setDeviceType] = useState<DeviceType>('desktop');
   const [activeFile, setActiveFile] = useState(files[0]?.filename || '');
   const [editMode, setEditMode] = useState<EditMode>('none');
+  const [hasAutoDeployed, setHasAutoDeployed] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [showAiTip, setShowAiTip] = useState(true);
+
+  // 🚀 自动部署逻辑：项目完成后自动触发部署
+  React.useEffect(() => {
+    if (
+      autoDeployEnabled && 
+      isProjectComplete && 
+      !hasAutoDeployed && 
+      files.length > 0 && 
+      !isStreaming &&
+      onDeploy
+    ) {
+      console.log('🚀 [自动部署] 触发自动部署，项目已完成');
+      // 延迟一秒后自动部署，确保所有文件都已准备就绪
+      const deployTimer = setTimeout(() => {
+        onDeploy();
+        setHasAutoDeployed(true);
+      }, 1000);
+      
+      return () => clearTimeout(deployTimer);
+    }
+  }, [autoDeployEnabled, isProjectComplete, hasAutoDeployed, files.length, isStreaming, onDeploy]);
+
+  // 重置自动部署状态，当文件发生变化时
+  React.useEffect(() => {
+    if (files.length > 0) {
+      setHasAutoDeployed(false);
+    }
+  }, [files]);
 
   const currentFile = files.find(f => f.filename === activeFile);
 
@@ -421,31 +458,33 @@ export function CodePreviewToggle({
         {/* 左侧：视图切换 */}
         <div className="flex items-center gap-2">
           <motion.div className={`flex p-1 rounded-xl ${theme === 'light' ? 'bg-gray-100' : 'bg-gray-800'}`}>
-            {(['preview', 'code'] as ViewMode[]).map((mode) => (
+            {(['preview', 'code', 'deploy'] as ViewMode[]).map((mode) => (
               <motion.button
                 key={mode}
                 onClick={() => setViewMode(mode)}
-                                  className={cn(
-                    "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
-                    viewMode === mode
-                      ? theme === 'light' 
-                        ? "bg-white text-emerald-700 shadow-sm"
-                        : "bg-gray-700 text-emerald-400 shadow-sm"
-                      : theme === 'light'
-                        ? "text-gray-600 hover:text-gray-900"
-                        : "text-gray-400 hover:text-gray-200"
-                  )}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200",
+                  viewMode === mode
+                    ? theme === 'light' 
+                      ? "bg-white text-emerald-700 shadow-sm"
+                      : "bg-gray-700 text-emerald-400 shadow-sm"
+                    : theme === 'light'
+                      ? "text-gray-600 hover:text-gray-900"
+                      : "text-gray-400 hover:text-gray-200"
+                )}
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
               >
-                {mode === 'preview' ? <Eye className="w-4 h-4" /> : <Code2 className="w-4 h-4" />}
-                {mode === 'preview' ? '预览' : '代码'}
+                {mode === 'preview' && <Eye className="w-4 h-4" />}
+                {mode === 'code' && <Code2 className="w-4 h-4" />}
+                {mode === 'deploy' && <Sparkles className="w-4 h-4" />}
+                {mode === 'preview' ? '预览' : mode === 'code' ? '代码' : '部署'}
               </motion.button>
             ))}
           </motion.div>
         </div>
 
-        {/* 右侧：编辑模式和设备切换 */}
+        {/* 右侧：编辑模式和设备切换 - 只在预览模式显示 */}
         {viewMode === 'preview' && (
           <div className="flex items-center gap-3">
             {/* 编辑模式切换 */}
@@ -648,19 +687,48 @@ export function CodePreviewToggle({
               transition={{ duration: 0.3 }}
               className="h-full"
             >
-              <WebContainerPreview
+              <VercelPreview
                 files={files}
                 projectName={previewData?.projectName || '项目预览'}
                 description={previewData?.description}
                 isLoading={false}
                 previewUrl={previewUrl}
-                enableWebContainer={true}
+                enableVercelDeploy={true}
                 onPreviewReady={handlePreviewReady}
-                onLoadingChange={(loading) => console.log('Loading:', loading)}
+                onLoadingChange={(loading: boolean) => console.log('Loading:', loading)}
                 isEditMode={editMode === 'ai'}
                 onContentChange={handleContentChange}
                 deviceType={deviceType}
                 editMode={editMode}
+                // 🆕 自动预览相关 props
+                autoDeployEnabled={autoDeployEnabled}
+                isProjectComplete={isProjectComplete}
+                hasAutoDeployed={hasAutoDeployed}
+                onAutoDeployStatusChange={onAutoDeployStatusChange}
+              />
+            </motion.div>
+          ) : viewMode === 'deploy' ? (
+            <motion.div
+              key="deploy"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              transition={{ duration: 0.3 }}
+              className="h-full p-6"
+            >
+              <VercelDeploy
+                files={files}
+                projectName={previewData?.projectName || '项目部署'}
+                description={previewData?.description}
+                isEnabled={files.length > 0}
+                onDeploymentComplete={(deployment) => {
+                  console.log('Deployment completed:', deployment);
+                  // 这里可以添加部署完成后的处理逻辑
+                }}
+                onDeploymentError={(error) => {
+                  console.error('Deployment error:', error);
+                  // 这里可以添加部署错误处理逻辑
+                }}
               />
             </motion.div>
           ) : (
@@ -715,8 +783,22 @@ export function CodePreviewToggle({
             {files.length} 个文件
           </Badge>
           
-          {/* 编辑模式状态指示器 */}
-          {editMode !== 'none' && (
+          {/* 环境状态指示器 */}
+          <Badge className={`rounded-full ${
+            viewMode === 'preview' 
+              ? "bg-emerald-100 text-emerald-700 border-emerald-200" 
+              : viewMode === 'deploy'
+                ? "bg-blue-100 text-blue-700 border-blue-200"
+                : "bg-gray-100 text-gray-700 border-gray-200"
+          }`}>
+            {viewMode === 'preview' && <Eye className="w-3 h-3 mr-1" />}
+            {viewMode === 'deploy' && <Sparkles className="w-3 h-3 mr-1" />}
+            {viewMode === 'code' && <Code2 className="w-3 h-3 mr-1" />}
+            {viewMode === 'preview' ? '预览环境' : viewMode === 'deploy' ? '生产环境' : '代码编辑'}
+          </Badge>
+          
+          {/* 编辑模式状态指示器 - 仅在预览模式显示 */}
+          {viewMode === 'preview' && editMode !== 'none' && (
             <Badge className={`rounded-full ${
               editMode === 'ai' 
                 ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white" 

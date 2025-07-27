@@ -10,19 +10,19 @@
 现有系统架构
 ├── 聊天系统 (Chat Interface)
 ├── Monaco编辑器 (Monaco Editor)
-├── WebContainer (在线IDE)
+├── Vercel预览 (Vercel Preview)
 ├── 文件管理 (File Management)
 └── AI服务 (OpenAI/Claude)
 
-集成后架构
+系统架构
 ├── 聊天系统 (Chat Interface)
-│   └── ClineIntegration组件 ← 新增
+│   └── AI代理集成
 ├── Monaco编辑器 (Monaco Editor)
-│   └── Cline代码操作 ← 集成
-├── WebContainer (在线IDE)
-│   └── Cline文件操作 ← 集成
+│   └── 代码编辑与管理
+├── Vercel预览 (Vercel Preview)
+│   └── 真实部署预览
 ├── 文件管理 (File Management)
-│   └── Cline文件跟踪 ← 集成
+│   └── 项目文件跟踪
 └── AI服务 (OpenAI/Claude)
     └── ClineAdapter ← 新增
 ```
@@ -33,7 +33,7 @@
 - **位置**: `lib/agents/cline-integration.ts`
 - **功能**: 
   - 提取Cline核心功能
-  - 适配Monaco/WebContainer环境
+  - 适配Monaco/Vercel预览环境
   - 提供统一的工具调用接口
 - **主要方法**:
   - `initTask()` - 初始化任务

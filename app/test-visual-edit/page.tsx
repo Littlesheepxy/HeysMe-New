@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { WebContainerPreview } from '@/components/editor/WebContainerPreview';
+import { VercelPreview } from '@/components/editor/VercelPreview';
 
 const mockFiles = [
   {
@@ -84,13 +84,13 @@ export default function TestVisualEditPage() {
       
       <div className="flex-1 flex">
         <div className="w-2/3">
-          <WebContainerPreview
+          <VercelPreview
             files={mockFiles}
             projectName="简历测试项目"
             description="测试可视化编辑功能"
             isLoading={false}
             previewUrl={null}
-            enableWebContainer={true}
+            enableVercelDeploy={true}
             isEditMode={true}
             onContentChange={handleSendMessage}
             onPreviewReady={() => {}}
