@@ -331,7 +331,7 @@ export const MessageBubble = React.memo(function MessageBubble({
       {/* 头像 */}
       <div className="flex-shrink-0 pt-1">
         <Avatar className="w-8 h-8">
-          <AvatarFallback className={actualIsUser ? "bg-gray-700 text-white" : "bg-gray-100 text-gray-600"}>
+          <AvatarFallback className={actualIsUser ? "bg-gray-700 dark:bg-gray-600 text-white" : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"}>
             {actualIsUser ? <User className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
           </AvatarFallback>
         </Avatar>
@@ -339,7 +339,7 @@ export const MessageBubble = React.memo(function MessageBubble({
 
       {/* 消息内容 */}
       <div className={`flex-1 ${actualIsUser ? "text-right" : ""}`}>
-        <div className={`inline-block max-w-full ${actualIsUser ? "text-gray-800" : "text-gray-800"}`}>
+        <div className={`inline-block max-w-full ${actualIsUser ? "text-gray-800 dark:text-gray-200" : "text-gray-800 dark:text-gray-200"}`}>
           
           {/* 🎯 消息文本内容渲染 - MessageBubble核心职责 */}
           <div className="whitespace-pre-wrap break-words">

@@ -378,7 +378,7 @@ export class CodingAgent extends BaseAgent {
 
       yield this.createResponse({
         immediate_display: {
-          reply: `🎉 AI代码生成完成！已为您创建了一个完整的项目，包含 ${finalFiles.length} 个文件。\n\n📁 生成的文件：\n${finalFiles.map((f: any) => `• ${f.filename} - ${f.description || f.language + '文件'}`).join('\n')}`,
+          reply: `🎉 AI代码生成完成！已为您创建了一个完整的项目，包含 ${finalFiles.length} 个文件。`,
           agent_name: this.name,
           timestamp: new Date().toISOString()
         },

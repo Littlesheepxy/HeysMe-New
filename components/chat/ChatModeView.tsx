@@ -35,6 +35,7 @@ export const ChatModeView = memo(function ChatModeView({
   onFileUpload
 }: ChatModeViewProps) {
   const { theme } = useTheme();
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [previousSessionId, setPreviousSessionId] = useState<string | undefined>(sessionId);
@@ -180,8 +181,8 @@ export const ChatModeView = memo(function ChatModeView({
             animate={{ opacity: 1, y: 0 }}
             className={`max-w-4xl mx-auto rounded-xl relative overflow-hidden shadow-sm border ${
               theme === "light" 
-                ? "bg-transparent border-emerald-200" 
-                : "bg-transparent border-emerald-700"
+                ? "bg-gradient-to-r from-emerald-50 to-blue-50 border-emerald-200" 
+                : "bg-gradient-to-r from-emerald-900/30 to-blue-900/30 border-emerald-700"
             }`}
           >
             {/* 背景装饰 */}

@@ -43,7 +43,11 @@ export const ThemeProvider = ({ initialTheme, children }) => {
   useEffect(() => {
     const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
     const changeThemeOnSystemChange = () => {
-      rawSetTheme(mediaQuery.matches ? 'dark' : 'light');
+      // 🔧 修复：只有在没有手动设置主题时才跟随系统主题
+      const savedTheme = localStorage.getItem('HeysMe-theme') || localStorage.getItem('color-theme');
+      if (!savedTheme) {
+        rawSetTheme(mediaQuery.matches ? 'dark' : 'light');
+      }
     };
 
     mediaQuery.addEventListener('change', changeThemeOnSystemChange);

@@ -46,9 +46,23 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (mounted) {
       localStorage.setItem("HeysMe-theme", theme)
+      
+      // 🔧 同时更新integration组件使用的存储key
+      localStorage.setItem("color-theme", theme)
+      
       // 更新 document 类名
       document.documentElement.classList.remove("light", "dark")
       document.documentElement.classList.add(theme)
+      
+      // 🔧 强制触发一次重新渲染，确保所有组件都能感知到主题变化
+      document.documentElement.setAttribute('data-theme', theme)
+      
+      // 🔧 发送自定义事件，通知所有监听主题变化的组件
+      window.dispatchEvent(new CustomEvent('themeChange', { 
+        detail: { theme } 
+      }))
+      
+      console.log('🎨 [主题切换] 已更新为:', theme, 'DOM类:', document.documentElement.className)
     }
   }, [theme, mounted])
 
@@ -62,8 +76,21 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
 export function useTheme() {
   const context = useContext(ThemeContext)
+  const [, forceUpdate] = useState({})
+  
   if (context === undefined) {
     throw new Error("useTheme must be used within a ThemeProvider")
   }
+  
+  // 🔧 监听主题变化事件，强制组件重新渲染
+  useEffect(() => {
+    const handleThemeChange = () => {
+      forceUpdate({})
+    }
+    
+    window.addEventListener('themeChange', handleThemeChange)
+    return () => window.removeEventListener('themeChange', handleThemeChange)
+  }, [])
+  
   return context
 }
