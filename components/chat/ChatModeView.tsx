@@ -174,14 +174,14 @@ export const ChatModeView = memo(function ChatModeView({
 
       {/* 🎨 优化：代码文件提示条 - 与对话框样式一致 */}
       {hasCodeFiles && (
-        <div className="py-4 px-6">
+        <div className="py-4 px-6" style={{backgroundColor: 'transparent'}}>
           <motion.div 
             initial={{ opacity: 0, y: -10 }}
             animate={{ opacity: 1, y: 0 }}
             className={`max-w-4xl mx-auto rounded-xl relative overflow-hidden shadow-sm border ${
               theme === "light" 
-                ? "bg-gradient-to-r from-emerald-50 to-blue-50 border-emerald-200" 
-                : "bg-gradient-to-r from-emerald-900/30 to-blue-900/30 border-emerald-700"
+                ? "bg-transparent border-emerald-200" 
+                : "bg-transparent border-emerald-700"
             }`}
           >
             {/* 背景装饰 */}
