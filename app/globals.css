@@ -742,6 +742,60 @@ html::-webkit-scrollbar-thumb:hover {
   transform: translateX(2px);
 }
 
+/* 🎨 会话标题滚动动画 */
+@keyframes title-scroll {
+  0%, 20% {
+    transform: translateX(0);
+  }
+  80%, 100% {
+    transform: translateX(calc(-100% + var(--container-width, 100px)));
+  }
+}
+
+.animate-title-scroll {
+  animation: title-scroll 4s ease-in-out infinite;
+  animation-delay: 0.5s;
+}
+
+/* 会话标题悬浮滚动效果 */
+.title-hover-scroll {
+  position: relative;
+  overflow: hidden;
+}
+
+.title-hover-scroll .title-text {
+  transition: transform 0.3s ease-in-out;
+  max-width: 100%;
+}
+
+.title-hover-scroll:hover .title-text {
+  animation: title-scroll-smooth 4s ease-in-out infinite;
+}
+
+@keyframes title-scroll-smooth {
+  0%, 25% {
+    transform: translateX(0);
+  }
+  75%, 100% {
+    transform: translateX(calc(-1 * var(--scroll-distance, 0px)));
+  }
+}
+
+/* 针对长标题的特殊处理 */
+.title-text.truncate {
+  text-overflow: ellipsis;
+  overflow: hidden;
+  white-space: nowrap;
+}
+
+/* 🎨 修复ScrollArea宽度溢出问题 */
+.brand-scrollbar [data-radix-scroll-area-viewport] > div {
+  width: 100% !important;
+  max-width: 100% !important;
+  min-width: unset !important;
+  display: block !important;
+}
+
 /* 🎨 可访问性增强 */
 @media (prefers-reduced-motion: reduce) {
   *,

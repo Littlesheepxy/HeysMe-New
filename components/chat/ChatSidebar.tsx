@@ -351,50 +351,52 @@ export function ChatSidebar({
         )}
       </div>
 
-      {/* 🎨 会话列表 */}
+      {/* 🎨 会话列表 - 移到用户中心上方，增加滚动支持 */}
       {(!isCollapsed || isMobile) && (
         <motion.div 
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
-          className="flex-1 min-h-0 sidebar-content-fade relative z-10"
+          className="flex-1 min-h-0 sidebar-content-fade relative z-10 flex flex-col"
         >
-          <div className={`px-4 py-2 ${
+          <div className={`px-4 py-2 flex-shrink-0 ${
             theme === "light" ? "text-gray-500" : "text-gray-400"
           }`}>
             <span className="text-xs font-medium pl-2">最近对话</span>
           </div>
           
-          <ScrollArea className="flex-1 brand-scrollbar">
-            <div className="px-4 pb-4 space-y-1">
-              {sessions.length > 0 ? (
-                sessions.map((session, index) => (
-                  <motion.div
-                    key={session.id}
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ delay: index * 0.05 }}
-                  >
-                    <ConversationItem
-                      session={session}
-                      isActive={currentSession?.id === session.id}
-                      isCollapsed={false}
-                      onSelect={onSelectSession}
-                      onDelete={onDeleteSession}
-                      onShare={onShareSession}
-                      onTitleUpdate={onUpdateSessionTitle}
-                    />
-                  </motion.div>
-                ))
-              ) : (
-                <div className={`text-center p-8 ${theme === "light" ? "text-gray-400" : "text-gray-500"}`}>
-                  <div className="w-12 h-12 mx-auto mb-3 flex items-center justify-center">
-                    <MessageSquare className="w-6 h-6 opacity-40" />
+          <div className="flex-1 min-h-0">
+            <ScrollArea className="h-full brand-scrollbar" style={{ width: '100%', maxWidth: '100%' }}>
+              <div className="px-4 pb-4 space-y-1" style={{ width: '100%', maxWidth: '100%' }}>
+                {sessions.length > 0 ? (
+                  sessions.map((session, index) => (
+                    <motion.div
+                      key={session.id}
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: index * 0.05 }}
+                    >
+                      <ConversationItem
+                        session={session}
+                        isActive={currentSession?.id === session.id}
+                        isCollapsed={false}
+                        onSelect={onSelectSession}
+                        onDelete={onDeleteSession}
+                        onShare={onShareSession}
+                        onTitleUpdate={onUpdateSessionTitle}
+                      />
+                    </motion.div>
+                  ))
+                ) : (
+                  <div className={`text-center p-8 ${theme === "light" ? "text-gray-400" : "text-gray-500"}`}>
+                    <div className="w-12 h-12 mx-auto mb-3 flex items-center justify-center">
+                      <MessageSquare className="w-6 h-6 opacity-40" />
+                    </div>
+                    <p className="text-sm">暂无对话</p>
                   </div>
-                  <p className="text-sm">暂无对话</p>
-                </div>
-              )}
-            </div>
-          </ScrollArea>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
         </motion.div>
       )}
 
