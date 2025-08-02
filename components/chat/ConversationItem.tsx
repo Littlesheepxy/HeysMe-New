@@ -75,9 +75,6 @@ export function ConversationItem({
   // 获取显示标题
   const displayTitle = session.title || generatedTitle || `会话 ${session.id.slice(-6)}`;
   
-  // 消息数量
-  const messageCount = session.conversationHistory?.length || 0;
-  
   // 是否有自定义标题
   const hasCustomTitle = Boolean(session.title);
 
@@ -260,7 +257,7 @@ export function ConversationItem({
                   exit={{ opacity: 0 }}
                   className="flex items-center gap-1 min-w-0"
                 >
-                  <span className="text-sm truncate flex-1">
+                  <span className="text-sm truncate flex-1 min-w-0">
                     {displayTitle}
                   </span>
                   
@@ -346,14 +343,7 @@ export function ConversationItem({
         )}
       </div>
       
-      {/* 会话信息提示 */}
-      {messageCount > 0 && (
-        <div className={`text-xs px-3 mt-1 ${
-          theme === "light" ? "text-gray-400" : "text-gray-500"
-        }`}>
-          {messageCount} 条消息
-        </div>
-      )}
+
     </motion.div>
   );
 } 

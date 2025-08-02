@@ -14,9 +14,6 @@ import {
   Code2, 
   Download, 
   ExternalLink,
-  RefreshCw,
-  Monitor,
-  Smartphone,
   FileText,
   Folder,
   FolderOpen,
@@ -74,7 +71,6 @@ interface CodePreviewToggleProps {
 }
 
 type ViewMode = 'code' | 'preview' | 'deploy';
-type DeviceType = 'desktop' | 'mobile';
 type EditMode = 'none' | 'text' | 'ai';
 
 // 语法高亮函数
@@ -329,7 +325,6 @@ export function CodePreviewToggle({
 }: CodePreviewToggleProps) {
   const { theme } = useTheme();
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
-  const [deviceType, setDeviceType] = useState<DeviceType>('desktop');
   const [activeFile, setActiveFile] = useState(files[0]?.filename || '');
   const [editMode, setEditMode] = useState<EditMode>('none');
   const [hasAutoDeployed, setHasAutoDeployed] = useState(false);
@@ -415,10 +410,7 @@ export function CodePreviewToggle({
     return <FileText className="w-4 h-4" />;
   };
 
-  const deviceConfigs = {
-    desktop: { width: '100%', height: '100%', label: '桌面' },
-    mobile: { width: '375px', height: '667px', label: '手机' }
-  };
+
 
   if (!files || files.length === 0) {
     return (
@@ -549,47 +541,7 @@ export function CodePreviewToggle({
               </motion.button>
             </div>
 
-            {/* 设备切换 */}
-            <div className={`flex p-1 rounded-xl ${theme === 'light' ? 'bg-gray-100' : 'bg-gray-800'}`}>
-              {Object.entries(deviceConfigs).map(([key, config]) => (
-                <motion.button
-                  key={key}
-                  onClick={() => setDeviceType(key as DeviceType)}
-                                      className={cn(
-                      "flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200",
-                      deviceType === key
-                        ? theme === 'light'
-                          ? "bg-white text-emerald-700 shadow-sm"
-                          : "bg-gray-700 text-emerald-400 shadow-sm"
-                        : theme === 'light'
-                          ? "text-gray-600 hover:text-gray-900"
-                          : "text-gray-400 hover:text-gray-200"
-                    )}
-                  whileHover={{ scale: 1.02 }}
-                  whileTap={{ scale: 0.98 }}
-                >
-                  {key === 'desktop' && <Monitor className="w-3 h-3" />}
-                  {key === 'mobile' && <Smartphone className="w-3 h-3" />}
-                  {config.label}
-                </motion.button>
-              ))}
-            </div>
 
-            {/* 刷新按钮 */}
-            <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.location.reload()}
-                className={`rounded-xl border-2 transition-all duration-300 ${
-                  theme === "light"
-                    ? "border-emerald-200 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50"
-                    : "border-emerald-700 text-emerald-400 hover:border-emerald-600 hover:bg-emerald-900/20"
-                }`}
-              >
-                <RefreshCw className="w-4 h-4" />
-              </Button>
-            </motion.div>
           </div>
         )}
 
@@ -698,12 +650,6 @@ export function CodePreviewToggle({
                 onLoadingChange={(loading: boolean) => console.log('Loading:', loading)}
                 isEditMode={editMode === 'ai'}
                 onContentChange={handleContentChange}
-                deviceType={deviceType}
-                // 🆕 自动预览相关 props
-                autoDeployEnabled={autoDeployEnabled}
-                isProjectComplete={isProjectComplete}
-                hasAutoDeployed={hasAutoDeployed}
-                onAutoDeployStatusChange={onAutoDeployStatusChange}
               />
             </motion.div>
           ) : viewMode === 'deploy' ? (

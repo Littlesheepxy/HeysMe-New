@@ -219,9 +219,6 @@ export class CodingAgent extends BaseAgent {
       
       console.log('🤖 [流式AI调用] 步骤3: 提示词构建完成，长度:', prompt.length);
       
-      // 🆕 使用流式AI模型生成
-      const { generateStreamWithModel } = await import('@/lib/ai-models');
-      
       console.log('🌊 [流式生成] 开始流式调用大模型API...');
       
       let chunkCount = 0;
@@ -234,14 +231,30 @@ export class CodingAgent extends BaseAgent {
       let fullAccumulatedText = '';
       let lastSentTextLength = 0;
       
-      // 流式调用AI模型
+      // 🔧 使用BaseAgent的对话历史管理功能
+      const sessionId = (sessionData as any)?.sessionId || `coding-${Date.now()}`;
+      
+      // 🆕 使用callLLM方法以支持对话历史
+      const systemPrompt = '你是一个专业的全栈开发工程师，专门生成高质量的代码项目。请按照用户要求生成完整的项目代码，每个文件都要用markdown代码块格式包装，并标明文件名。';
+      
+      // 🔧 使用流式AI模型生成，但保留对话历史结构
+      
+      // 🆕 构建包含历史的消息数组
+      const messages: Array<{ role: 'system' | 'user' | 'assistant', content: string }> = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt }
+      ];
+      
+      console.log('🔧 [对话历史] 初始化对话历史管理');
+      
+      // 🆕 使用流式AI模型生成
+      const { generateStreamWithModel } = await import('@/lib/ai-models');
+      
+      // 流式调用AI模型 - 使用消息数组格式支持历史
       for await (const chunk of generateStreamWithModel(
         'claude',
         'claude-sonnet-4-20250514',
-        [
-          { role: 'system', content: '你是一个专业的全栈开发工程师，专门生成高质量的代码项目。请按照用户要求生成完整的项目代码，每个文件都要用markdown代码块格式包装，并标明文件名。' },
-          { role: 'user', content: prompt }
-        ],
+        messages,
         { maxTokens: 64000 }
       )) {
         chunkCount++;
@@ -411,6 +424,9 @@ export class CodingAgent extends BaseAgent {
         }
       });
 
+      // 🔧 保存对话历史到会话数据
+      this.saveConversationHistory(sessionData, prompt, `AI代码生成完成！已为您创建了一个完整的项目，包含 ${finalFiles.length} 个文件。`);
+      
       // 更新会话数据
       this.updateSessionWithProject(sessionData, finalFiles);
       
@@ -488,14 +504,66 @@ export class CodingAgent extends BaseAgent {
 
 请基于用户请求执行适当的操作。`;
 
-      // 🆕 流式调用AI模型，支持工具定义
+      // 🔧 创建工具执行器来处理AI的工具调用
+      const { UnifiedToolExecutor } = await import('./streaming-tool-executor');
+      
+      let modifiedFiles: CodeFile[] = [];
+      let toolExecutor: any;
+      
+      // 创建响应发送器
+      const sendResponse = (response: any) => {
+        // 这里我们需要用不同的方式处理响应
+        console.log('📊 [响应] 工具执行中:', response.immediate_display.reply);
+      };
+
+      // 初始化工具执行器
+      toolExecutor = new UnifiedToolExecutor({
+        mode: 'claude',
+        onTextUpdate: async (text: string, partial: boolean) => {
+          console.log(`📊 [工具执行器] 文本更新: ${text.substring(0, 100)}...`);
+        },
+        onToolExecute: async (toolName: string, params: Record<string, any>) => {
+          console.log(`🔧 [工具调用] 执行: ${toolName}`, params);
+          
+          // 执行实际的文件操作
+          return await this.executeIncrementalTool(toolName, params, existingFiles, modifiedFiles);
+        },
+        onToolResult: async (result: string) => {
+          console.log(`✅ [工具结果] ${result}`);
+        }
+      });
+
+      // 🔧 获取会话历史以保持对话连续性
+      const sessionId = (sessionData as any)?.sessionId || `incremental-${Date.now()}`;
+      
+      // 🆕 构建包含历史的消息数组
+      let messages: Array<{ role: 'system' | 'user' | 'assistant', content: string }> = [];
+      
+      // 🔧 从会话数据中获取对话历史
+      const conversationHistory = (sessionData?.metadata as any)?.codingHistory || [];
+      console.log(`🔧 [增量历史] 找到 ${conversationHistory.length} 条历史对话`);
+      
+      // 添加系统提示词
+      messages.push({ role: 'system', content: systemPrompt });
+      
+      // 🆕 添加历史对话（最近的5轮对话以保持上下文）
+      const recentHistory = conversationHistory.slice(-10); // 保留最近5轮对话（用户+助手=10条消息）
+      messages.push(...recentHistory);
+      
+      // 添加当前用户请求
+      messages.push({ role: 'user', content: incrementalPrompt });
+      
+      console.log(`💬 [增量对话] 构建消息数组，总消息数: ${messages.length}`);
+      messages.forEach((msg, index) => {
+        const roleIcon = msg.role === 'user' ? '👤' : msg.role === 'assistant' ? '🤖' : '📝';
+        console.log(`  ${roleIcon} [${index}] ${msg.content.substring(0, 100)}...`);
+      });
+
+      // 🆕 流式调用AI模型，支持工具定义和对话历史
       for await (const chunk of generateStreamWithModel(
         'claude',
         'claude-sonnet-4-20250514',
-        [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: incrementalPrompt }
-        ],
+        messages,
         { 
           maxTokens: 8000,
           // 🆕 添加工具定义支持
@@ -507,79 +575,18 @@ export class CodingAgent extends BaseAgent {
         
         console.log(`📊 [增量流式] 第${chunkCount}个块，新增长度: ${chunk.length}`);
         
-        // 🔧 关键修复：对增量模式也进行文本和代码分离
-        const separated = this.separateTextAndCode(accumulatedResponse);
-        const pureText = separated.text;
-        const extractedFiles = separated.codeFiles;
-        
-        // 🔧 计算新增的纯文本内容（增量发送）
-        const newTextToSend = pureText.substring(lastSentTextLength);
-        lastSentTextLength = pureText.length;
-        
-        console.log(`📊 [增量内容分离] 纯文本长度: ${pureText.length}, 新增文本: ${newTextToSend.length}, 提取文件: ${extractedFiles.length}`);
-        console.log(`📝 [增量文本预览] "${newTextToSend.substring(0, 100)}${newTextToSend.length > 100 ? '...' : ''}"`); // 🔧 只输出分离后的文本预览
-        
-        // 🔧 详细检查：如果新增文本包含代码块标记，输出警告
-        if (newTextToSend.includes('```') || newTextToSend.includes('typescript:') || newTextToSend.includes('json:')) {
-          console.error('❌ [增量分离失败] 新增文本仍包含代码块标记！');
-          console.error('❌ [增量分离失败] 新增文本内容:', newTextToSend);
-        }
-        
-        // 🔧 关键修复：只发送分离后的纯文本内容到对话框
-        yield this.createResponse({
-          immediate_display: {
-            reply: newTextToSend, // 🔧 只发送纯文本，不包含代码块
-            agent_name: this.name,
-            timestamp: new Date().toISOString()
-          },
-          system_state: {
-            intent: 'incremental_editing',
-            done: false,
-            progress: Math.min(85, 20 + Math.floor(chunkCount / 3) * 10),
-            current_stage: `正在处理增量修改... (${chunkCount} 块)`,
-            metadata: {
-              streaming: true,
-              message_id: messageId,
-              chunk_count: chunkCount,
-              is_update: chunkCount > 1,
-              latest_chunk: newTextToSend, // 🔧 关键修复：传递分离后的纯文本，而不是原始chunk
-              mode: 'incremental',
-              // 🆕 明确标识为增量内容
-              content_mode: 'incremental',
-              stream_type: chunkCount === 1 ? 'start' : 'delta',
-              agent_type: 'CodingAgent',
-              // 🔧 保持现有文件信息
-              hasCodeFiles: existingFiles.length > 0 || extractedFiles.length > 0,
-              codeFilesReady: existingFiles.length > 0 || extractedFiles.length > 0,
-              projectFiles: existingFiles.length > 0 ? existingFiles : extractedFiles.map(f => ({
-                filename: f.filename,
-                content: f.content,
-                description: f.description || `增量生成的${f.language}文件`,
-                language: f.language,
-                type: 'file'
-              })),
-              totalFiles: existingFiles.length > 0 ? existingFiles.length : extractedFiles.length,
-              // 🆕 增量编辑特有信息
-              userRequest: userInput,
-              projectContext: projectContext,
-              accumulatedResponse: pureText.substring(0, 200) + '...', // 🔧 使用分离后的纯文本
-              // 🆕 工具调用支持
-              toolsAvailable: INCREMENTAL_EDIT_TOOLS.map(t => t.name),
-              supportsToolCalls: true,
-              // 🆕 新文件检测
-              hasNewFiles: extractedFiles.length > 0,
-              newFilesCount: extractedFiles.length
-            }
-          }
-        });
+        // 🔧 关键修复：使用工具执行器处理工具调用
+        await toolExecutor.processStreamChunk(accumulatedResponse);
       }
       
       console.log('📊 [增量AI调用] 流式修改完成，总块数:', chunkCount);
       
-      // 🔧 发送完成响应
+      // 🔧 发送完成响应 - 包含修改后的文件
+      const finalProjectFiles = modifiedFiles.length > 0 ? modifiedFiles : existingFiles;
+      
       yield this.createResponse({
         immediate_display: {
-          reply: '\n\n---\n\n✅ **增量修改处理完成**\n\n如果您需要进一步的修改，请告诉我具体的需求。', 
+          reply: `✅ **增量修改完成**\n\n${modifiedFiles.length > 0 ? `已修改 ${modifiedFiles.length} 个文件：\n${modifiedFiles.map(f => `• ${f.filename}`).join('\n')}` : '已完成分析和处理。'}\n\n如需进一步修改，请告诉我具体需求。`, 
           agent_name: this.name,
           timestamp: new Date().toISOString()
         },
@@ -594,19 +601,23 @@ export class CodingAgent extends BaseAgent {
             is_final: true,
             mode: 'incremental',
             totalChunks: chunkCount,
-            // 🔧 保持现有文件信息
-            hasCodeFiles: existingFiles.length > 0,
-            codeFilesReady: existingFiles.length > 0,
-            projectFiles: existingFiles,
-            totalFiles: existingFiles.length,
+            // 🔧 返回修改后的文件信息
+            hasCodeFiles: finalProjectFiles.length > 0,
+            codeFilesReady: finalProjectFiles.length > 0,
+            projectFiles: finalProjectFiles,
+            totalFiles: finalProjectFiles.length,
             incrementalComplete: true,
-            finalResponse: accumulatedResponse.substring(0, 500) + '...',
             // 🆕 工具调用结果
-            toolsUsed: [], // 这里可以记录实际使用的工具
-            toolCallsSupported: true
+            modifiedFiles: modifiedFiles,
+            modifiedFilesCount: modifiedFiles.length,
+            toolCallsExecuted: modifiedFiles.length > 0,
+            incrementalSuccess: true
           }
         }
       });
+      
+      // 🔧 保存增量对话历史
+      this.saveConversationHistory(sessionData, userInput, `增量修改完成${modifiedFiles.length > 0 ? `，已修改 ${modifiedFiles.length} 个文件` : ''}`);
       
     } catch (error) {
       console.error('❌ [增量AI生成错误]:', error);
@@ -1270,6 +1281,57 @@ module.exports = {
   }
 
   /**
+   * 🔧 保存对话历史到会话数据
+   */
+  private saveConversationHistory(sessionData: SessionData, userInput: string, assistantResponse: string): void {
+    if (!sessionData.metadata) {
+      sessionData.metadata = {
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastActive: new Date(),
+        version: '1.0',
+        progress: {
+          currentStage: 'code_generation',
+          completedStages: [],
+          totalStages: 1,
+          percentage: 100
+        },
+        metrics: {
+          totalTime: 0,
+          userInteractions: 0,
+          agentTransitions: 0,
+          errorsEncountered: 0
+        },
+        settings: {
+          autoSave: true,
+          reminderEnabled: true,
+          privacyLevel: 'private'
+        }
+      };
+    }
+    
+    // 初始化对话历史
+    if (!(sessionData.metadata as any).codingHistory) {
+      (sessionData.metadata as any).codingHistory = [];
+    }
+    
+    const history = (sessionData.metadata as any).codingHistory;
+    
+    // 添加用户输入和AI响应
+    history.push(
+      { role: 'user', content: userInput },
+      { role: 'assistant', content: assistantResponse }
+    );
+    
+    // 🔧 保持历史长度在合理范围内（最多保留20轮对话，即40条消息）
+    if (history.length > 40) {
+      (sessionData.metadata as any).codingHistory = history.slice(-40);
+    }
+    
+    console.log(`💾 [对话历史] 已保存到会话数据，当前历史长度: ${(sessionData.metadata as any).codingHistory.length}`);
+  }
+
+  /**
    * 更新会话数据
    */
   private updateSessionWithProject(sessionData: SessionData, files: CodeFile[]): void {
@@ -1279,7 +1341,199 @@ module.exports = {
         generatedAt: new Date().toISOString(),
         totalFiles: files.length
       };
+      
+      // 🆕 同时保存到projectFiles字段，用于增量编辑
+      (sessionData.metadata as any).projectFiles = files;
     }
+  }
+
+  /**
+   * 🔧 执行增量工具调用
+   */
+  private async executeIncrementalTool(
+    toolName: string, 
+    params: Record<string, any>, 
+    existingFiles: CodeFile[], 
+    modifiedFiles: CodeFile[]
+  ): Promise<string> {
+    console.log(`🔧 [增量工具] 执行 ${toolName}`, params);
+    
+    try {
+      switch (toolName) {
+        case 'read_file':
+          return await this.handleReadFile(params, existingFiles);
+          
+        case 'write_file':
+          return await this.handleWriteFile(params, existingFiles, modifiedFiles);
+          
+        case 'edit_file':
+          return await this.handleEditFile(params, existingFiles, modifiedFiles);
+          
+        case 'append_to_file':
+          return await this.handleAppendToFile(params, existingFiles, modifiedFiles);
+          
+        case 'list_files':
+          return await this.handleListFiles(existingFiles);
+          
+        default:
+          throw new Error(`不支持的工具: ${toolName}`);
+      }
+    } catch (error) {
+      console.error(`❌ [工具执行失败] ${toolName}:`, error);
+      return `工具 ${toolName} 执行失败: ${error instanceof Error ? error.message : '未知错误'}`;
+    }
+  }
+  
+  /**
+   * 处理文件读取
+   */
+  private async handleReadFile(params: any, existingFiles: CodeFile[]): Promise<string> {
+    const filePath = params.file_path;
+    const file = existingFiles.find(f => f.filename === filePath);
+    
+    if (!file) {
+      return `文件 ${filePath} 不存在`;
+    }
+    
+    const startLine = params.start_line || 1;
+    const endLine = params.end_line;
+    
+    if (startLine > 1 || endLine) {
+      const lines = file.content.split('\n');
+      const selectedLines = lines.slice(startLine - 1, endLine);
+      return `文件 ${filePath} 的内容 (行 ${startLine}${endLine ? `-${endLine}` : '+'}): \n${selectedLines.join('\n')}`;
+    }
+    
+    return `文件 ${filePath} 的完整内容:\n${file.content}`;
+  }
+  
+  /**
+   * 处理文件写入
+   */
+  private async handleWriteFile(
+    params: any, 
+    existingFiles: CodeFile[], 
+    modifiedFiles: CodeFile[]
+  ): Promise<string> {
+    const filePath = params.file_path;
+    const content = params.content;
+    
+    // 检查是否是现有文件
+    const existingFileIndex = existingFiles.findIndex(f => f.filename === filePath);
+    const modifiedFileIndex = modifiedFiles.findIndex(f => f.filename === filePath);
+    
+    const newFile: CodeFile = {
+      filename: filePath,
+      content: content,
+      language: this.getLanguageFromExtension(filePath),
+      description: `增量修改的文件`
+    };
+    
+    if (modifiedFileIndex >= 0) {
+      // 更新已修改的文件
+      modifiedFiles[modifiedFileIndex] = newFile;
+    } else {
+      // 添加新的修改文件
+      modifiedFiles.push(newFile);
+    }
+    
+    if (existingFileIndex >= 0) {
+      return `文件 ${filePath} 已更新，内容长度: ${content.length} 字符`;
+    } else {
+      return `新文件 ${filePath} 已创建，内容长度: ${content.length} 字符`;
+    }
+  }
+  
+  /**
+   * 处理文件编辑
+   */
+  private async handleEditFile(
+    params: any, 
+    existingFiles: CodeFile[], 
+    modifiedFiles: CodeFile[]
+  ): Promise<string> {
+    const filePath = params.file_path;
+    const oldContent = params.old_content;
+    const newContent = params.new_content;
+    
+    // 找到源文件
+    let sourceFile = modifiedFiles.find(f => f.filename === filePath);
+    if (!sourceFile) {
+      sourceFile = existingFiles.find(f => f.filename === filePath);
+    }
+    
+    if (!sourceFile) {
+      return `文件 ${filePath} 不存在，无法编辑`;
+    }
+    
+    // 执行内容替换
+    const updatedContent = sourceFile.content.replace(oldContent, newContent);
+    
+    if (updatedContent === sourceFile.content) {
+      return `在文件 ${filePath} 中未找到要替换的内容`;
+    }
+    
+    // 更新文件
+    const updatedFile: CodeFile = {
+      ...sourceFile,
+      content: updatedContent,
+      description: `增量编辑的文件`
+    };
+    
+    const modifiedIndex = modifiedFiles.findIndex(f => f.filename === filePath);
+    if (modifiedIndex >= 0) {
+      modifiedFiles[modifiedIndex] = updatedFile;
+    } else {
+      modifiedFiles.push(updatedFile);
+    }
+    
+    return `文件 ${filePath} 已成功编辑，替换了 ${oldContent.length} 字符的内容`;
+  }
+  
+  /**
+   * 处理文件追加
+   */
+  private async handleAppendToFile(
+    params: any, 
+    existingFiles: CodeFile[], 
+    modifiedFiles: CodeFile[]
+  ): Promise<string> {
+    const filePath = params.file_path;
+    const content = params.content;
+    
+    // 找到源文件
+    let sourceFile = modifiedFiles.find(f => f.filename === filePath);
+    if (!sourceFile) {
+      sourceFile = existingFiles.find(f => f.filename === filePath);
+    }
+    
+    if (!sourceFile) {
+      return `文件 ${filePath} 不存在，无法追加内容`;
+    }
+    
+    // 追加内容
+    const updatedFile: CodeFile = {
+      ...sourceFile,
+      content: sourceFile.content + '\n' + content,
+      description: `增量追加的文件`
+    };
+    
+    const modifiedIndex = modifiedFiles.findIndex(f => f.filename === filePath);
+    if (modifiedIndex >= 0) {
+      modifiedFiles[modifiedIndex] = updatedFile;
+    } else {
+      modifiedFiles.push(updatedFile);
+    }
+    
+    return `已向文件 ${filePath} 追加 ${content.length} 字符的内容`;
+  }
+  
+  /**
+   * 处理文件列表
+   */
+  private async handleListFiles(existingFiles: CodeFile[]): Promise<string> {
+    const fileList = existingFiles.map(f => `${f.filename} (${f.language})`).join('\n');
+    return `当前项目包含 ${existingFiles.length} 个文件:\n${fileList}`;
   }
 
   /**

@@ -88,48 +88,52 @@ export function CodeEditorPanel({
 
   // 🌊 处理流式内容更新：监听文件变化，实现流式显示效果
   React.useEffect(() => {
-    if (isStreaming && files.length > 0) {
-      // 为每个文件创建流式内容
-      const newStreamingContent: { [filename: string]: string } = {};
-      
-      files.forEach(file => {
-        // 如果是流式生成状态，逐字符显示内容
-        const currentContent = streamingContent[file.filename] || '';
-        const targetContent = file.content;
-        
-        if (currentContent.length < targetContent.length) {
-          // 计算应该显示的内容长度（模拟打字机效果）
-          const increment = Math.min(50, targetContent.length - currentContent.length); // 每次增加50个字符
-          newStreamingContent[file.filename] = targetContent.substring(0, currentContent.length + increment);
-        } else {
-          newStreamingContent[file.filename] = targetContent;
-        }
-      });
-      
-      setStreamingContent(newStreamingContent);
-      
-      // 如果还有内容需要流式显示，继续更新
-      const needsUpdate = files.some(file => 
-        (streamingContent[file.filename] || '').length < file.content.length
-      );
-      
-      if (needsUpdate) {
-        const timer = setTimeout(() => {
-          // 触发下一次更新
-          setStreamingContent(prev => ({ ...prev }));
-        }, 50); // 每50ms更新一次
-        
-        return () => clearTimeout(timer);
-      }
-    } else if (!isStreaming) {
+    if (!isStreaming) {
       // 不在流式状态时，直接显示完整内容
       const fullContent: { [filename: string]: string } = {};
       files.forEach(file => {
         fullContent[file.filename] = file.content;
       });
       setStreamingContent(fullContent);
+      return;
     }
-  }, [files, isStreaming, streamingContent]);
+
+    if (files.length === 0) {
+      return;
+    }
+
+    // 流式显示逻辑
+    const updateStreamingContent = () => {
+      setStreamingContent(prevContent => {
+        const newStreamingContent: { [filename: string]: string } = {};
+        let hasChanges = false;
+        
+        files.forEach(file => {
+          const currentContent = prevContent[file.filename] || '';
+          const targetContent = file.content;
+          
+          if (currentContent.length < targetContent.length) {
+            // 计算应该显示的内容长度（模拟打字机效果）
+            const increment = Math.min(50, targetContent.length - currentContent.length);
+            newStreamingContent[file.filename] = targetContent.substring(0, currentContent.length + increment);
+            hasChanges = true;
+          } else {
+            newStreamingContent[file.filename] = targetContent;
+          }
+        });
+        
+        // 如果还有内容需要更新，安排下一次更新
+        if (hasChanges) {
+          setTimeout(updateStreamingContent, 50);
+        }
+        
+        return newStreamingContent;
+      });
+    };
+
+    // 开始流式更新
+    updateStreamingContent();
+  }, [files, isStreaming]);
 
   // 🎯 获取当前文件应该显示的内容（流式或完整）
   const getDisplayContent = (file: CodeFile): string => {
