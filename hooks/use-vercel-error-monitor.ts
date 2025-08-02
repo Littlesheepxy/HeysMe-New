@@ -57,7 +57,7 @@ export function useVercelErrorMonitor(options: UseVercelErrorMonitorOptions = {}
     }
 
     if (!config.bearerToken) {
-      console.warn('⚠️ [错误监控] 缺少 Vercel Bearer Token，无法启动监控');
+      // console.warn('⚠️ [错误监控] 缺少 Vercel Bearer Token，无法启动监控');
       return;
     }
 
@@ -129,7 +129,7 @@ export function useVercelErrorMonitor(options: UseVercelErrorMonitorOptions = {}
   // 开始监控
   const startMonitoring = useCallback(() => {
     if (!monitorRef.current) {
-      console.warn('⚠️ [错误监控] 监控器未初始化');
+      // console.warn('⚠️ [错误监控] 监控器未初始化');
       return;
     }
 
@@ -158,7 +158,7 @@ export function useVercelErrorMonitor(options: UseVercelErrorMonitorOptions = {}
   // 检查最新部署
   const checkLatestDeployment = useCallback(async () => {
     if (!monitorRef.current) {
-      console.warn('⚠️ [错误监控] 监控器未初始化');
+      // console.warn('⚠️ [错误监控] 监控器未初始化');
       return;
     }
 
