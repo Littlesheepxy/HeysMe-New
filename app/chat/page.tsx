@@ -533,9 +533,14 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
   const handleBackToChat = () => {
     console.log('🔄 [返回对话] 从代码模式返回对话模式');
     
-    // 🔧 修复：不清理生成的代码，保持代码数据以便重新进入代码模式
+    // 🔧 修复：确保能够返回到对话状态
     setIsCodeMode(false);
-    // 注意：不清理 generatedCode，保持代码数据
+    
+    // 🔧 重要：确保hasStartedChat为true，避免返回到欢迎页面
+    if (!hasStartedChat) {
+      console.log('🔧 [修复] 设置hasStartedChat为true以避免返回欢迎页面');
+      setHasStartedChat(true);
+    }
     
     // 🔧 只清理等待用户输入的专家模式消息，保留已生成的代码
     if (currentSession) {
@@ -547,6 +552,20 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
       console.log('🔍 [清理后] 对话历史长度:', filteredHistory.length);
       
       currentSession.conversationHistory = filteredHistory;
+      
+      // 🔧 如果过滤后没有任何对话历史，添加一条系统消息来维持对话状态
+      if (filteredHistory.length === 0) {
+        console.log('🔧 [修复] 没有对话历史，添加系统消息来维持对话状态');
+        const systemMessage = {
+          id: `msg-${Date.now()}`,
+          timestamp: new Date(),
+          type: 'agent_response' as const,
+          agent: 'system',
+          content: '您已从代码模式返回。您可以继续与我对话，或者重新进入代码模式查看生成的代码。',
+          metadata: {}
+        };
+        currentSession.conversationHistory.push(systemMessage);
+      }
       
       // 🔧 确保生成的代码文件仍然可以被检测到
       const hasProjectFiles = currentSession.conversationHistory.some(msg => 

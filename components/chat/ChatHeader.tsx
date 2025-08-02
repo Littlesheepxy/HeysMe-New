@@ -48,7 +48,11 @@ export function ChatHeader({
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={onBackToChat}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onBackToChat();
+                }}
                 className={`flex items-center gap-2 ${
                   theme === "light" ? "text-gray-600 hover:text-gray-800" : "text-gray-400 hover:text-gray-200"
                 }`}
