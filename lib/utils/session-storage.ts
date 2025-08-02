@@ -431,7 +431,7 @@ export class SessionStorageManager {
     
     if (!title && conversationHistory.length > 0) {
       // 查找第一条用户消息
-      const firstUserMessage = conversationHistory.find(entry => entry.type === 'user_message');
+      const firstUserMessage = conversationHistory.find((entry: any) => entry.type === 'user_message');
       if (firstUserMessage && firstUserMessage.content) {
         // 生成简短标题（前20个字符）
         title = this.generateTitleFromContent(firstUserMessage.content);

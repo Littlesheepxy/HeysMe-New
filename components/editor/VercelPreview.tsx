@@ -288,21 +288,7 @@ export default function VercelPreview({
               刷新
             </Button>
 
-            {/* 部署按钮 */}
-            {enableVercelDeploy && (
-              <Button
-                onClick={handleDeploy}
-                disabled={!files.length || isDeploying}
-                className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-              >
-                {isDeploying ? (
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                ) : (
-                  <Sparkles className="w-4 h-4" />
-                )}
-                {isDeploying ? '部署中...' : '部署预览'}
-              </Button>
-            )}
+
 
             {/* 在线预览按钮 */}
             {deploymentUrl && (
@@ -416,20 +402,10 @@ export default function VercelPreview({
           <div className="h-full flex items-center justify-center">
             <div className="text-center max-w-md">
               <Code className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-              <h3 className="text-lg font-semibold mb-2">准备预览</h3>
+              <h3 className="text-lg font-semibold mb-2">等待内容</h3>
               <p className="text-gray-600 dark:text-gray-400 mb-6">
-                点击"部署预览"按钮开始部署到 Vercel 进行在线预览
+                当有内容时将显示预览，点击刷新按钮可以重新加载
               </p>
-              {enableVercelDeploy && (
-                <Button
-                  onClick={handleDeploy}
-                  disabled={!files.length}
-                  className="flex items-center gap-2 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white"
-                >
-                  <Sparkles className="w-4 h-4" />
-                  部署预览
-                </Button>
-              )}
             </div>
           </div>
         )}

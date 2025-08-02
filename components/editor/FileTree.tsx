@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { Tree, NodeApi } from 'react-arborist';
-import { FileCode, Folder, FolderOpen, ChevronRight, ChevronDown } from 'lucide-react';
+import { FileCode, Folder, FolderOpen, ChevronRight, ChevronDown, FileText, Paintbrush, Braces, FileCheck, File, Component, Code } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 import { useTheme } from '@/contexts/theme-context';
@@ -29,12 +29,12 @@ export function FileTree({ data, selectedFileId, onFileSelect, className }: File
   
   return (
     <div className={cn("h-full", className)}>
-      <div className="p-2">
+      <div className="p-2 h-full">
         <Tree
           data={data}
           openByDefault={false}
           width="100%"
-          height={400}
+          height={600}
           indent={16}
           rowHeight={32}
           onSelect={(nodes) => {
@@ -63,19 +63,35 @@ function Node({ node, style, dragHandle }: {
   const isSelected = node.isSelected;
   const isFolder = data.type === 'folder';
   
-  // 获取文件图标
+  // 获取文件图标 - 使用更专业的开发者风格图标
   const getFileIcon = () => {
     if (isFolder) {
-      return node.isOpen ? <FolderOpen className="w-4 h-4" /> : <Folder className="w-4 h-4" />;
+      return node.isOpen ? <FolderOpen className="w-4 h-4 text-blue-500 dark:text-blue-400" /> : <Folder className="w-4 h-4 text-blue-500 dark:text-blue-400" />;
     }
     
-    // 根据文件扩展名返回不同图标
-    if (data.name.endsWith('.tsx') || data.name.endsWith('.ts')) return '⚛️';
-    if (data.name.endsWith('.css') || data.name.endsWith('.scss')) return '🎨';
-    if (data.name.endsWith('.js') || data.name.endsWith('.jsx')) return '🟨';
-    if (data.name.endsWith('.json')) return '📋';
-    if (data.name.endsWith('.md')) return '📝';
-    return <FileCode className="w-4 h-4" />;
+    // 根据文件扩展名返回专业的开发者图标
+    if (data.name.endsWith('.tsx')) {
+      return <Component className="w-4 h-4 text-cyan-500 dark:text-cyan-400" />;
+    }
+    if (data.name.endsWith('.ts')) {
+      return <FileCode className="w-4 h-4 text-blue-500 dark:text-blue-400" />;
+    }
+    if (data.name.endsWith('.jsx')) {
+      return <Component className="w-4 h-4 text-yellow-500 dark:text-yellow-400" />;
+    }
+    if (data.name.endsWith('.js')) {
+      return <Code className="w-4 h-4 text-yellow-500 dark:text-yellow-400" />;
+    }
+    if (data.name.endsWith('.css') || data.name.endsWith('.scss')) {
+      return <Paintbrush className="w-4 h-4 text-pink-500 dark:text-pink-400" />;
+    }
+    if (data.name.endsWith('.json')) {
+      return <Braces className="w-4 h-4 text-orange-500 dark:text-orange-400" />;
+    }
+    if (data.name.endsWith('.md')) {
+      return <FileText className="w-4 h-4 text-gray-500 dark:text-gray-400" />;
+    }
+    return <File className="w-4 h-4 text-gray-500 dark:text-gray-400" />;
   };
 
   // 获取文件类型颜色 - 适配暗色模式

@@ -699,7 +699,6 @@ export function CodePreviewToggle({
                 isEditMode={editMode === 'ai'}
                 onContentChange={handleContentChange}
                 deviceType={deviceType}
-                editMode={editMode}
                 // 🆕 自动预览相关 props
                 autoDeployEnabled={autoDeployEnabled}
                 isProjectComplete={isProjectComplete}
