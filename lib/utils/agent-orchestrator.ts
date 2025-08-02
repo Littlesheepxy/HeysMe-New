@@ -197,8 +197,13 @@ export class AgentOrchestrator {
   /**
    * 创建新会话
    */
-  async createSession(initialInput?: any): Promise<string> {
-    return await sessionManager.createSession(initialInput);
+  async createSession(initialInput?: any, options?: { userId?: string }): Promise<string> {
+    // 🔧 传递用户 ID 到 SessionManager
+    const sessionData: Partial<SessionData> = {
+      userId: options?.userId,
+      ...(initialInput && typeof initialInput === 'object' ? initialInput : {})
+    };
+    return await sessionManager.createSession(sessionData);
   }
 
   /**
