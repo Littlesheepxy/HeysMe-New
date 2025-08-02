@@ -14,6 +14,9 @@ import { ChatSidebar } from "@/components/chat/ChatSidebar"
 import { WelcomeScreen } from "@/components/chat/WelcomeScreen"
 import { ChatModeView } from "@/components/chat/ChatModeView"
 import { CodeModeView } from "@/components/chat/CodeModeView"
+import { ErrorMonitor } from "@/components/ui/error-monitor"
+import { VercelStatusIndicator } from "@/components/ui/vercel-status-indicator"
+import { useVercelErrorMonitor } from "@/hooks/use-vercel-error-monitor"
 
 export default function ChatPage() {
   const { theme } = useTheme()
@@ -45,6 +48,24 @@ export default function ChatPage() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [chatMode, setChatMode] = useState<'normal' | 'professional'>('normal')
   const [isPrivacyMode, setIsPrivacyMode] = useState(false)
+  
+  // Vercel 错误监控状态
+  const [showErrorMonitor, setShowErrorMonitor] = useState(false)
+  const vercelErrorMonitor = useVercelErrorMonitor({
+    config: {
+      bearerToken: process.env.NEXT_PUBLIC_VERCEL_TOKEN,
+      projectId: process.env.NEXT_PUBLIC_VERCEL_PROJECT_ID,
+      teamId: process.env.NEXT_PUBLIC_VERCEL_TEAM_ID,
+    },
+    autoStart: false, // 只有在 coding 模式下才启动
+    onError: (error) => {
+      toast({
+        title: "检测到构建错误",
+        description: `${error.file || '未知文件'}: ${error.message}`,
+        variant: "destructive",
+      })
+    }
+  })
   const inputRef = useRef<HTMLInputElement>(null)
 
   // 监听当前会话变化，如果有会话且有消息，则显示对话模式
@@ -658,6 +679,29 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
     });
   };
 
+  // 🔧 管理错误监控生命周期
+  useEffect(() => {
+    if (isCodeMode && vercelErrorMonitor.deploymentStatus?.status !== 'ready') {
+      // 进入代码模式时启动监控
+      vercelErrorMonitor.startMonitoring();
+    } else if (!isCodeMode && vercelErrorMonitor.isMonitoring) {
+      // 离开代码模式时停止监控
+      vercelErrorMonitor.stopMonitoring();
+    }
+  }, [isCodeMode, vercelErrorMonitor.startMonitoring, vercelErrorMonitor.stopMonitoring, vercelErrorMonitor.deploymentStatus, vercelErrorMonitor.isMonitoring]);
+
+  // 🔧 错误监控回调
+  const handleCopyErrorToInput = (errorMessage: string) => {
+    setInputValue(errorMessage);
+    setShowErrorMonitor(false);
+    // 聚焦到输入框
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, 100);
+  };
+
   return (
     <div
       className={`h-screen flex transition-all duration-300 ${
@@ -753,6 +797,35 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
           // 登录成功回调会在useEffect中处理
           setShowAuthDialog(false);
         }}
+      />
+
+      {/* Vercel 状态指示器 - 只在代码模式下显示 */}
+      {isCodeMode && vercelErrorMonitor.deploymentStatus && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <VercelStatusIndicator
+            status={vercelErrorMonitor.deploymentStatus}
+            onShowErrors={() => setShowErrorMonitor(true)}
+            onOpenDeployment={(url) => window.open(`https://${url}`, '_blank')}
+          />
+        </div>
+      )}
+
+      {/* 错误监控对话框 */}
+      <ErrorMonitor
+        isVisible={showErrorMonitor}
+        onClose={() => setShowErrorMonitor(false)}
+        errors={vercelErrorMonitor.errors}
+        isMonitoring={vercelErrorMonitor.isMonitoring}
+        onToggleMonitoring={() => {
+          if (vercelErrorMonitor.isMonitoring) {
+            vercelErrorMonitor.stopMonitoring();
+          } else {
+            vercelErrorMonitor.startMonitoring();
+          }
+        }}
+        onCheckLatest={vercelErrorMonitor.checkLatestDeployment}
+        isChecking={vercelErrorMonitor.isChecking}
+        onCopyToInput={handleCopyErrorToInput}
       />
     </div>
   )

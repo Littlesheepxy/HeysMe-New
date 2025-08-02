@@ -7,8 +7,10 @@ import { SessionData } from "@/lib/types/session"
 import { StreamableAgentResponse } from "@/lib/types/streaming"
 import { DEFAULT_MODEL } from "@/types/models"
 import { useTitleGeneration } from "./use-title-generation"
+import { useAuth } from "@clerk/nextjs"
 
 export function useChatSystemV2() {
+  const { isLoaded, isSignedIn, userId, getToken } = useAuth();
   const [sessions, setSessions] = useState<SessionData[]>([])
   const [currentSession, setCurrentSession] = useState<SessionData | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -45,15 +47,43 @@ export function useChatSystemV2() {
 
   // 🆕 加载已存在的会话
   const loadExistingSessions = useCallback(async () => {
+    // 🔧 检查认证状态
+    if (!isLoaded) {
+      console.log('🔄 [会话加载] Clerk 还未加载完成，等待...');
+      return;
+    }
+    
+    if (!isSignedIn || !userId) {
+      console.log('⚠️ [会话加载] 用户未登录，跳过会话加载');
+      return;
+    }
+
     try {
       setIsLoadingSessions(true);
-      console.log('🔄 [会话加载] 开始自动加载历史会话...');
+      console.log(`🔄 [会话加载] 开始自动加载历史会话... 用户ID: ${userId}`);
+
+      // 🔧 获取Clerk认证token
+      let token = null;
+      try {
+        token = await getToken();
+        console.log(`🔑 [会话加载] 成功获取认证token: ${token ? 'YES' : 'NO'}`);
+      } catch (error) {
+        console.warn('⚠️ [会话加载] 获取认证token失败:', error);
+      }
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      // 🔧 如果有token，添加到请求头
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
 
       const response = await fetch('/api/sessions', {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers,
+        credentials: 'include', // 🔧 包含cookies
       });
 
       if (!response.ok) {
@@ -86,7 +116,7 @@ export function useChatSystemV2() {
     } finally {
       setIsLoadingSessions(false);
     }
-  }, []); // 移除依赖，避免循环
+  }, [isLoaded, isSignedIn, userId, getToken]); // 🔧 依赖认证状态
 
   // 🆕 在组件挂载时自动加载会话
   useEffect(() => {
