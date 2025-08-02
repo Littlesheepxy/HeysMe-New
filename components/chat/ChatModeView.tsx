@@ -4,7 +4,7 @@ import { useRef, useEffect, useState, memo, useMemo } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Send, Paperclip, Sparkles, Code } from 'lucide-react';
+import { Send, Paperclip, Sparkles, Code, ExternalLink } from 'lucide-react';
 import { MessageBubble } from './MessageBubble';
 import { ThinkingLoader } from '@/components/ui/unified-loading';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
@@ -172,39 +172,77 @@ export const ChatModeView = memo(function ChatModeView({
         </ScrollArea>
       </div>
 
-      {/* 🔧 新增：代码文件提示条 */}
+      {/* 🎨 优化：代码文件提示条 - 与对话框样式一致 */}
       {hasCodeFiles && (
-        <div className={`border-t border-b shrink-0 ${
-          theme === "light" 
-            ? "bg-emerald-50 border-emerald-200" 
-            : "bg-emerald-900/20 border-emerald-700"
-        }`}>
-          <div className="p-3">
-            <div className="max-w-4xl mx-auto flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className={`w-2 h-2 rounded-full ${
-                  theme === "light" ? "bg-emerald-500" : "bg-emerald-400"
-                }`}></div>
-                <span className={`text-sm font-medium ${
-                  theme === "light" ? "text-emerald-800" : "text-emerald-300"
-                }`}>
-                  已生成 {codeFileCount} 个代码文件
-                </span>
-              </div>
-              <Button
-                onClick={handleViewCode}
-                size="sm"
-                className={`h-8 px-4 text-xs font-medium transition-all duration-200 ${
-                  theme === "light"
-                    ? "bg-emerald-600 hover:bg-emerald-700 text-white"
-                    : "bg-emerald-500 hover:bg-emerald-600 text-white"
-                }`}
-              >
-                <Code className="w-3 h-3 mr-1" />
-                查看代码
-              </Button>
+        <div className="py-4 px-6">
+          <motion.div 
+            initial={{ opacity: 0, y: -10 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`max-w-4xl mx-auto rounded-xl relative overflow-hidden shadow-sm border ${
+              theme === "light" 
+                ? "bg-gradient-to-r from-emerald-50 to-blue-50 border-emerald-200" 
+                : "bg-gradient-to-r from-emerald-900/30 to-blue-900/30 border-emerald-700"
+            }`}
+          >
+            {/* 背景装饰 */}
+            <div className="absolute inset-0 opacity-30">
+              <div className={`absolute right-0 top-0 w-32 h-full ${
+                theme === "light" 
+                  ? "bg-gradient-to-l from-emerald-100/50 to-transparent" 
+                  : "bg-gradient-to-l from-emerald-800/20 to-transparent"
+              }`}></div>
             </div>
-          </div>
+            
+            <div className="relative p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  {/* 状态指示器 */}
+                  <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full animate-pulse ${
+                      theme === "light" ? "bg-emerald-500" : "bg-emerald-400"
+                    }`}></div>
+                    <div className={`w-1 h-1 rounded-full ${
+                      theme === "light" ? "bg-emerald-400" : "bg-emerald-500"
+                    }`}></div>
+                    <div className={`w-1 h-1 rounded-full ${
+                      theme === "light" ? "bg-emerald-300" : "bg-emerald-600"
+                    }`}></div>
+                  </div>
+                  
+                  {/* 文字信息 */}
+                  <div className="flex flex-col">
+                    <span className={`text-sm font-semibold ${
+                      theme === "light" ? "text-emerald-800" : "text-emerald-200"
+                    }`}>
+                      🎉 代码生成完成
+                    </span>
+                    <span className={`text-xs ${
+                      theme === "light" ? "text-emerald-600" : "text-emerald-400"
+                    }`}>
+                      已生成 {codeFileCount} 个代码文件，准备预览和部署
+                    </span>
+                  </div>
+                </div>
+                
+                {/* 操作按钮 */}
+                <div className="flex items-center gap-3">
+                  <Button
+                    onClick={handleViewCode}
+                    size="sm"
+                    className={`h-9 px-6 text-sm font-medium shadow-lg transition-all duration-300 transform hover:scale-105 ${
+                      theme === "light"
+                        ? "bg-gradient-to-r from-emerald-600 to-blue-600 hover:from-emerald-700 hover:to-blue-700 text-white"
+                        : "bg-gradient-to-r from-emerald-500 to-blue-500 hover:from-emerald-600 hover:to-blue-600 text-white"
+                    }`}
+                  >
+                    <Code className="w-4 h-4 mr-2" />
+                    进入代码模式
+                    <ExternalLink className="w-3 h-3 ml-2" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </motion.div>
         </div>
       )}
 
