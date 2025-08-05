@@ -41,7 +41,7 @@ import { LoadingCarousel, LOADING_SEQUENCES } from '@/components/ui/loading-caro
 import { AuthPromptDialog } from '@/components/dialogs';
 import { useAuthCheck, usePendingAuthAction } from '@/hooks/use-auth-check';
 import { StreamingToolExecutor } from '@/lib/agents/coding/streaming-tool-executor';
-import { CodingModeUI } from './CodingModeUI';
+#import { CodingModeUI } from './CodingModeUI';
 import { 
   CodingAgentAsk,
   CodingAgentSay,
