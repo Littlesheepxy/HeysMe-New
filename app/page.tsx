@@ -7,29 +7,40 @@ import { ThemeToggle } from "@/components/navigation/theme-toggle"
 import { useTheme } from "@/contexts/theme-context"
 import { Sparkles, Zap, Users, Shield, Brain, Target, Palette } from "lucide-react"
 import CardSwap, { Card as SwapCard } from "@/components/ui/CardSwap/CardSwap"
+import { BackgroundGradientAnimation } from "@/components/ui/background-gradient-animation"
 
 export default function HomePage() {
   const { theme } = useTheme()
 
   // Landing page with brand colors
   return (
-    <div
-      className={`min-h-screen transition-all duration-300 ${
-        theme === "light" ? "bg-gradient-to-br from-emerald-50 via-teal-50 to-cyan-50" : "bg-gradient-to-br from-gray-900 via-emerald-950 to-cyan-950"
-      }`}
-    >
+    <div className="min-h-screen relative">
+      {/* Background Gradient Animation - Full Coverage */}
+      <BackgroundGradientAnimation
+        gradientBackgroundStart="rgb(16, 185, 129)"    // HeysMe emerald-500
+        gradientBackgroundEnd="rgb(6, 182, 212)"       // HeysMe cyan-500
+        firstColor="52, 211, 153"                       // emerald-400
+        secondColor="45, 212, 191"                      // teal-400
+        thirdColor="34, 211, 238"                       // cyan-400
+        fourthColor="16, 185, 129"                      // emerald-500
+        fifthColor="6, 182, 212"                        // cyan-500
+        pointerColor="34, 211, 153"                     // emerald-400
+        interactive={true}
+        containerClassName="fixed inset-0 z-0"
+      />
+
       {/* Header with brand gradient */}
-      <header className="container mx-auto px-4 py-6">
+      <header className="container mx-auto px-4 py-6 relative z-10">
         <nav className="flex justify-between items-center">
           <div className="flex items-center gap-2">
             <div className="w-8 h-8 bg-brand-gradient rounded-lg flex items-center justify-center shadow-brand">
               <Sparkles className="w-5 h-5 text-white" />
             </div>
-            <span className={`text-xl font-bold ${theme === "light" ? "text-gray-900" : "text-white"}`}>HeysMe</span>
+            <span className="text-xl font-bold text-white">HeysMe</span>
           </div>
           <div className="flex gap-4 items-center">
             <ThemeToggle />
-            <Button variant="brand-ghost" className="rounded-2xl">
+            <Button variant="brand-ghost" className="rounded-2xl text-white border-white/30 hover:bg-white/10">
               登录
             </Button>
             <Button variant="brand" className="rounded-2xl">
@@ -40,40 +51,37 @@ export default function HomePage() {
       </header>
 
       {/* Hero Section with brand colors and CardSwap */}
-      <section className="container mx-auto px-4 py-20">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:items-start">
-          {/* Left side: Hero content */}
-          <div className="text-center lg:text-left lg:pt-16">
-            <Badge className="mb-6 bg-emerald-100 text-emerald-700 border border-emerald-200" variant="secondary">
-              🚀 v0.1 MVP 版本
-            </Badge>
-            <h1
-              className={`text-4xl lg:text-5xl font-bold mb-6 bg-gradient-to-r bg-clip-text text-transparent ${
-                theme === "light" ? "from-emerald-600 via-teal-600 to-cyan-600" : "from-emerald-400 via-teal-400 to-cyan-400"
-              }`}
-            >
-              AI 驱动的职业身份平台
-            </h1>
-            <p className={`text-lg lg:text-xl mb-8 max-w-xl ${theme === "light" ? "text-gray-600" : "text-gray-300"}`}>
-              通过智能对话，AI 为你生成个性化的职业主页。展示项目、技能、经历，让机会主动找到你。
-            </p>
-            <Button
-              variant="brand"
-              size="lg"
-              onClick={() => window.location.href = '/chat'}
-              className="text-lg px-8 py-4 rounded-2xl shadow-brand-xl hover:shadow-brand-glow transition-all duration-300 transform hover:scale-105"
-              style={{
-                background: 'linear-gradient(135deg, #34D399 0%, #2DD4BF 50%, #22D3EE 100%)',
-                color: 'white'
-              }}
-            >
-              <Sparkles className="w-5 h-5 mr-2" />
-              开始创建 HeysMe
-            </Button>
-          </div>
+      <section className="relative z-10 overflow-hidden">
+        <div className="container mx-auto px-4 py-20 relative z-10">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:items-start">
+            {/* Left side: Hero content */}
+            <div className="text-center lg:text-left lg:pt-16 relative z-20">
+              <Badge className="mb-6 bg-white/20 backdrop-blur-sm text-white border border-white/30" variant="secondary">
+                🚀 v0.1 MVP 版本
+              </Badge>
+              <h1 className="text-4xl lg:text-5xl font-bold mb-6 text-white drop-shadow-lg">
+                AI 驱动的职业身份平台
+              </h1>
+              <p className="text-lg lg:text-xl mb-8 max-w-xl text-white/90 drop-shadow-md">
+                通过智能对话，AI 为你生成个性化的职业主页。展示项目、技能、经历，让机会主动找到你。
+              </p>
+              <Button
+                variant="brand"
+                size="lg"
+                onClick={() => window.location.href = '/chat'}
+                className="text-lg px-8 py-4 rounded-2xl shadow-brand-xl hover:shadow-brand-glow transition-all duration-300 transform hover:scale-105"
+                style={{
+                  background: 'linear-gradient(135deg, #34D399 0%, #2DD4BF 50%, #22D3EE 100%)',
+                  color: 'white'
+                }}
+              >
+                <Sparkles className="w-5 h-5 mr-2" />
+                开始创建 HeysMe
+              </Button>
+        </div>
 
           {/* Right side: CardSwap */}
-          <div className="relative h-[600px] hidden lg:block">
+          <div className="relative h-[600px] hidden lg:block z-20">
             <div className="absolute left-0 top-[60%] -translate-y-1/2 w-full max-w-lg">
               <CardSwap
                 cardDistance={60}
@@ -208,10 +216,11 @@ export default function HomePage() {
             </div>
           </div>
         </div>
+        </div>
       </section>
 
       {/* Features with brand cards */}
-      <section className="container mx-auto px-4 py-20">
+      <section className="container mx-auto px-4 py-20 relative z-10">
         <h2 className={`text-3xl font-bold text-center mb-12 ${theme === "light" ? "text-gray-900" : "text-white"}`}>
           为什么选择 HeysMe？
         </h2>
@@ -264,7 +273,7 @@ export default function HomePage() {
       </section>
 
       {/* CTA with brand gradient card */}
-      <section className="container mx-auto px-4 py-20 text-center">
+      <section className="container mx-auto px-4 py-20 text-center relative z-10">
         <Card
           variant="brand-gradient"
           className="max-w-2xl mx-auto rounded-3xl shadow-brand-xl hover:shadow-brand-glow transform hover:scale-105 transition-all duration-300"
