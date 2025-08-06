@@ -40,7 +40,7 @@ export function HeaderSection() {
       animate={{ y: 0 }}
       className="fixed top-0 left-0 right-0 z-50"
     >
-      <div className="flex justify-center pt-2 px-4">
+      <div className="flex justify-center pt-6 px-4">
         <motion.div
           animate={{
             scale: isScrolled ? 0.95 : 1,
@@ -111,7 +111,7 @@ export function HeaderSection() {
               <motion.button
                 whileHover={{ scale: 1.02, y: -1 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => window.location.href = '/login'}
+                onClick={() => window.location.href = '/sign-in'}
                 className={`group relative px-5 py-2 rounded-full font-medium text-sm transition-all duration-300 ${
                   isScrolled 
                     ? 'text-gray-700 hover:text-gray-900 bg-white/80 hover:bg-white border border-gray-200/60 hover:border-gray-300/80 shadow-sm hover:shadow-md' 
@@ -127,7 +127,7 @@ export function HeaderSection() {
               <motion.button
                 whileHover={{ scale: 1.02, y: -1 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => window.location.href = '/register'}
+                onClick={() => window.location.href = '/sign-up'}
                 className={`group relative px-5 py-2 rounded-full font-medium text-sm transition-all duration-300 overflow-hidden ${
                   isScrolled 
                     ? 'text-white bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:via-emerald-700 hover:to-teal-700 shadow-lg hover:shadow-xl hover:shadow-emerald-200/40 border-0' 
@@ -219,7 +219,7 @@ export function HeaderSection() {
                 <div className="pt-3 border-t border-white/20 space-y-3">
                   <motion.button
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => window.location.href = '/login'}
+                    onClick={() => window.location.href = '/sign-in'}
                     className={`group relative w-full px-5 py-2.5 rounded-full font-medium text-sm text-center transition-all duration-300 ${
                       isScrolled 
                         ? 'text-gray-700 hover:text-gray-900 bg-white/80 hover:bg-white border border-gray-200/60 shadow-sm hover:shadow-md' 
@@ -234,7 +234,7 @@ export function HeaderSection() {
                   
                   <motion.button
                     whileTap={{ scale: 0.98 }}
-                    onClick={() => window.location.href = '/register'}
+                    onClick={() => window.location.href = '/sign-up'}
                     className={`group relative w-full px-5 py-2.5 rounded-full font-medium text-sm text-center transition-all duration-300 overflow-hidden ${
                       isScrolled 
                         ? 'text-white bg-gradient-to-r from-emerald-500 via-emerald-600 to-teal-600 hover:from-emerald-600 hover:via-emerald-700 hover:to-teal-700 shadow-lg hover:shadow-xl hover:shadow-emerald-200/40 border-0' 

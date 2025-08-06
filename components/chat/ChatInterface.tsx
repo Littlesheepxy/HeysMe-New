@@ -41,7 +41,7 @@ import { LoadingCarousel, LOADING_SEQUENCES } from '@/components/ui/loading-caro
 import { AuthPromptDialog } from '@/components/dialogs';
 import { useAuthCheck, usePendingAuthAction } from '@/hooks/use-auth-check';
 import { StreamingToolExecutor } from '@/lib/agents/coding/streaming-tool-executor';
-#import { CodingModeUI } from './CodingModeUI';
+// import { CodingModeUI } from './CodingModeUI'; // 暂时不使用
 import { 
   CodingAgentAsk,
   CodingAgentSay,
@@ -1144,23 +1144,8 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
         </div>
 
         {/* 🎯 输入区域 - ChatInterface负责 */}
-        {isCodingMode ? (
-          <CodingModeUI
-            isStreaming={isStreaming}
-            inputMessage={inputMessage}
-            onInputChange={setInputMessage}
-            onSubmit={handleSubmit}
-            activeTools={activeTools}
-            codeFiles={codeFiles}
-            showFileTree={showFileTree}
-            onToggleFileTree={() => setShowFileTree(!showFileTree)}
-            onFileSelect={(file) => {
-              setInputMessage(`请查看和编辑文件: ${file.path}\n\n当前内容:\n\`\`\`${file.language}\n${file.content}\n\`\`\``);
-            }}
-            textareaRef={textareaRef}
-          />
-        ) : (
-          <form onSubmit={handleSubmit} className="flex gap-2">
+        <form onSubmit={handleSubmit} className="flex gap-2">
+          {!isCodingMode && (
             <Button
               type="button"
               variant="ghost"
@@ -1172,26 +1157,26 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
             >
               <Paperclip className="w-4 h-4" />
             </Button>
-            <Input
-              value={inputMessage}
-              onChange={(e) => setInputMessage(e.target.value)}
-              placeholder="输入消息..."
-              disabled={isStreaming}
-              className="flex-1"
-            />
-            <Button
-              type="submit"
-              disabled={isStreaming || !inputMessage.trim()}
-              className="px-6"
-            >
-              {isStreaming ? (
-                <RefreshCw className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-            </Button>
-          </form>
-        )}
+          )}
+          <Input
+            value={inputMessage}
+            onChange={(e) => setInputMessage(e.target.value)}
+            placeholder={isCodingMode ? "输入代码需求或问题..." : "输入消息..."}
+            disabled={isStreaming}
+            className="flex-1"
+          />
+          <Button
+            type="submit"
+            disabled={isStreaming || !inputMessage.trim()}
+            className="px-6"
+          >
+            {isStreaming ? (
+              <RefreshCw className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+          </Button>
+        </form>
       </CardContent>
     </Card>
 

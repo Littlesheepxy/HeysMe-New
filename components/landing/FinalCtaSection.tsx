@@ -10,7 +10,7 @@ export function FinalCtaSection() {
   const { t } = useI18n()
 
   return (
-    <section className="py-20 relative overflow-hidden">
+    <section className="min-h-screen flex items-center py-32 relative overflow-hidden">
       {/* 动态背景渐变 */}
       <div className="absolute inset-0 bg-gradient-to-br from-brand-600 via-secondary-600 to-accent-600"></div>
       <div className="absolute inset-0 bg-gradient-to-tl from-brand-500/30 via-transparent to-accent-500/30"></div>

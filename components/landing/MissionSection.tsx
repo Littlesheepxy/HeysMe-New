@@ -9,7 +9,7 @@ export function MissionSection() {
   const { t } = useI18n()
 
   return (
-    <section className="py-20 bg-white relative overflow-hidden">
+    <section className="min-h-screen flex items-center py-32 bg-white relative overflow-hidden">
       {/* 背景装饰 */}
       <div className="absolute inset-0">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-400 via-secondary-400 to-accent-400"></div>
@@ -103,7 +103,7 @@ export function MissionSection() {
               <Button
                 size="lg"
                 className="bg-gradient-to-r from-brand-500 via-secondary-500 to-accent-500 hover:from-brand-600 hover:via-secondary-600 hover:to-accent-600 text-white px-8 py-4 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                onClick={() => window.location.href = '/register'}
+                onClick={() => window.location.href = '/sign-up'}
               >
                 <Sparkles className="w-5 h-5 mr-2" />
                 {t('mission.cta')}

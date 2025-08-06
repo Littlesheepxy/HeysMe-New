@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { VercelPreview } from '@/components/editor/VercelPreview';
+import VercelPreview from '@/components/editor/VercelPreview';
 
 const mockFiles = [
   {

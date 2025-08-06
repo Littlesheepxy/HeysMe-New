@@ -84,6 +84,14 @@ export const DEFAULT_PROJECT_SETTINGS = {
   rootDirectory: '.', // 根目录
 };
 
+// 默认的 Vercel 配置
+export const DEFAULT_VERCEL_CONFIG: VercelPreviewConfig = {
+  enabled: false,
+  bearerToken: '',
+  teamId: undefined,
+  teamSlug: undefined,
+};
+
 // 默认的环境变量
 export const DEFAULT_ENVIRONMENT_VARIABLES = [
   {

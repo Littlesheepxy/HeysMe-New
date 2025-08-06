@@ -46,7 +46,7 @@ export function UseCasesSection() {
   ]
 
   return (
-    <section className="py-20 bg-gradient-to-br from-brand-50/50 via-white to-secondary-50/50 relative overflow-hidden">
+    <section className="min-h-screen flex items-center py-32 bg-gradient-to-br from-brand-50/50 via-white to-secondary-50/50 relative overflow-hidden">
       {/* 背景装饰 */}
       <div className="absolute inset-0">
         <div className="absolute top-20 left-10 w-64 h-64 bg-brand-300/20 rounded-full mix-blend-multiply filter blur-xl opacity-40 animate-pulse"></div>

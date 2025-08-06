@@ -1,6 +1,7 @@
 "use client"
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
+import { Languages } from 'lucide-react'
 import { translations } from '@/lib/translations'
 
 // 支持的语言类型
@@ -35,20 +36,36 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       setIsLoading(true)
       // 使用本地翻译数据
       const data = translations[lang]
-      setCurrentTranslations(data)
+      if (data) {
+        setCurrentTranslations(data)
+        setIsLoading(false)
+      } else {
+        console.error(`No translations found for ${lang}`)
+        // 降级到中文
+        if (lang !== 'zh') {
+          loadTranslations('zh')
+        } else {
+          setIsLoading(false)
+        }
+      }
     } catch (error) {
       console.error(`Failed to load translations for ${lang}:`, error)
       // 降级到中文
       if (lang !== 'zh') {
         loadTranslations('zh')
+      } else {
+        setIsLoading(false)
       }
-    } finally {
-      setIsLoading(false)
     }
   }
 
   // 翻译函数
   const t = (key: string): string => {
+    // 如果正在加载或没有翻译数据，返回键名
+    if (isLoading || !currentTranslations || Object.keys(currentTranslations).length === 0) {
+      return key
+    }
+    
     const keys = key.split('.')
     let value = currentTranslations
     
@@ -109,25 +126,22 @@ export function useI18n() {
 // 语言切换组件
 export function LanguageSwitch() {
   const { locale, setLocale } = useI18n()
+  
+  const toggleLocale = () => {
+    setLocale(locale === 'zh' ? 'en' : 'zh')
+  }
+  
+  const currentConfig = LOCALES[locale]
+  const nextConfig = LOCALES[locale === 'zh' ? 'en' : 'zh']
 
   return (
-    <div className="flex items-center space-x-2">
-      {Object.entries(LOCALES).map(([lang, config]) => (
-        <button
-          key={lang}
-          onClick={() => setLocale(lang as Locale)}
-          className={`
-            flex items-center space-x-1 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200
-            ${locale === lang 
-              ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' 
-              : 'text-gray-600 hover:text-emerald-600 hover:bg-emerald-50'
-            }
-          `}
-        >
-          <span>{config.flag}</span>
-          <span>{config.name}</span>
-        </button>
-      ))}
-    </div>
+    <button
+      onClick={toggleLocale}
+      className="flex items-center space-x-2 px-3 py-1.5 rounded-lg text-sm font-medium transition-all duration-200 bg-emerald-100 text-emerald-700 border border-emerald-200 hover:bg-emerald-200"
+      title={`切换到${nextConfig.name}`}
+    >
+      <Languages className="w-4 h-4" />
+      <span>{currentConfig.name}</span>
+    </button>
   )
 }

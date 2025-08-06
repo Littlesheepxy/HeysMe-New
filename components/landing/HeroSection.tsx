@@ -12,8 +12,8 @@ export function HeroSection() {
   const { t } = useI18n()
 
   return (
-    <section className="relative z-10 overflow-hidden">
-      <div className="container mx-auto px-4 py-20 relative z-10">
+    <section className="relative z-10 overflow-hidden min-h-screen flex items-center">
+      <div className="container mx-auto px-4 py-32 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:items-start">
           {/* Left side: Hero content */}
           <motion.div 

@@ -13,6 +13,8 @@ export default function Page() {
           </p>
         </div>
         <SignIn 
+          signUpUrl="/sign-up"
+          redirectUrl="/chat"
           appearance={{
             elements: {
               formButtonPrimary: 

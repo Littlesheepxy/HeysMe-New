@@ -44,7 +44,7 @@ export default clerkMiddleware(async (auth, req) => {
   
   // 重定向旧的登录路由到新的 Clerk 登录页面
   if (req.nextUrl.pathname.startsWith("/auth/login")) {
-    const redirectUrl = req.nextUrl.searchParams.get("redirect_url") || "/dashboard"
+    const redirectUrl = req.nextUrl.searchParams.get("redirect_url") || "/chat"
     const signInUrl = new URL("/sign-in", req.url)
     signInUrl.searchParams.set("redirect_url", redirectUrl)
     return NextResponse.redirect(signInUrl)
@@ -57,9 +57,15 @@ export default clerkMiddleware(async (auth, req) => {
     return NextResponse.redirect(signInUrl)
   }
 
-  // 如果用户已登录且访问登录/注册页面，重定向到仪表板
+  // 如果用户已登录且访问登录/注册页面，重定向到聊天页面
   if (authData.userId && (req.nextUrl.pathname === "/sign-in" || req.nextUrl.pathname === "/sign-up")) {
-    return NextResponse.redirect(new URL("/dashboard", req.url))
+    // 检查是否有指定的重定向URL
+    const redirectUrl = req.nextUrl.searchParams.get("redirect_url")
+    if (redirectUrl) {
+      return NextResponse.redirect(new URL(redirectUrl, req.url))
+    }
+    // 默认重定向到聊天页面
+    return NextResponse.redirect(new URL("/chat", req.url))
   }
 
   return NextResponse.next()

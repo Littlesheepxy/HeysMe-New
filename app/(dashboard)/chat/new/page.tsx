@@ -32,7 +32,7 @@ export default function NewChatPage() {
         data: { user },
       } = await supabase.auth.getUser()
       if (!user) {
-        router.push("/auth/login?redirect=/chat/new")
+        router.push("/sign-in?redirect_url=/chat/new")
         return
       }
     }

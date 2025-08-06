@@ -12,7 +12,7 @@ export function TestimonialsSection() {
   const testimonials = Array.isArray(testimonialsData) ? testimonialsData : []
 
   return (
-    <section className="py-20 bg-white relative overflow-hidden">
+    <section className="min-h-screen flex items-center py-32 bg-white relative overflow-hidden">
       {/* 背景装饰 */}
       <div className="absolute inset-0">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-400 via-secondary-400 to-accent-400"></div>
