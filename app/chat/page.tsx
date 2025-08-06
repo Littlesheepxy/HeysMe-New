@@ -14,6 +14,9 @@ import { ChatSidebar } from "@/components/chat/ChatSidebar"
 import { WelcomeScreen } from "@/components/chat/WelcomeScreen"
 import { ChatModeView } from "@/components/chat/ChatModeView"
 import { CodeModeView } from "@/components/chat/CodeModeView"
+import { ErrorMonitor } from "@/components/ui/error-monitor"
+import { VercelStatusIndicator } from "@/components/ui/vercel-status-indicator"
+import { useVercelErrorMonitor } from "@/hooks/use-vercel-error-monitor"
 
 export default function ChatPage() {
   const { theme } = useTheme()
@@ -41,10 +44,29 @@ export default function ChatPage() {
   const [inputValue, setInputValue] = useState("")
   const [hasStartedChat, setHasStartedChat] = useState(false)
   const [isCodeMode, setIsCodeMode] = useState(false)
+  const [userManuallyReturnedToChat, setUserManuallyReturnedToChat] = useState(false) // 🔧 新增：用户是否手动返回过对话模式
   const [generatedCode, setGeneratedCode] = useState<any[]>([])
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [chatMode, setChatMode] = useState<'normal' | 'professional'>('normal')
   const [isPrivacyMode, setIsPrivacyMode] = useState(false)
+  
+  // Vercel 错误监控状态
+  const [showErrorMonitor, setShowErrorMonitor] = useState(false)
+  const vercelErrorMonitor = useVercelErrorMonitor({
+    config: {
+      bearerToken: process.env.NEXT_PUBLIC_VERCEL_TOKEN,
+      projectId: process.env.NEXT_PUBLIC_VERCEL_PROJECT_ID,
+      teamId: process.env.NEXT_PUBLIC_VERCEL_TEAM_ID,
+    },
+    autoStart: false, // 只有在 coding 模式下才启动
+    onError: (error) => {
+      toast({
+        title: "检测到构建错误",
+        description: `${error.file || '未知文件'}: ${error.message}`,
+        variant: "destructive",
+      })
+    }
+  })
   const inputRef = useRef<HTMLInputElement>(null)
 
   // 监听当前会话变化，如果有会话且有消息，则显示对话模式
@@ -77,13 +99,15 @@ export default function ChatPage() {
         (message.metadata?.expertMode && !message.metadata?.awaitingUserInput)
       )
       
-      console.log('🔍 [代码检测] hasCodeGeneration:', hasCodeGeneration, 'isCodeMode:', isCodeMode);
+      console.log('🔍 [代码检测] hasCodeGeneration:', hasCodeGeneration, 'isCodeMode:', isCodeMode, 'userManuallyReturned:', userManuallyReturnedToChat);
       
       if (hasCodeGeneration) {
-        // 🔧 修复：无论是否已在代码模式，都要检查和更新代码
-        if (!isCodeMode) {
+        // 🔧 修复：只有当用户没有手动返回过时，才自动切换到代码模式
+        if (!isCodeMode && !userManuallyReturnedToChat) {
           console.log('🔄 [模式切换] 自动切换到代码模式');
           setIsCodeMode(true);
+        } else if (!isCodeMode && userManuallyReturnedToChat) {
+          console.log('🚫 [模式切换] 用户手动返回过，跳过自动切换');
         }
         
         // 提取生成的代码 - 支持多种数据源
@@ -279,6 +303,11 @@ export default function ChatPage() {
     setInputValue("")
     setIsCodeMode(false)
     setGeneratedCode([])
+    
+    // 🔧 重置手动返回标志
+    setUserManuallyReturnedToChat(false)
+    console.log('🔧 [新会话] 重置手动返回标志')
+    
     await createNewSession()
   }
 
@@ -512,12 +541,20 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
   const handleBackToChat = () => {
     console.log('🔄 [返回对话] 从代码模式返回对话模式');
     
-    // 🔧 修复：不清理生成的代码，保持代码数据以便重新进入代码模式
+    // 🔧 修复：确保能够返回到对话状态
     setIsCodeMode(false);
-    // 注意：不清理 generatedCode，保持代码数据
     
-    // 🔧 只清理等待用户输入的专家模式消息，保留已生成的代码
-    if (currentSession) {
+    // 🔧 标记用户手动返回，防止自动切换回代码模式
+    setUserManuallyReturnedToChat(true);
+    console.log('🔧 [手动返回] 设置用户手动返回标志，防止自动切换');
+    
+    // 🔧 选择策略：如果没有实际对话历史，直接返回欢迎页面，否则返回对话模式
+    if (currentSession && currentSession.conversationHistory.length > 0) {
+      // 有对话历史，尝试返回对话模式
+      console.log('📝 [返回策略] 检测到对话历史，返回对话模式');
+      setHasStartedChat(true);
+      
+      // 🔧 只清理等待用户输入的专家模式消息，保留已生成的代码
       const filteredHistory = currentSession.conversationHistory.filter(msg => 
         !(msg.metadata?.expertMode && msg.metadata?.awaitingUserInput)
       );
@@ -527,7 +564,27 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
       
       currentSession.conversationHistory = filteredHistory;
       
-      // 🔧 确保生成的代码文件仍然可以被检测到
+      // 🔧 如果过滤后没有任何对话历史，添加一条系统消息来维持对话状态
+      if (filteredHistory.length === 0) {
+        console.log('🔧 [修复] 过滤后没有对话历史，添加系统消息');
+        const systemMessage = {
+          id: `msg-${Date.now()}`,
+          timestamp: new Date(),
+          type: 'agent_response' as const,
+          agent: 'system',
+          content: '您已从代码模式返回。您可以继续与我对话，或者重新进入代码模式查看生成的代码。',
+          metadata: {}
+        };
+        currentSession.conversationHistory.push(systemMessage);
+      }
+    } else {
+      // 没有对话历史，返回欢迎页面
+      console.log('🏠 [返回策略] 没有对话历史，返回欢迎页面');
+      setHasStartedChat(false);
+    }
+    
+    // 🔧 确保生成的代码文件仍然可以被检测到
+    if (currentSession) {
       const hasProjectFiles = currentSession.conversationHistory.some(msg => 
         msg.metadata?.projectFiles && Array.isArray(msg.metadata.projectFiles)
       );
@@ -548,6 +605,10 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
   const handleSwitchToCodeMode = () => {
     console.log('🔄 [切换模式] 从对话模式切换到代码模式');
     setIsCodeMode(true);
+    
+    // 🔧 重置手动返回标志，允许以后自动切换
+    setUserManuallyReturnedToChat(false);
+    console.log('🔧 [重置标志] 清除手动返回标志，允许自动切换');
     
     // 🔧 如果没有代码数据，尝试重新提取
     if (generatedCode.length === 0 && currentSession) {
@@ -658,6 +719,29 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
     });
   };
 
+  // 🔧 管理错误监控生命周期
+  useEffect(() => {
+    if (isCodeMode && vercelErrorMonitor.deploymentStatus?.status !== 'ready') {
+      // 进入代码模式时启动监控
+      vercelErrorMonitor.startMonitoring();
+    } else if (!isCodeMode && vercelErrorMonitor.isMonitoring) {
+      // 离开代码模式时停止监控
+      vercelErrorMonitor.stopMonitoring();
+    }
+  }, [isCodeMode, vercelErrorMonitor.startMonitoring, vercelErrorMonitor.stopMonitoring, vercelErrorMonitor.deploymentStatus, vercelErrorMonitor.isMonitoring]);
+
+  // 🔧 错误监控回调
+  const handleCopyErrorToInput = (errorMessage: string) => {
+    setInputValue(errorMessage);
+    setShowErrorMonitor(false);
+    // 聚焦到输入框
+    setTimeout(() => {
+      if (inputRef.current) {
+        inputRef.current.focus();
+      }
+    }, 100);
+  };
+
   return (
     <div
       className={`h-screen flex transition-all duration-300 ${
@@ -753,6 +837,35 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
           // 登录成功回调会在useEffect中处理
           setShowAuthDialog(false);
         }}
+      />
+
+      {/* Vercel 状态指示器 - 只在代码模式下显示 */}
+      {isCodeMode && vercelErrorMonitor.deploymentStatus && (
+        <div className="fixed bottom-4 right-4 z-50">
+          <VercelStatusIndicator
+            status={vercelErrorMonitor.deploymentStatus}
+            onShowErrors={() => setShowErrorMonitor(true)}
+            onOpenDeployment={(url) => window.open(`https://${url}`, '_blank')}
+          />
+        </div>
+      )}
+
+      {/* 错误监控对话框 */}
+      <ErrorMonitor
+        isVisible={showErrorMonitor}
+        onClose={() => setShowErrorMonitor(false)}
+        errors={vercelErrorMonitor.errors}
+        isMonitoring={vercelErrorMonitor.isMonitoring}
+        onToggleMonitoring={() => {
+          if (vercelErrorMonitor.isMonitoring) {
+            vercelErrorMonitor.stopMonitoring();
+          } else {
+            vercelErrorMonitor.startMonitoring();
+          }
+        }}
+        onCheckLatest={vercelErrorMonitor.checkLatestDeployment}
+        isChecking={vercelErrorMonitor.isChecking}
+        onCopyToInput={handleCopyErrorToInput}
       />
     </div>
   )

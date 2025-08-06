@@ -22,13 +22,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { 
-  VercelPreviewService, 
-  type DeploymentConfig, 
-  type DeploymentStatus, 
-  type PreviewStatus,
-  type VercelConfig 
-} from '@/lib/services/vercel-preview-service';
+import { useVercelDeployment, type DeploymentResult } from '@/hooks/use-vercel-deployment';
 import { type CodeFile } from '@/lib/agents/coding/types';
 import { StagewiseToolbar } from './StagewiseToolbar';
 import { useTheme } from '@/contexts/theme-context';
@@ -48,731 +42,417 @@ interface VercelPreviewProps {
   isEditMode?: boolean;
   onContentChange?: (field: string, value: string) => void;
   deviceType?: DeviceType;
-  editMode?: EditMode;
-  vercelConfig?: VercelConfig;
-  // 🆕 自动部署相关
-  autoDeployEnabled?: boolean;
-  isProjectComplete?: boolean;
-  hasAutoDeployed?: boolean;
-  onAutoDeployStatusChange?: (enabled: boolean) => void;
+  onDeviceChange?: (device: DeviceType) => void;
+  showToolbar?: boolean;
+  onRefresh?: () => void;
 }
 
-export function VercelPreview({
+export default function VercelPreview({
   files,
   projectName,
-  description,
+  description = '',
   isLoading,
   previewUrl,
-  enableVercelDeploy,
+  enableVercelDeploy = true,
   onPreviewReady,
   onLoadingChange,
-  isEditMode,
+  isEditMode = false,
   onContentChange,
   deviceType = 'desktop',
-  editMode = 'none',
-  vercelConfig,
-  autoDeployEnabled = false,
-  isProjectComplete = false,
-  hasAutoDeployed = false,
-  onAutoDeployStatusChange
+  onDeviceChange,
+  showToolbar = true,
+  onRefresh
 }: VercelPreviewProps) {
+  const { theme } = useTheme();
+  const iframeRef = useRef<HTMLIFrameElement>(null);
   
-  // 默认配置
-  const defaultVercelConfig: VercelConfig = {
-    bearerToken: '',
-    teamId: undefined,
-    teamSlug: undefined
-  };
-  
-  const config = vercelConfig || defaultVercelConfig;
-  
-  // ============== 状态管理 ==============
-  const [previewStatus, setPreviewStatus] = useState<PreviewStatus>('initializing');
+  // 状态管理
+  const [localDeviceType, setLocalDeviceType] = useState<DeviceType>(deviceType);
+  const [editMode, setEditMode] = useState<EditMode>('none');
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [deploymentStatus, setDeploymentStatus] = useState<string>('ready');
   const [deployLogs, setDeployLogs] = useState<string[]>([]);
   const [showLogs, setShowLogs] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [vercelService, setVercelService] = useState<VercelPreviewService | null>(null);
-  const [isDeploying, setIsDeploying] = useState(false);
-  const [currentDeployment, setCurrentDeployment] = useState<DeploymentStatus | null>(null);
-  const [deploymentHistory, setDeploymentHistory] = useState<DeploymentStatus[]>([]);
-  const [showHistory, setShowHistory] = useState(false);
-  
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const { theme } = useTheme();
 
-  // ============== 设备配置 ==============
-  const deviceConfigs = {
-    desktop: {
-      width: '100%',
-      height: '100%',
-      label: '桌面预览',
-      icon: Monitor
+  // 使用新的 Vercel 部署 Hook
+  const {
+    isDeploying,
+    deploymentResult,
+    error: deploymentError,
+    deployProject,
+    reset: resetDeployment,
+    deploymentUrl,
+    isReady
+  } = useVercelDeployment({
+    onStatusChange: (status) => {
+      setDeploymentStatus(status);
+      onLoadingChange(status !== 'ready' && status !== 'error');
     },
-    mobile: {
-      width: '375px',
-      height: '667px',
-      label: '移动预览',
-      icon: Smartphone
+    onLog: (log) => {
+      setDeployLogs(prev => [...prev, log]);
+    },
+    onDeploymentReady: (deployment) => {
+      onPreviewReady(deployment.url);
     }
-  };
+  });
 
-  // ============== 工具函数 ==============
-  const log = useCallback((message: string) => {
-    setDeployLogs(prev => [...prev, `${new Date().toLocaleTimeString()}: ${message}`]);
-  }, []);
+  // 设备类型变化处理
+  const handleDeviceChange = useCallback((device: DeviceType) => {
+    setLocalDeviceType(device);
+    onDeviceChange?.(device);
+  }, [onDeviceChange]);
 
-  const generateMockPreviewUrl = useCallback(() => {
-    const htmlFile = files.find(f => f.filename.endsWith('.html') || f.filename === 'index.html');
-    const tsxFile = files.find(f => f.filename.endsWith('.tsx') && f.filename.includes('page'));
-    const jsxFile = files.find(f => f.filename.endsWith('.jsx') && f.filename.includes('page'));
+  // 刷新预览
+  const handleRefresh = useCallback(async () => {
+    if (isRefreshing) return;
     
-    if (htmlFile) {
-      return `data:text/html;charset=utf-8,${encodeURIComponent(htmlFile.content)}`;
-    }
-    
-    if (tsxFile || jsxFile) {
-      const mockHtml = `
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${projectName}</title>
-  <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
-  <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
-  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
-  <style>
-    body { margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
-    ${files.find(f => f.filename.includes('globals.css') || f.filename.includes('index.css'))?.content || ''}
-    ${files.find(f => f.filename.includes('tailwind') || f.filename.includes('style'))?.content || ''}
-  </style>
-</head>
-<body>
-  <div id="root"></div>
-  <script type="text/babel">
-    ${(tsxFile || jsxFile)?.content || ''}
-  </script>
-</body>
-</html>`;
-      return `data:text/html;charset=utf-8,${encodeURIComponent(mockHtml)}`;
-    }
-    
-    return `data:text/html;charset=utf-8,${encodeURIComponent(`
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${projectName}</title>
-  <style>
-    body { margin: 0; padding: 20px; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; }
-    .container { max-width: 800px; margin: 0 auto; text-align: center; }
-    .title { color: #333; margin-bottom: 20px; }
-    .description { color: #666; line-height: 1.6; }
-    .file-list { margin-top: 30px; text-align: left; }
-    .file-item { padding: 10px; margin: 5px 0; background: #f5f5f5; border-radius: 5px; }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <h1 class="title">${projectName}</h1>
-    ${description ? `<p class="description">${description}</p>` : ''}
-    <div class="file-list">
-      <h3>项目文件：</h3>
-      ${files.map(f => `<div class="file-item">${f.filename}</div>`).join('')}
-    </div>
-  </div>
-</body>
-</html>
-    `)}`;
-  }, [files, projectName, description]);
-
-  // ============== 核心部署函数 ==============
-  const deployToVercel = useCallback(async () => {
-    if (!vercelService || isDeploying || files.length === 0) return;
-
-    setIsDeploying(true);
-    onLoadingChange(true);
+    setIsRefreshing(true);
     
     try {
-      log('🚀 开始 Vercel 部署...');
+      if (onRefresh) {
+        onRefresh();
+      } else if (iframeRef.current) {
+        iframeRef.current.src = iframeRef.current.src;
+      }
+      
+      // 模拟刷新延迟
+      await new Promise(resolve => setTimeout(resolve, 1000));
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [isRefreshing, onRefresh]);
 
-      const deploymentConfig: DeploymentConfig = {
+  // 部署到 Vercel 预览
+  const handleDeploy = useCallback(async () => {
+    if (!files.length || isDeploying) return;
+
+    setDeployLogs([]); // 清空日志
+    setShowLogs(true); // 显示日志面板
+
+    try {
+      await deployProject({
         projectName: projectName.toLowerCase().replace(/\s+/g, '-'),
         files,
         target: 'preview',
         gitMetadata: {
           commitAuthorName: 'HeysMe User',
-          commitMessage: `Deploy ${projectName} from HeysMe`,
+          commitMessage: `Preview deployment: ${projectName}`,
           commitRef: 'main',
           dirty: false,
         },
-        environmentVariables: [
-          {
-            key: 'NODE_ENV',
-            value: 'production',
-            target: ['preview'],
-          },
-        ],
+        projectSettings: {
+          buildCommand: 'npm run build',
+          installCommand: 'npm install',
+        },
+        meta: {
+          source: 'heysme-preview',
+          description: description,
+          timestamp: new Date().toISOString(),
+        }
+      });
+    } catch (error) {
+      console.error('部署失败:', error);
+    }
+  }, [files, projectName, description, deployProject, isDeploying]);
+
+  // 下载代码
+  const handleDownload = useCallback(() => {
+    if (!files.length) return;
+
+    const zip = files.reduce((acc, file) => {
+      acc[file.filename] = file.content;
+      return acc;
+    }, {} as Record<string, string>);
+
+    const blob = new Blob([JSON.stringify(zip, null, 2)], { 
+      type: 'application/json' 
+    });
+    
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${projectName.replace(/\s+/g, '-')}-code.json`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, [files, projectName]);
+
+  // 状态图标和颜色
+  const getStatusInfo = () => {
+    if (deploymentError) {
+      return {
+        icon: AlertCircle,
+        color: 'text-red-500',
+        bgColor: 'bg-red-50 border-red-200',
+        text: '部署失败'
       };
-
-      const deployment = await vercelService.deployProject(deploymentConfig);
-      setCurrentDeployment(deployment);
-      setDeploymentHistory(prev => [deployment, ...prev]);
-      
-      if (deployment.deploymentUrl) {
-        onPreviewReady(deployment.deploymentUrl);
-        setRefreshKey(prev => prev + 1);
-      }
-
-      log(`✅ 部署成功：${deployment.deploymentUrl}`);
-
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : String(error);
-      log(`❌ 部署失败: ${errorMessage}`);
-      
-      // 降级到模拟预览
-      const mockUrl = generateMockPreviewUrl();
-      onPreviewReady(mockUrl);
-      setRefreshKey(prev => prev + 1);
-      
-    } finally {
-      setIsDeploying(false);
-      onLoadingChange(false);
     }
-  }, [vercelService, isDeploying, files, projectName, onPreviewReady, onLoadingChange, log, generateMockPreviewUrl]);
-
-  const rollbackDeployment = useCallback(async () => {
-    if (!vercelService || isDeploying) return;
-
-    setIsDeploying(true);
-    try {
-      const rollbackDeployment = await vercelService.rollbackToPrevious();
-      if (rollbackDeployment) {
-        setCurrentDeployment(rollbackDeployment);
-        if (rollbackDeployment.deploymentUrl) {
-          onPreviewReady(rollbackDeployment.deploymentUrl);
-          setRefreshKey(prev => prev + 1);
-        }
-      }
-    } catch (error) {
-      log(`❌ 回退失败: ${error}`);
-    } finally {
-      setIsDeploying(false);
-    }
-  }, [vercelService, isDeploying, onPreviewReady, log]);
-
-  const refreshPreview = useCallback(() => {
-    log('🔄 刷新预览...');
-    setRefreshKey(prev => prev + 1);
-    setDeployLogs(['🔄 手动刷新开始...']);
     
-    if (enableVercelDeploy && files.length > 0) {
-      deployToVercel();
-    } else {
-      // 使用模拟预览
-      const mockUrl = generateMockPreviewUrl();
-      onPreviewReady(mockUrl);
-      log('🎯 使用模拟预览');
-    }
-  }, [enableVercelDeploy, files.length, deployToVercel, generateMockPreviewUrl, onPreviewReady, log]);
-
-  // ============== 生命周期管理 ==============
-  
-  // 1. 初始化 Vercel 服务
-  useEffect(() => {
-    if (enableVercelDeploy && !vercelService) {
-      log('🔧 初始化 Vercel 服务...');
+    if (isDeploying) {
+      const statusMap = {
+        'initializing': '初始化中',
+        'creating_project': '创建项目',
+        'uploading_files': '上传文件',
+        'deploying': '开始部署',
+        'building': '构建中',
+        'ready': '部署完成'
+      } as const;
       
-      const service = new VercelPreviewService(config);
-      
-      // 设置事件监听器
-      service.onStatusChange((status) => {
-        setPreviewStatus(status);
-        log(`📊 状态变化: ${status}`);
-      });
-
-      service.onLog((logMessage) => {
-        log(logMessage);
-      });
-
-      service.onDeploymentReady((deployment) => {
-        setCurrentDeployment(deployment);
-        if (deployment.deploymentUrl) {
-          onPreviewReady(deployment.deploymentUrl);
-          setRefreshKey(prev => prev + 1);
-        }
-      });
-
-      setVercelService(service);
+      return {
+        icon: Loader2,
+        color: 'text-blue-500',
+        bgColor: 'bg-blue-50 border-blue-200',
+        text: statusMap[deploymentStatus as keyof typeof statusMap] || '处理中',
+        spinning: true
+      };
     }
-  }, [enableVercelDeploy, vercelService, vercelConfig, log, onPreviewReady]);
-
-  // 2. 文件变化时自动部署或生成预览
-  useEffect(() => {
-    if (files.length > 0) {
-      if (enableVercelDeploy && vercelService && !isDeploying) {
-        const timeoutId = setTimeout(() => {
-          deployToVercel();
-        }, 2000); // 延迟2秒避免频繁部署
-
-        return () => clearTimeout(timeoutId);
-      } else if (!previewUrl) {
-        // 生成模拟预览
-        const mockUrl = generateMockPreviewUrl();
-        onPreviewReady(mockUrl);
-        log('🎯 生成模拟预览');
-      }
+    
+    if (isReady && deploymentUrl) {
+      return {
+        icon: CheckCircle2,
+        color: 'text-green-500',
+        bgColor: 'bg-green-50 border-green-200',
+        text: '预览就绪'
+      };
     }
-  }, [files, enableVercelDeploy, vercelService, isDeploying, previewUrl, deployToVercel, generateMockPreviewUrl, onPreviewReady, log]);
-
-  // 3. 组件清理
-  useEffect(() => {
-    return () => {
-      if (vercelService) {
-        vercelService.destroy().catch(console.error);
-      }
+    
+    return {
+      icon: Code,
+      color: 'text-gray-500',
+      bgColor: 'bg-gray-50 border-gray-200',
+      text: '等待部署'
     };
-  }, [vercelService]);
+  };
 
-  // ============== 可视化编辑处理 ==============
-  const handleElementModificationRequest = useCallback(async (elementInfo: any, prompt: string) => {
-    const visualEditMessage = `
-🎯 **可视化编辑请求**
+  const statusInfo = getStatusInfo();
+  const StatusIcon = statusInfo.icon;
 
-**选中元素：**
-- 标签: \`${elementInfo.tagName}\`
-- 选择器: \`${elementInfo.selector}\`
-- 类名: \`${elementInfo.className}\`
-- 文本内容: "${elementInfo.textContent?.slice(0, 100)}${elementInfo.textContent?.length > 100 ? '...' : ''}"
-
-**修改需求：**
-${prompt}
-
-**项目上下文：**
-- 项目名称: ${projectName}
-- 框架: React
-- 当前文件数: ${files.length}
-- 部署状态: ${currentDeployment ? '已部署' : '未部署'}
-
-请帮我修改代码来实现这个需求。
-    `.trim();
-
-    if (onContentChange) {
-      onContentChange('visual_edit_request', visualEditMessage);
-    } else {
-      window.parent.postMessage({
-        type: 'VISUAL_EDIT_TO_CHAT',
-        message: visualEditMessage,
-        elementInfo,
-        prompt
-      }, '*');
-    }
-  }, [files.length, projectName, currentDeployment, onContentChange]);
-    
-  // ============== 渲染 ==============
   return (
-    <div className="flex flex-col h-full bg-white dark:bg-gray-900 overflow-hidden">
-      {/* 顶部工具栏 */}
-      <div className={`flex items-center justify-between px-4 py-2 border-b ${
-        theme === 'light' 
-          ? 'bg-gray-50 border-gray-200' 
-          : 'bg-gray-800 border-gray-700'
-      }`}>
-        <div className="flex items-center gap-3">
-          <StatusIndicator status={previewStatus} theme={theme} />
-          <Badge variant="outline" className={`text-xs ${
-            theme === 'light' 
-              ? 'border-gray-300 text-gray-700' 
-              : 'border-gray-600 text-gray-300'
-          }`}>
-            {deviceConfigs[deviceType].label}
-          </Badge>
-          <Badge 
-            variant={enableVercelDeploy && currentDeployment ? 'default' : 'secondary'} 
-            className="text-xs"
-          >
-            {enableVercelDeploy && currentDeployment ? 'Vercel 部署' : '模拟预览'}
-          </Badge>
-          {currentDeployment && (
-            <Badge variant="outline" className="text-xs">
-              {currentDeployment.state}
-            </Badge>
-          )}
-        </div>
-        
-        <div className="flex items-center gap-1">
-          {enableVercelDeploy && deploymentHistory.length > 0 && (
+    <div className={`flex flex-col h-full ${
+      theme === "light" ? "bg-white" : "bg-gray-900"
+    }`}>
+      {/* 工具栏 */}
+      {showToolbar && (
+        <div className={`flex items-center justify-between p-4 border-b ${
+          theme === "light" 
+            ? "border-gray-200 bg-gray-50" 
+            : "border-gray-700 bg-gray-800"
+        }`}>
+          {/* 左侧：状态和设备选择 */}
+          <div className="flex items-center gap-3">
+            {/* 状态指示器 */}
+            <div className={`flex items-center gap-2 px-3 py-1 rounded-lg border ${statusInfo.bgColor}`}>
+              <StatusIcon 
+                className={`w-4 h-4 ${statusInfo.color} ${
+                  statusInfo.spinning ? 'animate-spin' : ''
+                }`} 
+              />
+              <span className={`text-sm font-medium ${statusInfo.color}`}>
+                {statusInfo.text}
+              </span>
+            </div>
+
+            {/* 设备选择器 */}
+            <div className="flex items-center gap-1 bg-gray-100 dark:bg-gray-700 rounded-lg p-1">
+              <Button
+                variant={localDeviceType === 'desktop' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => handleDeviceChange('desktop')}
+                className="h-8 px-3"
+              >
+                <Monitor className="w-4 h-4" />
+              </Button>
+              <Button
+                variant={localDeviceType === 'mobile' ? 'default' : 'ghost'}
+                size="sm"
+                onClick={() => handleDeviceChange('mobile')}
+                className="h-8 px-3"
+              >
+                <Smartphone className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+
+          {/* 右侧：操作按钮 */}
+          <div className="flex items-center gap-2">
+            {/* 刷新按钮 */}
             <Button
               variant="outline"
               size="sm"
-              onClick={() => setShowHistory(!showHistory)}
-              className={`flex items-center gap-1 h-7 px-2 text-xs ${
-                theme === 'light' 
-                  ? 'border-gray-300 text-gray-700 hover:bg-gray-100' 
-                  : 'border-gray-600 text-gray-300 hover:bg-gray-700'
-              }`}
+              onClick={handleRefresh}
+              disabled={isRefreshing || isDeploying}
+              className="flex items-center gap-2"
             >
-              <History className="w-3 h-3" />
-              历史 ({deploymentHistory.length})
+              <RefreshCw className={`w-4 h-4 ${isRefreshing ? 'animate-spin' : ''}`} />
+              刷新
             </Button>
-          )}
 
-          {enableVercelDeploy && deploymentHistory.length > 1 && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={rollbackDeployment}
-              disabled={isDeploying}
-              className={`flex items-center gap-1 h-7 px-2 text-xs ${
-                theme === 'light' 
-                  ? 'border-gray-300 text-gray-700 hover:bg-gray-100' 
-                  : 'border-gray-600 text-gray-300 hover:bg-gray-700'
-              }`}
-            >
-              <RotateCcw className={cn("w-3 h-3", isDeploying && "animate-spin")} />
-              回退
-            </Button>
-          )}
 
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowLogs(!showLogs)}
-            className={`flex items-center gap-1 h-7 px-2 text-xs ${
-              theme === 'light' 
-                ? 'border-gray-300 text-gray-700 hover:bg-gray-100' 
-                : 'border-gray-600 text-gray-300 hover:bg-gray-700'
-            }`}
-          >
-            <Terminal className="w-3 h-3" />
-            {showLogs ? '隐藏日志' : '显示日志'}
-          </Button>
-          
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setDeployLogs(['🔄 手动刷新开始...']);
-              refreshPreview();
-            }}
-            disabled={isLoading || isDeploying}
-            className={`flex items-center gap-1 h-7 px-2 text-xs transition-all duration-200 ${
-              theme === 'light' 
-                ? 'border-gray-300 text-gray-700 hover:bg-gray-100 hover:border-emerald-300' 
-                : 'border-gray-600 text-gray-300 hover:bg-gray-700 hover:border-emerald-500'
-            }`}
-          >
-            <RefreshCw className={cn("w-3 h-3", (isLoading || isDeploying) && "animate-spin")} />
-            {isDeploying ? '部署中...' : '刷新'}
-          </Button>
-          
-          {enableVercelDeploy && (
-            <>
+
+            {/* 在线预览按钮 */}
+            {deploymentUrl && (
               <Button
                 variant="outline"
                 size="sm"
-                onClick={deployToVercel}
-                disabled={files.length === 0 || isDeploying}
-                className={`flex items-center gap-1 h-7 px-2 text-xs transition-all duration-200 ${
-                  theme === 'light' 
-                    ? 'border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:border-emerald-400' 
-                    : 'border-emerald-600 text-emerald-400 hover:bg-emerald-900/20 hover:border-emerald-500'
-                }`}
+                onClick={() => window.open(deploymentUrl, '_blank')}
+                className="flex items-center gap-2"
               >
-                <RefreshCw className={cn("w-3 h-3", isDeploying && "animate-spin")} />
-                {isDeploying ? '更新预览中...' : '刷新预览'}
+                <ExternalLink className="w-4 h-4" />
+                在线预览
               </Button>
-              
-              {/* 🆕 自动预览开关 */}
-              <div className="flex items-center gap-2">
-                <label className="flex items-center gap-1 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={autoDeployEnabled}
-                    onChange={(e) => onAutoDeployStatusChange?.(e.target.checked)}
-                    className="w-3 h-3 text-emerald-600 bg-gray-100 border-gray-300 rounded focus:ring-emerald-500 focus:ring-2"
-                  />
-                  <span className={`text-xs ${
-                    theme === 'light' ? 'text-gray-700' : 'text-gray-300'
-                  }`}>
-                    自动预览
-                  </span>
-                </label>
-                
-                {autoDeployEnabled && hasAutoDeployed && (
-                  <span className="text-xs text-emerald-600 flex items-center gap-1">
-                    <Check className="w-3 h-3" />
-                    已自动更新
-                  </span>
-                )}
-                
-                {autoDeployEnabled && isProjectComplete && !hasAutoDeployed && (
-                  <span className="text-xs text-orange-500 flex items-center gap-1 animate-pulse">
-                    <RefreshCw className="w-3 h-3 animate-spin" />
-                    准备自动预览...
-                  </span>
-                )}
-              </div>
-            </>
-          )}
+            )}
 
-          {currentDeployment?.deploymentUrl && (
+            {/* 下载代码按钮 */}
             <Button
               variant="outline"
               size="sm"
-              onClick={() => window.open(currentDeployment.deploymentUrl, '_blank')}
-              className={`flex items-center gap-1 h-7 px-2 text-xs ${
-                theme === 'light' 
-                  ? 'border-gray-300 text-gray-700 hover:bg-gray-100' 
-                  : 'border-gray-600 text-gray-300 hover:bg-gray-700'
-              }`}
+              onClick={handleDownload}
+              disabled={!files.length}
+              className="flex items-center gap-2"
             >
-              <ExternalLink className="w-3 h-3" />
-              打开新窗口
+              <Download className="w-4 h-4" />
+              下载
             </Button>
-          )}
-        </div>
-      </div>
 
-      <div className="flex-1 flex">
-        {/* 预览区域 */}
-        <div className="flex-1 flex flex-col">
-          <div className={`flex-1 p-4 ${
-            theme === 'light' 
-              ? 'bg-gray-100' 
-              : 'bg-gray-800'
-          }`}>
-            <div 
-              className={`mx-auto rounded-lg shadow-lg overflow-hidden border ${
-                theme === 'light' 
-                  ? 'bg-white border-gray-200' 
-                  : 'bg-gray-900 border-gray-700'
-              }`}
-              style={{
-                width: deviceConfigs[deviceType].width,
-                height: deviceConfigs[deviceType].height,
-                maxWidth: '100%',
-                maxHeight: '100%'
-              }}
-            >
-              {previewUrl ? (
-                <iframe
-                  key={refreshKey}
-                  ref={iframeRef}
-                  src={previewUrl}
-                  className="w-full h-full border-0"
-                  title={`${projectName} 预览`}
-                />
-              ) : (
-                <PreviewPlaceholder status={previewStatus} theme={theme} />
-              )}
-            </div>
+            {/* 日志按钮 */}
+            {deployLogs.length > 0 && (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowLogs(!showLogs)}
+                className="flex items-center gap-2"
+              >
+                <Terminal className="w-4 h-4" />
+                日志 ({deployLogs.length})
+              </Button>
+            )}
           </div>
         </div>
+      )}
 
-        {/* 部署历史侧边栏 */}
-        <AnimatePresence>
-          {showHistory && deploymentHistory.length > 0 && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 300, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              className={`border-l overflow-hidden ${
-                theme === 'light' 
-                  ? 'bg-white border-gray-300' 
-                  : 'bg-gray-900 border-gray-700'
+      {/* 预览区域 */}
+      <div className="flex-1 relative">
+        {/* 加载状态 */}
+        {(isLoading || isDeploying) && (
+          <div className="absolute inset-0 bg-black/50 flex items-center justify-center z-10">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 flex items-center gap-3 shadow-lg">
+              <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+              <span className="text-lg font-medium">
+                {isDeploying ? `${statusInfo.text}...` : '加载中...'}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* 错误状态 */}
+        {deploymentError && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md text-center shadow-lg">
+              <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">部署失败</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-4 text-sm">
+                {deploymentError}
+              </p>
+              <div className="flex gap-2 justify-center">
+                <Button
+                  onClick={resetDeployment}
+                  variant="outline"
+                  size="sm"
+                >
+                  <RotateCcw className="w-4 h-4 mr-2" />
+                  重试
+                </Button>
+                <Button
+                  onClick={() => setShowLogs(true)}
+                  variant="outline"
+                  size="sm"
+                >
+                  <Terminal className="w-4 h-4 mr-2" />
+                  查看日志
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 预览 iframe */}
+        {(previewUrl || deploymentUrl) && (
+          <div className="h-full flex items-center justify-center p-4">
+            <div
+              className={`bg-white rounded-lg shadow-lg transition-all duration-300 ${
+                localDeviceType === 'mobile'
+                  ? 'w-[375px] h-[667px]'
+                  : 'w-full h-full max-w-6xl'
               }`}
             >
-              <div className={`p-3 border-b ${
-                theme === 'light' 
-                  ? 'border-gray-200' 
-                  : 'border-gray-600'
-              }`}>
-                <h4 className={`font-semibold ${
-                  theme === 'light' ? 'text-gray-900' : 'text-white'
-                }`}>部署历史</h4>
-              </div>
-              <div className="p-3 h-full overflow-y-auto">
-                {deploymentHistory.map((deployment, index) => (
-                  <div
-                    key={deployment.id}
-                    className={`mb-3 p-3 rounded border ${
-                      theme === 'light' 
-                        ? 'border-gray-200 bg-gray-50' 
-                        : 'border-gray-600 bg-gray-800'
-                    } ${currentDeployment?.id === deployment.id ? 'ring-2 ring-blue-500' : ''}`}
-                  >
-                    <div className={`text-sm font-medium ${
-                      theme === 'light' ? 'text-gray-900' : 'text-white'
-                    }`}>
-                      {index === 0 ? '当前' : `版本 ${index + 1}`}
-                    </div>
-                    <div className={`text-xs ${
-                      theme === 'light' ? 'text-gray-600' : 'text-gray-400'
-                    }`}>
-                      {new Date(deployment.createdAt).toLocaleString()}
-                    </div>
-                    <div className={`text-xs mt-1 ${
-                      deployment.state === 'READY' ? 'text-green-600' :
-                      deployment.state === 'ERROR' ? 'text-red-600' :
-                      'text-yellow-600'
-                    }`}>
-                      {deployment.state}
-                    </div>
-                    {deployment.deploymentUrl && (
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => window.open(deployment.deploymentUrl, '_blank')}
-                        className="mt-2 h-6 px-2 text-xs w-full"
-                      >
-                        查看
-                      </Button>
-                    )}
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              <iframe
+                ref={iframeRef}
+                src={deploymentUrl || previewUrl || ''}
+                className="w-full h-full rounded-lg border-0"
+                title="预览"
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+              />
+            </div>
+          </div>
+        )}
 
-        {/* 日志面板 */}
-        <AnimatePresence>
-          {showLogs && (
-            <motion.div
-              initial={{ width: 0, opacity: 0 }}
-              animate={{ width: 350, opacity: 1 }}
-              exit={{ width: 0, opacity: 0 }}
-              className={`border-l text-green-400 font-mono text-xs overflow-hidden ${
-                theme === 'light' 
-                  ? 'bg-gray-900 border-gray-300' 
-                  : 'bg-gray-950 border-gray-700'
-              }`}
-            >
-              <div className={`p-3 border-b flex items-center justify-between ${
-                theme === 'light' 
-                  ? 'border-gray-700' 
-                  : 'border-gray-600'
-              }`}>
-                <h4 className="font-semibold text-white">部署日志</h4>
+        {/* 空状态 */}
+        {!previewUrl && !deploymentUrl && !isLoading && !isDeploying && (
+          <div className="h-full flex items-center justify-center">
+            <div className="text-center max-w-md">
+              <Code className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+              <h3 className="text-lg font-semibold mb-2">等待内容</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-6">
+                当有内容时将显示预览，点击刷新按钮可以重新加载
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* 日志面板 */}
+      <AnimatePresence>
+        {showLogs && deployLogs.length > 0 && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className={`border-t ${
+              theme === "light" 
+                ? "border-gray-200 bg-gray-50" 
+                : "border-gray-700 bg-gray-800"
+            }`}
+          >
+            <div className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <h4 className="font-semibold flex items-center gap-2">
+                  <Terminal className="w-4 h-4" />
+                  部署日志
+                </h4>
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={() => setDeployLogs([])}
-                  className={`text-gray-400 hover:text-white h-6 px-2 ${
-                    theme === 'light' 
-                      ? 'hover:bg-gray-800' 
-                      : 'hover:bg-gray-700'
-                  }`}
+                  onClick={() => setShowLogs(false)}
                 >
-                  清空
+                  收起
                 </Button>
               </div>
-              <div className="p-3 h-full overflow-y-auto max-h-96">
-                {deployLogs.length === 0 ? (
-                  <div className={`${
-                    theme === 'light' 
-                      ? 'text-gray-500' 
-                      : 'text-gray-400'
-                  }`}>暂无日志</div>
-                ) : (
-                  deployLogs.map((log, index) => (
-                    <div key={index} className="mb-1 break-words">
-                      {log}
-                    </div>
-                  ))
-                )}
+              <div className={`max-h-40 overflow-y-auto rounded-lg p-3 font-mono text-xs ${
+                theme === "light" 
+                  ? "bg-gray-900 text-green-400" 
+                  : "bg-black text-green-300"
+              }`}>
+                {deployLogs.map((log, index) => (
+                  <div key={index} className="mb-1">
+                    {log}
+                  </div>
+                ))}
               </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-      </div>
-
-      {/* 可视化编辑工具栏 */}
-      {editMode === 'ai' && (
-        <StagewiseToolbar
-          iframeRef={iframeRef}
-          onElementModificationRequest={handleElementModificationRequest}
-          isEnabled={true}
-          onToggle={() => {}}
-        />
-      )}
-    </div>
-  );
-}
-
-// ============== 子组件 ==============
-
-function StatusIndicator({ status, theme }: { status: PreviewStatus; theme: string }) {
-  const statusConfig = {
-    initializing: { color: 'bg-blue-400 animate-pulse', label: '初始化中', icon: Loader2 },
-    creating_project: { color: 'bg-purple-400 animate-pulse', label: '创建项目', icon: Sparkles },
-    uploading_files: { color: 'bg-yellow-400 animate-pulse', label: '上传文件', icon: Loader2 },
-    deploying: { color: 'bg-orange-400 animate-pulse', label: '部署中', icon: Loader2 },
-    ready: { color: 'bg-green-400', label: '已就绪', icon: CheckCircle2 },
-    error: { color: 'bg-red-400', label: '错误', icon: AlertCircle }
-  };
-
-  const config = statusConfig[status] || statusConfig.initializing;
-  const Icon = config.icon;
-
-  return (
-    <div className="flex items-center gap-2">
-      <div className={cn("w-3 h-3 rounded-full", config.color)} />
-      <Icon className={`w-4 h-4 ${
-        theme === 'light' 
-          ? 'text-gray-600' 
-          : 'text-gray-400'
-      }`} />
-      <span className={`text-sm ${
-        theme === 'light' 
-          ? 'text-gray-600' 
-          : 'text-gray-400'
-      }`}>{config.label}</span>
-    </div>
-  );
-}
-
-function PreviewPlaceholder({ status, theme }: { status: PreviewStatus; theme: string }) {
-  const messages = {
-    initializing: '正在初始化 Vercel 预览...',
-    creating_project: '正在创建 Vercel 项目...',
-    uploading_files: '正在上传项目文件...',
-    deploying: '正在部署到 Vercel...',
-    ready: '预览已就绪...',
-    error: '预览加载失败，请检查代码'
-  };
-
-  return (
-    <div className={`h-full flex items-center justify-center ${
-      theme === 'light' 
-        ? 'bg-gray-50' 
-        : 'bg-gray-800'
-    }`}>
-      <div className="text-center">
-        <Sparkles className={`w-12 h-12 mx-auto mb-4 ${
-          theme === 'light' 
-            ? 'text-gray-400' 
-            : 'text-gray-500'
-        }`} />
-        <p className={`${
-          theme === 'light' 
-            ? 'text-gray-600' 
-            : 'text-gray-400'
-        }`}>{messages[status] || messages.initializing}</p>
-        {status === 'error' && (
-          <p className={`text-sm mt-2 ${
-            theme === 'light' 
-              ? 'text-red-500' 
-              : 'text-red-400'
-          }`}>
-            请检查控制台日志获取详细信息
-          </p>
+            </div>
+          </motion.div>
         )}
-      </div>
+      </AnimatePresence>
     </div>
   );
 }
-
-export default VercelPreview; 

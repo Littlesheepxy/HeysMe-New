@@ -5,6 +5,11 @@ import {
 } from '@/lib/types/streaming';
 import { SessionData } from '@/lib/types/session';
 import { CodeFile } from './types';
+import { getCurrentUser } from '@/lib/supabase-server';
+import { 
+  HTML_CODING_AGENT_PROMPT, 
+  getHtmlCodingPrompt 
+} from '@/lib/prompts/coding/html-agent';
 
 /**
  * Coding Agent - AI驱动的代码生成
@@ -73,12 +78,24 @@ export class CodingAgent extends BaseAgent {
       yield this.createThinkingResponse('🤔 正在分析您的项目需求...', 10);
       await this.delay(1000);
 
-      yield this.createThinkingResponse('🎯 准备生成完整项目结构...', 20);
-      await this.delay(500);
-
-      // 🚀 完整项目生成：使用现有的流式AI生成逻辑
-      console.log('🚀 [初始生成] 调用完整项目生成流程');
-      yield* this.handleStreamingAIGeneration(userInput, sessionData, context);
+      // 步骤2: 检查用户计划，决定生成模式
+      const useHtmlMode = await this.shouldUseHtmlMode(sessionData, context);
+      
+      if (useHtmlMode) {
+        yield this.createThinkingResponse('📄 为您生成轻量级 HTML 页面...', 20);
+        await this.delay(500);
+        
+        // 🌐 HTML 静态页面生成
+        console.log('🌐 [HTML模式] 调用 HTML 静态页面生成流程');
+        yield* this.handleHtmlGeneration(userInput, sessionData, context);
+      } else {
+        yield this.createThinkingResponse('🎯 准备生成完整 Next.js 项目结构...', 20);
+        await this.delay(500);
+        
+        // 🚀 Next.js 项目生成：使用现有的流式AI生成逻辑
+        console.log('🚀 [Next.js模式] 调用完整项目生成流程');
+        yield* this.handleStreamingAIGeneration(userInput, sessionData, context);
+      }
 
     } catch (error) {
       console.error('❌ [初始项目生成错误]:', error);
@@ -144,6 +161,109 @@ export class CodingAgent extends BaseAgent {
             error: error instanceof Error ? error.message : '未知错误',
             retryable: true,
             mode: 'incremental'
+          }
+        }
+      });
+    }
+  }
+
+  /**
+   * 🌐 HTML 静态页面生成处理
+   */
+  private async* handleHtmlGeneration(
+    userInput: string, 
+    sessionData: SessionData,
+    context?: Record<string, any>
+  ): AsyncGenerator<StreamableAgentResponse, void, unknown> {
+    try {
+      yield this.createThinkingResponse('🔍 正在提取页面设计方案...', 30);
+      await this.delay(500);
+
+      // 从会话数据中提取设计方案和用户数据
+      const pageDesign = this.extractDesignData(sessionData);
+      const userData = this.extractUserData(sessionData);
+
+      yield this.createThinkingResponse('🎨 正在生成 HTML 页面...', 50);
+      await this.delay(500);
+
+      // 调用 AI 生成 HTML
+      const htmlPrompt = getHtmlCodingPrompt(pageDesign, userData);
+      const aiResponse = await this.callLLM(htmlPrompt, {
+        maxTokens: 8000,
+        sessionId: sessionData.id
+      });
+
+      yield this.createThinkingResponse('📋 正在解析生成结果...', 80);
+      await this.delay(300);
+
+      // 解析 AI 响应
+      let parsedResponse;
+      try {
+        // 尝试从响应中提取 JSON
+        const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/) || 
+                         aiResponse.match(/\{[\s\S]*\}/);
+        
+        if (jsonMatch) {
+          const jsonContent = jsonMatch[1] || jsonMatch[0];
+          parsedResponse = JSON.parse(jsonContent);
+        } else {
+          // 如果没有找到 JSON，尝试解析整个响应
+          parsedResponse = JSON.parse(aiResponse);
+        }
+      } catch (parseError) {
+        console.error('❌ [HTML生成] JSON解析失败:', parseError);
+        // 生成回退 HTML
+        parsedResponse = this.generateFallbackHtml(userInput, pageDesign, userData);
+      }
+
+      yield this.createThinkingResponse('✅ HTML 页面生成完成！', 100);
+      await this.delay(200);
+
+      // 返回最终结果
+      yield this.createResponse({
+        immediate_display: {
+          reply: '🎉 您的个人主页已生成完毕！这是一个现代化的 HTML 页面，使用了 Tailwind CSS 样式，完全响应式设计。您可以直接部署使用。',
+          agent_name: this.name,
+          timestamp: new Date().toISOString()
+        },
+        system_state: {
+          intent: 'code_generated',
+          done: true,
+          metadata: {
+            project_files: parsedResponse.files || [],
+            project_type: 'html_single_page',
+            tech_stack: parsedResponse.tech_stack || ['HTML5', 'Tailwind CSS'],
+            preview_features: parsedResponse.preview_features || {
+              responsive: true,
+              animations: true
+            },
+            deployment_ready: true,
+            mode: 'html_static'
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ [HTML生成错误]:', error);
+      
+      // 生成回退 HTML
+      const fallbackFiles = this.generateFallbackHtml(userInput);
+      
+      yield this.createResponse({
+        immediate_display: {
+          reply: '⚠️ HTML 生成过程中遇到了一些问题，但我已为您生成了一个基础版本的个人主页。您可以在此基础上进行自定义。',
+          agent_name: this.name,
+          timestamp: new Date().toISOString()
+        },
+        system_state: {
+          intent: 'code_generated',
+          done: true,
+          metadata: {
+            project_files: fallbackFiles,
+            project_type: 'html_single_page',
+            tech_stack: ['HTML5', 'Tailwind CSS'],
+            deployment_ready: true,
+            mode: 'html_static'
           }
         }
       });
@@ -219,9 +339,6 @@ export class CodingAgent extends BaseAgent {
       
       console.log('🤖 [流式AI调用] 步骤3: 提示词构建完成，长度:', prompt.length);
       
-      // 🆕 使用流式AI模型生成
-      const { generateStreamWithModel } = await import('@/lib/ai-models');
-      
       console.log('🌊 [流式生成] 开始流式调用大模型API...');
       
       let chunkCount = 0;
@@ -234,14 +351,30 @@ export class CodingAgent extends BaseAgent {
       let fullAccumulatedText = '';
       let lastSentTextLength = 0;
       
-      // 流式调用AI模型
+      // 🔧 使用BaseAgent的对话历史管理功能
+      const sessionId = (sessionData as any)?.sessionId || `coding-${Date.now()}`;
+      
+      // 🆕 使用callLLM方法以支持对话历史
+      const systemPrompt = '你是一个专业的全栈开发工程师，专门生成高质量的代码项目。请按照用户要求生成完整的项目代码，每个文件都要用markdown代码块格式包装，并标明文件名。';
+      
+      // 🔧 使用流式AI模型生成，但保留对话历史结构
+      
+      // 🆕 构建包含历史的消息数组
+      const messages: Array<{ role: 'system' | 'user' | 'assistant', content: string }> = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt }
+      ];
+      
+      console.log('🔧 [对话历史] 初始化对话历史管理');
+      
+      // 🆕 使用流式AI模型生成
+      const { generateStreamWithModel } = await import('@/lib/ai-models');
+      
+      // 流式调用AI模型 - 使用消息数组格式支持历史
       for await (const chunk of generateStreamWithModel(
         'claude',
         'claude-sonnet-4-20250514',
-        [
-          { role: 'system', content: '你是一个专业的全栈开发工程师，专门生成高质量的代码项目。请按照用户要求生成完整的项目代码，每个文件都要用markdown代码块格式包装，并标明文件名。' },
-          { role: 'user', content: prompt }
-        ],
+        messages,
         { maxTokens: 64000 }
       )) {
         chunkCount++;
@@ -378,7 +511,7 @@ export class CodingAgent extends BaseAgent {
 
       yield this.createResponse({
         immediate_display: {
-          reply: `🎉 AI代码生成完成！已为您创建了一个完整的项目，包含 ${finalFiles.length} 个文件。\n\n📁 生成的文件：\n${finalFiles.map((f: any) => `• ${f.filename} - ${f.description || f.language + '文件'}`).join('\n')}`,
+          reply: `🎉 AI代码生成完成！已为您创建了一个完整的项目，包含 ${finalFiles.length} 个文件。`,
           agent_name: this.name,
           timestamp: new Date().toISOString()
         },
@@ -411,6 +544,9 @@ export class CodingAgent extends BaseAgent {
         }
       });
 
+      // 🔧 保存对话历史到会话数据
+      this.saveConversationHistory(sessionData, prompt, `AI代码生成完成！已为您创建了一个完整的项目，包含 ${finalFiles.length} 个文件。`);
+      
       // 更新会话数据
       this.updateSessionWithProject(sessionData, finalFiles);
       
@@ -488,14 +624,66 @@ export class CodingAgent extends BaseAgent {
 
 请基于用户请求执行适当的操作。`;
 
-      // 🆕 流式调用AI模型，支持工具定义
+      // 🔧 创建工具执行器来处理AI的工具调用
+      const { UnifiedToolExecutor } = await import('./streaming-tool-executor');
+      
+      let modifiedFiles: CodeFile[] = [];
+      let toolExecutor: any;
+      
+      // 创建响应发送器
+      const sendResponse = (response: any) => {
+        // 这里我们需要用不同的方式处理响应
+        console.log('📊 [响应] 工具执行中:', response.immediate_display.reply);
+      };
+
+      // 初始化工具执行器
+      toolExecutor = new UnifiedToolExecutor({
+        mode: 'claude',
+        onTextUpdate: async (text: string, partial: boolean) => {
+          console.log(`📊 [工具执行器] 文本更新: ${text.substring(0, 100)}...`);
+        },
+        onToolExecute: async (toolName: string, params: Record<string, any>) => {
+          console.log(`🔧 [工具调用] 执行: ${toolName}`, params);
+          
+          // 执行实际的文件操作
+          return await this.executeIncrementalTool(toolName, params, existingFiles, modifiedFiles);
+        },
+        onToolResult: async (result: string) => {
+          console.log(`✅ [工具结果] ${result}`);
+        }
+      });
+
+      // 🔧 获取会话历史以保持对话连续性
+      const sessionId = (sessionData as any)?.sessionId || `incremental-${Date.now()}`;
+      
+      // 🆕 构建包含历史的消息数组
+      let messages: Array<{ role: 'system' | 'user' | 'assistant', content: string }> = [];
+      
+      // 🔧 从会话数据中获取对话历史
+      const conversationHistory = (sessionData?.metadata as any)?.codingHistory || [];
+      console.log(`🔧 [增量历史] 找到 ${conversationHistory.length} 条历史对话`);
+      
+      // 添加系统提示词
+      messages.push({ role: 'system', content: systemPrompt });
+      
+      // 🆕 添加历史对话（最近的5轮对话以保持上下文）
+      const recentHistory = conversationHistory.slice(-10); // 保留最近5轮对话（用户+助手=10条消息）
+      messages.push(...recentHistory);
+      
+      // 添加当前用户请求
+      messages.push({ role: 'user', content: incrementalPrompt });
+      
+      console.log(`💬 [增量对话] 构建消息数组，总消息数: ${messages.length}`);
+      messages.forEach((msg, index) => {
+        const roleIcon = msg.role === 'user' ? '👤' : msg.role === 'assistant' ? '🤖' : '📝';
+        console.log(`  ${roleIcon} [${index}] ${msg.content.substring(0, 100)}...`);
+      });
+
+      // 🆕 流式调用AI模型，支持工具定义和对话历史
       for await (const chunk of generateStreamWithModel(
         'claude',
         'claude-sonnet-4-20250514',
-        [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: incrementalPrompt }
-        ],
+        messages,
         { 
           maxTokens: 8000,
           // 🆕 添加工具定义支持
@@ -507,79 +695,18 @@ export class CodingAgent extends BaseAgent {
         
         console.log(`📊 [增量流式] 第${chunkCount}个块，新增长度: ${chunk.length}`);
         
-        // 🔧 关键修复：对增量模式也进行文本和代码分离
-        const separated = this.separateTextAndCode(accumulatedResponse);
-        const pureText = separated.text;
-        const extractedFiles = separated.codeFiles;
-        
-        // 🔧 计算新增的纯文本内容（增量发送）
-        const newTextToSend = pureText.substring(lastSentTextLength);
-        lastSentTextLength = pureText.length;
-        
-        console.log(`📊 [增量内容分离] 纯文本长度: ${pureText.length}, 新增文本: ${newTextToSend.length}, 提取文件: ${extractedFiles.length}`);
-        console.log(`📝 [增量文本预览] "${newTextToSend.substring(0, 100)}${newTextToSend.length > 100 ? '...' : ''}"`); // 🔧 只输出分离后的文本预览
-        
-        // 🔧 详细检查：如果新增文本包含代码块标记，输出警告
-        if (newTextToSend.includes('```') || newTextToSend.includes('typescript:') || newTextToSend.includes('json:')) {
-          console.error('❌ [增量分离失败] 新增文本仍包含代码块标记！');
-          console.error('❌ [增量分离失败] 新增文本内容:', newTextToSend);
-        }
-        
-        // 🔧 关键修复：只发送分离后的纯文本内容到对话框
-        yield this.createResponse({
-          immediate_display: {
-            reply: newTextToSend, // 🔧 只发送纯文本，不包含代码块
-            agent_name: this.name,
-            timestamp: new Date().toISOString()
-          },
-          system_state: {
-            intent: 'incremental_editing',
-            done: false,
-            progress: Math.min(85, 20 + Math.floor(chunkCount / 3) * 10),
-            current_stage: `正在处理增量修改... (${chunkCount} 块)`,
-            metadata: {
-              streaming: true,
-              message_id: messageId,
-              chunk_count: chunkCount,
-              is_update: chunkCount > 1,
-              latest_chunk: newTextToSend, // 🔧 关键修复：传递分离后的纯文本，而不是原始chunk
-              mode: 'incremental',
-              // 🆕 明确标识为增量内容
-              content_mode: 'incremental',
-              stream_type: chunkCount === 1 ? 'start' : 'delta',
-              agent_type: 'CodingAgent',
-              // 🔧 保持现有文件信息
-              hasCodeFiles: existingFiles.length > 0 || extractedFiles.length > 0,
-              codeFilesReady: existingFiles.length > 0 || extractedFiles.length > 0,
-              projectFiles: existingFiles.length > 0 ? existingFiles : extractedFiles.map(f => ({
-                filename: f.filename,
-                content: f.content,
-                description: f.description || `增量生成的${f.language}文件`,
-                language: f.language,
-                type: 'file'
-              })),
-              totalFiles: existingFiles.length > 0 ? existingFiles.length : extractedFiles.length,
-              // 🆕 增量编辑特有信息
-              userRequest: userInput,
-              projectContext: projectContext,
-              accumulatedResponse: pureText.substring(0, 200) + '...', // 🔧 使用分离后的纯文本
-              // 🆕 工具调用支持
-              toolsAvailable: INCREMENTAL_EDIT_TOOLS.map(t => t.name),
-              supportsToolCalls: true,
-              // 🆕 新文件检测
-              hasNewFiles: extractedFiles.length > 0,
-              newFilesCount: extractedFiles.length
-            }
-          }
-        });
+        // 🔧 关键修复：使用工具执行器处理工具调用
+        await toolExecutor.processStreamChunk(accumulatedResponse);
       }
       
       console.log('📊 [增量AI调用] 流式修改完成，总块数:', chunkCount);
       
-      // 🔧 发送完成响应
+      // 🔧 发送完成响应 - 包含修改后的文件
+      const finalProjectFiles = modifiedFiles.length > 0 ? modifiedFiles : existingFiles;
+      
       yield this.createResponse({
         immediate_display: {
-          reply: '\n\n---\n\n✅ **增量修改处理完成**\n\n如果您需要进一步的修改，请告诉我具体的需求。', 
+          reply: `✅ **增量修改完成**\n\n${modifiedFiles.length > 0 ? `已修改 ${modifiedFiles.length} 个文件：\n${modifiedFiles.map(f => `• ${f.filename}`).join('\n')}` : '已完成分析和处理。'}\n\n如需进一步修改，请告诉我具体需求。`, 
           agent_name: this.name,
           timestamp: new Date().toISOString()
         },
@@ -594,19 +721,23 @@ export class CodingAgent extends BaseAgent {
             is_final: true,
             mode: 'incremental',
             totalChunks: chunkCount,
-            // 🔧 保持现有文件信息
-            hasCodeFiles: existingFiles.length > 0,
-            codeFilesReady: existingFiles.length > 0,
-            projectFiles: existingFiles,
-            totalFiles: existingFiles.length,
+            // 🔧 返回修改后的文件信息
+            hasCodeFiles: finalProjectFiles.length > 0,
+            codeFilesReady: finalProjectFiles.length > 0,
+            projectFiles: finalProjectFiles,
+            totalFiles: finalProjectFiles.length,
             incrementalComplete: true,
-            finalResponse: accumulatedResponse.substring(0, 500) + '...',
             // 🆕 工具调用结果
-            toolsUsed: [], // 这里可以记录实际使用的工具
-            toolCallsSupported: true
+            modifiedFiles: modifiedFiles,
+            modifiedFilesCount: modifiedFiles.length,
+            toolCallsExecuted: modifiedFiles.length > 0,
+            incrementalSuccess: true
           }
         }
       });
+      
+      // 🔧 保存增量对话历史
+      this.saveConversationHistory(sessionData, userInput, `增量修改完成${modifiedFiles.length > 0 ? `，已修改 ${modifiedFiles.length} 个文件` : ''}`);
       
     } catch (error) {
       console.error('❌ [增量AI生成错误]:', error);
@@ -1082,6 +1213,172 @@ export class CodingAgent extends BaseAgent {
   }
 
   /**
+   * 🆕 从会话数据中提取设计方案
+   */
+  private extractDesignData(sessionData: SessionData): any {
+    try {
+      // 从collected_data中获取设计数据
+      const collectedData = sessionData.collectedData as any;
+      if (collectedData?.prompt_output || collectedData?.page_design) {
+        return collectedData.prompt_output || collectedData.page_design;
+      }
+      
+      // 备用：从metadata中获取
+      if ((sessionData.metadata as any)?.design_data) {
+        return (sessionData.metadata as any).design_data;
+      }
+      
+      // 默认设计数据
+      return {
+        design_strategy: {
+          visual_direction: 'modern_minimal',
+          color_scheme: 'warm_neutral',
+          typography_choice: 'sans_serif'
+        },
+        layout_concept: {
+          structure: ['hero', 'about', 'skills', 'contact']
+        }
+      };
+    } catch (error) {
+      console.error('❌ [数据提取] 设计数据提取失败:', error);
+      return {};
+    }
+  }
+
+  /**
+   * 🆕 从会话数据中提取用户数据
+   */
+  private extractUserData(sessionData: SessionData): any {
+    try {
+      // 从collected_data中获取用户数据
+      const collectedData = sessionData.collectedData as any;
+      if (collectedData?.info_collection || collectedData?.user_data) {
+        return collectedData.info_collection || collectedData.user_data;
+      }
+      
+      // 备用：构造基础用户数据
+      return {
+        name: '用户',
+        title: '专业人士',
+        skills: ['技能展示'],
+        email: 'contact@example.com'
+      };
+    } catch (error) {
+      console.error('❌ [数据提取] 用户数据提取失败:', error);
+      return {};
+    }
+  }
+
+  /**
+   * 🆕 生成回退 HTML 文件
+   */
+  private generateFallbackHtml(userInput: string, pageDesign?: any, userData?: any): CodeFile[] {
+    console.log('🤖 [回退生成] 使用回退 HTML 生成器...');
+    
+    const safeUserData = userData || { name: '个人主页', title: '欢迎访问' };
+    const userName = safeUserData.name || '个人主页';
+    
+    const htmlContent = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${userName} - 个人主页</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+    <!-- Hero Section -->
+    <section class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100" data-aos="fade-in">
+        <div class="text-center px-4">
+            <h1 class="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                ${userName}
+            </h1>
+            <p class="text-xl md:text-2xl text-gray-600 mb-8 max-w-2xl mx-auto">
+                ${safeUserData.title || '欢迎来到我的个人主页'}
+            </p>
+            <div class="space-x-4">
+                <button class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-full font-medium transition-colors duration-300">
+                    了解更多
+                </button>
+                <button class="border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-8 py-3 rounded-full font-medium transition-all duration-300">
+                    联系我
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section class="py-20 bg-white" data-aos="fade-up">
+        <div class="container mx-auto px-4">
+            <div class="max-w-4xl mx-auto text-center">
+                <h2 class="text-3xl md:text-4xl font-bold mb-8">关于我</h2>
+                <p class="text-lg text-gray-600 leading-relaxed">
+                    欢迎访问我的个人主页。这里展示了我的个人信息、技能和项目经验。
+                    感谢您的访问，期待与您的交流合作。
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Skills Section -->
+    <section class="py-20 bg-gray-50" data-aos="fade-up">
+        <div class="container mx-auto px-4">
+            <div class="max-w-4xl mx-auto text-center">
+                <h2 class="text-3xl md:text-4xl font-bold mb-12">技能专长</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    ${(safeUserData.skills || ['Web开发', '用户体验', '项目管理', '团队协作']).map((skill: string) => 
+                        `<div class="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300">
+                            <div class="text-blue-600 font-medium">${skill}</div>
+                        </div>`
+                    ).join('')}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section class="py-20 bg-white" data-aos="fade-up">
+        <div class="container mx-auto px-4">
+            <div class="max-w-2xl mx-auto text-center">
+                <h2 class="text-3xl md:text-4xl font-bold mb-8">联系方式</h2>
+                <p class="text-lg text-gray-600 mb-8">
+                    欢迎与我取得联系，期待我们的合作交流。
+                </p>
+                <a href="mailto:${safeUserData.email || 'contact@example.com'}" 
+                   class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-full font-medium transition-colors duration-300">
+                    发送邮件
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        AOS.init({
+            duration: 800,
+            easing: 'ease-in-out',
+            once: true
+        });
+    </script>
+</body>
+</html>`;
+
+    return [{
+      filename: 'index.html',
+      content: htmlContent,
+      description: '个人主页 HTML 文件 - 基础版本',
+      language: 'html',
+      type: 'page'
+    }];
+  }
+
+  /**
    * 生成回退文件
    */
   private generateFallbackFiles(userInput: string): CodeFile[] {
@@ -1190,7 +1487,58 @@ module.exports = {
   }
 
   /**
-   * 判断是否为专业模式
+   * 🆕 检查用户计划类型
+   */
+  private async getUserPlan(sessionData: SessionData): Promise<'free' | 'pro'> {
+    try {
+      const user = await getCurrentUser();
+      if (user?.plan) {
+        console.log('🔍 [用户计划] 检测到用户计划:', user.plan);
+        return user.plan as 'free' | 'pro';
+      }
+      
+      // 备用：从会话数据中获取
+      if (sessionData?.userId) {
+        // 如果有其他获取用户信息的方法，可以在这里添加
+        console.log('⚠️ [用户计划] 无法获取用户信息，默认为免费计划');
+      }
+      
+      return 'free'; // 默认为免费计划
+    } catch (error) {
+      console.error('❌ [用户计划] 获取用户计划失败:', error);
+      return 'free'; // 出错时默认为免费计划
+    }
+  }
+
+  /**
+   * 🆕 判断是否应该使用 HTML 模式
+   */
+  private async shouldUseHtmlMode(sessionData: SessionData, context?: Record<string, any>): Promise<boolean> {
+    // 1. 检查强制模式设置
+    if (context?.forceNextjsMode || context?.forceReactMode) {
+      console.log('🎯 [模式判断] 强制使用 Next.js 模式');
+      return false;
+    }
+    
+    if (context?.forceHtmlMode || context?.forceStaticMode) {
+      console.log('🎯 [模式判断] 强制使用 HTML 模式');
+      return true;
+    }
+    
+    // 2. 检查用户计划
+    const userPlan = await this.getUserPlan(sessionData);
+    
+    if (userPlan === 'free') {
+      console.log('🎯 [模式判断] 免费用户 - 使用 HTML 模式');
+      return true;
+    } else {
+      console.log('🎯 [模式判断] 高级用户 - 使用 Next.js 模式');
+      return false;
+    }
+  }
+
+  /**
+   * 判断是否为专业模式 (保留原有逻辑用于向后兼容)
    */
   private isExpertMode(sessionData?: SessionData, context?: Record<string, any>): boolean {
     // 1. 优先检查context中的强制模式标记
@@ -1270,6 +1618,57 @@ module.exports = {
   }
 
   /**
+   * 🔧 保存对话历史到会话数据
+   */
+  private saveConversationHistory(sessionData: SessionData, userInput: string, assistantResponse: string): void {
+    if (!sessionData.metadata) {
+      sessionData.metadata = {
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastActive: new Date(),
+        version: '1.0',
+        progress: {
+          currentStage: 'code_generation',
+          completedStages: [],
+          totalStages: 1,
+          percentage: 100
+        },
+        metrics: {
+          totalTime: 0,
+          userInteractions: 0,
+          agentTransitions: 0,
+          errorsEncountered: 0
+        },
+        settings: {
+          autoSave: true,
+          reminderEnabled: true,
+          privacyLevel: 'private'
+        }
+      };
+    }
+    
+    // 初始化对话历史
+    if (!(sessionData.metadata as any).codingHistory) {
+      (sessionData.metadata as any).codingHistory = [];
+    }
+    
+    const history = (sessionData.metadata as any).codingHistory;
+    
+    // 添加用户输入和AI响应
+    history.push(
+      { role: 'user', content: userInput },
+      { role: 'assistant', content: assistantResponse }
+    );
+    
+    // 🔧 保持历史长度在合理范围内（最多保留20轮对话，即40条消息）
+    if (history.length > 40) {
+      (sessionData.metadata as any).codingHistory = history.slice(-40);
+    }
+    
+    console.log(`💾 [对话历史] 已保存到会话数据，当前历史长度: ${(sessionData.metadata as any).codingHistory.length}`);
+  }
+
+  /**
    * 更新会话数据
    */
   private updateSessionWithProject(sessionData: SessionData, files: CodeFile[]): void {
@@ -1279,7 +1678,199 @@ module.exports = {
         generatedAt: new Date().toISOString(),
         totalFiles: files.length
       };
+      
+      // 🆕 同时保存到projectFiles字段，用于增量编辑
+      (sessionData.metadata as any).projectFiles = files;
     }
+  }
+
+  /**
+   * 🔧 执行增量工具调用
+   */
+  private async executeIncrementalTool(
+    toolName: string, 
+    params: Record<string, any>, 
+    existingFiles: CodeFile[], 
+    modifiedFiles: CodeFile[]
+  ): Promise<string> {
+    console.log(`🔧 [增量工具] 执行 ${toolName}`, params);
+    
+    try {
+      switch (toolName) {
+        case 'read_file':
+          return await this.handleReadFile(params, existingFiles);
+          
+        case 'write_file':
+          return await this.handleWriteFile(params, existingFiles, modifiedFiles);
+          
+        case 'edit_file':
+          return await this.handleEditFile(params, existingFiles, modifiedFiles);
+          
+        case 'append_to_file':
+          return await this.handleAppendToFile(params, existingFiles, modifiedFiles);
+          
+        case 'list_files':
+          return await this.handleListFiles(existingFiles);
+          
+        default:
+          throw new Error(`不支持的工具: ${toolName}`);
+      }
+    } catch (error) {
+      console.error(`❌ [工具执行失败] ${toolName}:`, error);
+      return `工具 ${toolName} 执行失败: ${error instanceof Error ? error.message : '未知错误'}`;
+    }
+  }
+  
+  /**
+   * 处理文件读取
+   */
+  private async handleReadFile(params: any, existingFiles: CodeFile[]): Promise<string> {
+    const filePath = params.file_path;
+    const file = existingFiles.find(f => f.filename === filePath);
+    
+    if (!file) {
+      return `文件 ${filePath} 不存在`;
+    }
+    
+    const startLine = params.start_line || 1;
+    const endLine = params.end_line;
+    
+    if (startLine > 1 || endLine) {
+      const lines = file.content.split('\n');
+      const selectedLines = lines.slice(startLine - 1, endLine);
+      return `文件 ${filePath} 的内容 (行 ${startLine}${endLine ? `-${endLine}` : '+'}): \n${selectedLines.join('\n')}`;
+    }
+    
+    return `文件 ${filePath} 的完整内容:\n${file.content}`;
+  }
+  
+  /**
+   * 处理文件写入
+   */
+  private async handleWriteFile(
+    params: any, 
+    existingFiles: CodeFile[], 
+    modifiedFiles: CodeFile[]
+  ): Promise<string> {
+    const filePath = params.file_path;
+    const content = params.content;
+    
+    // 检查是否是现有文件
+    const existingFileIndex = existingFiles.findIndex(f => f.filename === filePath);
+    const modifiedFileIndex = modifiedFiles.findIndex(f => f.filename === filePath);
+    
+    const newFile: CodeFile = {
+      filename: filePath,
+      content: content,
+      language: this.getLanguageFromExtension(filePath),
+      description: `增量修改的文件`
+    };
+    
+    if (modifiedFileIndex >= 0) {
+      // 更新已修改的文件
+      modifiedFiles[modifiedFileIndex] = newFile;
+    } else {
+      // 添加新的修改文件
+      modifiedFiles.push(newFile);
+    }
+    
+    if (existingFileIndex >= 0) {
+      return `文件 ${filePath} 已更新，内容长度: ${content.length} 字符`;
+    } else {
+      return `新文件 ${filePath} 已创建，内容长度: ${content.length} 字符`;
+    }
+  }
+  
+  /**
+   * 处理文件编辑
+   */
+  private async handleEditFile(
+    params: any, 
+    existingFiles: CodeFile[], 
+    modifiedFiles: CodeFile[]
+  ): Promise<string> {
+    const filePath = params.file_path;
+    const oldContent = params.old_content;
+    const newContent = params.new_content;
+    
+    // 找到源文件
+    let sourceFile = modifiedFiles.find(f => f.filename === filePath);
+    if (!sourceFile) {
+      sourceFile = existingFiles.find(f => f.filename === filePath);
+    }
+    
+    if (!sourceFile) {
+      return `文件 ${filePath} 不存在，无法编辑`;
+    }
+    
+    // 执行内容替换
+    const updatedContent = sourceFile.content.replace(oldContent, newContent);
+    
+    if (updatedContent === sourceFile.content) {
+      return `在文件 ${filePath} 中未找到要替换的内容`;
+    }
+    
+    // 更新文件
+    const updatedFile: CodeFile = {
+      ...sourceFile,
+      content: updatedContent,
+      description: `增量编辑的文件`
+    };
+    
+    const modifiedIndex = modifiedFiles.findIndex(f => f.filename === filePath);
+    if (modifiedIndex >= 0) {
+      modifiedFiles[modifiedIndex] = updatedFile;
+    } else {
+      modifiedFiles.push(updatedFile);
+    }
+    
+    return `文件 ${filePath} 已成功编辑，替换了 ${oldContent.length} 字符的内容`;
+  }
+  
+  /**
+   * 处理文件追加
+   */
+  private async handleAppendToFile(
+    params: any, 
+    existingFiles: CodeFile[], 
+    modifiedFiles: CodeFile[]
+  ): Promise<string> {
+    const filePath = params.file_path;
+    const content = params.content;
+    
+    // 找到源文件
+    let sourceFile = modifiedFiles.find(f => f.filename === filePath);
+    if (!sourceFile) {
+      sourceFile = existingFiles.find(f => f.filename === filePath);
+    }
+    
+    if (!sourceFile) {
+      return `文件 ${filePath} 不存在，无法追加内容`;
+    }
+    
+    // 追加内容
+    const updatedFile: CodeFile = {
+      ...sourceFile,
+      content: sourceFile.content + '\n' + content,
+      description: `增量追加的文件`
+    };
+    
+    const modifiedIndex = modifiedFiles.findIndex(f => f.filename === filePath);
+    if (modifiedIndex >= 0) {
+      modifiedFiles[modifiedIndex] = updatedFile;
+    } else {
+      modifiedFiles.push(updatedFile);
+    }
+    
+    return `已向文件 ${filePath} 追加 ${content.length} 字符的内容`;
+  }
+  
+  /**
+   * 处理文件列表
+   */
+  private async handleListFiles(existingFiles: CodeFile[]): Promise<string> {
+    const fileList = existingFiles.map(f => `${f.filename} (${f.language})`).join('\n');
+    return `当前项目包含 ${existingFiles.length} 个文件:\n${fileList}`;
   }
 
   /**

@@ -75,9 +75,6 @@ export function ConversationItem({
   // 获取显示标题
   const displayTitle = session.title || generatedTitle || `会话 ${session.id.slice(-6)}`;
   
-  // 消息数量
-  const messageCount = session.conversationHistory?.length || 0;
-  
   // 是否有自定义标题
   const hasCustomTitle = Boolean(session.title);
 
@@ -159,6 +156,8 @@ export function ConversationItem({
     }
   }, [isEditing]);
 
+
+
   // 折叠状态下的简化显示
   if (isCollapsed) {
     return (
@@ -200,7 +199,7 @@ export function ConversationItem({
       className={`group relative ${className}`}
     >
       <div
-        className={`w-full flex items-center justify-between gap-2 h-10 px-3 rounded-[10px] font-medium transition-all duration-200 cursor-pointer ${
+        className={`w-full flex items-center gap-2 h-10 px-3 rounded-[10px] font-medium transition-all duration-200 cursor-pointer ${
           isActive
             ? theme === "light"
               ? "bg-emerald-50 text-emerald-700 shadow-sm"
@@ -212,11 +211,10 @@ export function ConversationItem({
         onClick={handleClick}
       >
         {/* 会话图标 */}
-        <div className="flex items-center gap-2 flex-1 min-w-0">
-          <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" />
-          
-          {/* 标题显示/编辑 */}
-          <div className="flex-1 min-w-0">
+        <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" />
+        
+        {/* 标题显示/编辑 - 使用flex-1但确保不会挤压右侧按钮 */}
+        <div className="flex-1 min-w-0 mr-2">
             <AnimatePresence mode="wait">
               {isEditing ? (
                 <motion.div
@@ -232,13 +230,13 @@ export function ConversationItem({
                     onChange={(e) => setEditingTitle(e.target.value)}
                     onKeyDown={handleKeyDown}
                     onBlur={saveEdit}
-                    className="h-6 px-2 text-xs border-0 bg-white/80 focus:bg-white"
+                    className="flex-1 h-6 px-2 text-xs border-0 bg-white/80 focus:bg-white min-w-0"
                     placeholder="输入标题..."
                   />
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-6 w-6 p-0"
+                    className="h-6 w-6 p-0 flex-shrink-0"
                     onClick={saveEdit}
                   >
                     <Check className="w-3 h-3" />
@@ -246,7 +244,7 @@ export function ConversationItem({
                   <Button
                     size="sm"
                     variant="ghost"
-                    className="h-6 w-6 p-0"
+                    className="h-6 w-6 p-0 flex-shrink-0"
                     onClick={cancelEdit}
                   >
                     <X className="w-3 h-3" />
@@ -260,9 +258,14 @@ export function ConversationItem({
                   exit={{ opacity: 0 }}
                   className="flex items-center gap-1 min-w-0"
                 >
-                  <span className="text-sm truncate flex-1">
-                    {displayTitle}
-                  </span>
+                  <div 
+                    className="text-sm flex-1 min-w-0"
+                    title={displayTitle}
+                  >
+                    <span className="block truncate">
+                      {displayTitle}
+                    </span>
+                  </div>
                   
                   {/* 标题状态指示器 */}
                   {isGenerating && (
@@ -281,17 +284,16 @@ export function ConversationItem({
                 </motion.div>
               )}
             </AnimatePresence>
-          </div>
         </div>
 
-        {/* 操作菜单 */}
+        {/* 操作菜单 - 确保始终可见 */}
         {!isEditing && (
           <DropdownMenu open={isMenuOpen} onOpenChange={setIsMenuOpen}>
             <DropdownMenuTrigger asChild>
               <Button
                 variant="ghost"
                 size="sm"
-                className={`opacity-0 group-hover:opacity-100 w-6 h-6 p-0 rounded-full transition-all duration-200 ${
+                className={`opacity-0 group-hover:opacity-100 w-6 h-6 p-0 rounded-full transition-all duration-200 flex-shrink-0 ml-1 ${
                   theme === "light"
                     ? "hover:bg-emerald-100 text-emerald-500 hover:text-emerald-700"
                     : "hover:bg-emerald-800/50 text-emerald-400 hover:text-emerald-300"
@@ -346,14 +348,7 @@ export function ConversationItem({
         )}
       </div>
       
-      {/* 会话信息提示 */}
-      {messageCount > 0 && (
-        <div className={`text-xs px-3 mt-1 ${
-          theme === "light" ? "text-gray-400" : "text-gray-500"
-        }`}>
-          {messageCount} 条消息
-        </div>
-      )}
+
     </motion.div>
   );
 } 

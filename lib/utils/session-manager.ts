@@ -437,6 +437,7 @@ export class SessionManager {
   private createSessionData(sessionId: string, initialData?: Partial<SessionData>): SessionData {
     return {
       id: sessionId,
+      userId: initialData?.userId, // 🔧 保留传入的用户 ID
       status: 'active',
       userIntent: initialData?.userIntent || this.getDefaultUserIntent(),
       personalization: initialData?.personalization || this.getDefaultPersonalization(),

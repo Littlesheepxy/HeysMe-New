@@ -121,7 +121,12 @@ export class SessionStorageManager {
       // 🔧 修复：确保用户记录存在
       await this.ensureUserExists(userId);
 
-      // 保存会话主记录
+      // 保存会话主记录（包含标题）
+      const sessionMetadata = {
+        ...sessionData.metadata,
+        title: sessionData.title, // 将标题存储在metadata中
+      };
+
       const { error: sessionError } = await this.supabase
         .from('chat_sessions')
         .upsert({
@@ -131,7 +136,7 @@ export class SessionStorageManager {
           user_intent: sessionData.userIntent,
           personalization: sessionData.personalization,
           collected_data: sessionData.collectedData,
-          metadata: sessionData.metadata,
+          metadata: sessionMetadata,
           created_at: this.ensureDate(sessionData.metadata.createdAt).toISOString(),
           updated_at: this.ensureDate(sessionData.metadata.updatedAt).toISOString(),
           last_active: this.ensureDate(sessionData.metadata.lastActive).toISOString(),
@@ -411,21 +416,40 @@ export class SessionStorageManager {
    * 将Supabase数据转换为SessionData格式
    */
   private convertFromSupabase(supabaseSession: any): SessionData {
+    const conversationHistory = (supabaseSession.conversation_entries || []).map((entry: any) => ({
+      id: entry.id,
+      timestamp: new Date(entry.timestamp),
+      type: entry.type,
+      agent: entry.agent,
+      content: entry.content,
+      metadata: entry.metadata || {},
+      userInteraction: entry.user_interaction || undefined,
+    }));
+
+    // 🎯 生成会话标题：优先使用存储的标题，否则根据第一条用户消息生成
+    let title = supabaseSession.title || supabaseSession.metadata?.title;
+    
+    if (!title && conversationHistory.length > 0) {
+      // 查找第一条用户消息
+      const firstUserMessage = conversationHistory.find((entry: any) => entry.type === 'user_message');
+      if (firstUserMessage && firstUserMessage.content) {
+        // 生成简短标题（前20个字符）
+        title = this.generateTitleFromContent(firstUserMessage.content);
+      } else {
+        title = '新对话';
+      }
+    } else if (!title) {
+      title = '新对话';
+    }
+
     return {
       id: supabaseSession.id,
+      title, // 🎯 添加标题字段
       status: supabaseSession.status,
       userIntent: supabaseSession.user_intent || {},
       personalization: supabaseSession.personalization || {},
       collectedData: supabaseSession.collected_data || {},
-      conversationHistory: (supabaseSession.conversation_entries || []).map((entry: any) => ({
-        id: entry.id,
-        timestamp: new Date(entry.timestamp),
-        type: entry.type,
-        agent: entry.agent,
-        content: entry.content,
-        metadata: entry.metadata || {},
-        userInteraction: entry.user_interaction || undefined,
-      })),
+      conversationHistory,
       agentFlow: (supabaseSession.agent_flows || []).map((flow: any) => ({
         id: flow.id,
         agentName: flow.agent_name,
@@ -442,6 +466,34 @@ export class SessionStorageManager {
         lastActive: new Date(supabaseSession.last_active),
       },
     };
+  }
+
+  /**
+   * 🎯 从内容生成标题
+   * @param content 消息内容
+   * @returns 生成的标题
+   */
+  private generateTitleFromContent(content: string): string {
+    // 清理内容
+    const cleanContent = content.replace(/\n+/g, ' ').trim();
+    
+    // 如果内容太短，直接使用
+    if (cleanContent.length <= 20) {
+      return cleanContent;
+    }
+    
+    // 截取前20个字符，确保不会截断单词
+    let title = cleanContent.substring(0, 20);
+    
+    // 如果最后一个字符不是空格，找到最后一个空格
+    if (cleanContent[20] && cleanContent[20] !== ' ') {
+      const lastSpaceIndex = title.lastIndexOf(' ');
+      if (lastSpaceIndex > 10) { // 确保标题不会太短
+        title = title.substring(0, lastSpaceIndex);
+      }
+    }
+    
+    return title + '...';
   }
 }
 

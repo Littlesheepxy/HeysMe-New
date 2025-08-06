@@ -1,16 +1,28 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@clerk/nextjs/server';
 import { agentOrchestrator } from '@/lib/utils/agent-orchestrator';
 
 // 创建新会话
 export async function POST(req: NextRequest) {
   try {
+    // 🔧 修复：验证用户认证状态
+    const { userId } = await auth();
+    
+    if (!userId) {
+      console.log('⚠️ [会话API] 用户未登录，拒绝创建会话');
+      return NextResponse.json(
+        { error: 'User not authenticated' },
+        { status: 401 }
+      );
+    }
+
     const body = await req.json().catch(() => ({}));
     const { initialInput } = body;
 
-    // 创建新会话（现在是异步的）
-    const sessionId = await agentOrchestrator.createSession(initialInput);
+    // 🔧 修复：创建新会话时传递用户 ID
+    const sessionId = await agentOrchestrator.createSession(initialInput, { userId });
 
-    console.log(`✅ [会话API] 创建新会话: ${sessionId}`);
+    console.log(`✅ [会话API] 用户 ${userId} 创建新会话: ${sessionId}`);
 
     return NextResponse.json({
       success: true,

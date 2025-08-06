@@ -1,14 +1,16 @@
 "use client"
 
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 // 移除对agentOrchestrator的导入，客户端应该通过API调用后端
 // import { agentOrchestrator } from "@/lib/utils/agent-orchestrator"
 import { SessionData } from "@/lib/types/session"
 import { StreamableAgentResponse } from "@/lib/types/streaming"
 import { DEFAULT_MODEL } from "@/types/models"
 import { useTitleGeneration } from "./use-title-generation"
+import { useAuth } from "@clerk/nextjs"
 
 export function useChatSystemV2() {
+  const { isLoaded, isSignedIn, userId, getToken } = useAuth();
   const [sessions, setSessions] = useState<SessionData[]>([])
   const [currentSession, setCurrentSession] = useState<SessionData | null>(null)
   const [isGenerating, setIsGenerating] = useState(false)
@@ -17,6 +19,7 @@ export function useChatSystemV2() {
   const [streamingResponses, setStreamingResponses] = useState<StreamableAgentResponse[]>([])
   const [currentError, setCurrentError] = useState<string | null>(null)
   const [retryCount, setRetryCount] = useState(0)
+  const [isLoadingSessions, setIsLoadingSessions] = useState(false)
 
   // 🆕 集成标题生成功能
   const titleGeneration = useTitleGeneration({
@@ -42,7 +45,123 @@ export function useChatSystemV2() {
     }
   })
 
+  // 🆕 加载已存在的会话
+  const loadExistingSessions = useCallback(async () => {
+    // 🔧 检查认证状态
+    if (!isLoaded) {
+      console.log('🔄 [会话加载] Clerk 还未加载完成，等待...');
+      return;
+    }
+    
+    if (!isSignedIn || !userId) {
+      console.log('⚠️ [会话加载] 用户未登录，跳过会话加载');
+      return;
+    }
+
+    try {
+      setIsLoadingSessions(true);
+      console.log(`🔄 [会话加载] 开始自动加载历史会话... 用户ID: ${userId}`);
+
+      // 🔧 获取Clerk认证token
+      let token = null;
+      try {
+        token = await getToken();
+        console.log(`🔑 [会话加载] 成功获取认证token: ${token ? 'YES' : 'NO'}`);
+      } catch (error) {
+        console.warn('⚠️ [会话加载] 获取认证token失败:', error);
+      }
+
+      const headers: Record<string, string> = {
+        'Content-Type': 'application/json',
+      };
+
+      // 🔧 如果有token，添加到请求头
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`;
+      }
+
+      const response = await fetch('/api/sessions', {
+        method: 'GET',
+        headers,
+        credentials: 'include', // 🔧 包含cookies
+      });
+
+      if (!response.ok) {
+        console.warn('⚠️ [会话加载] API调用失败，可能用户未登录或服务器错误');
+        return;
+      }
+
+      const result = await response.json();
+      
+      if (result.success && result.sessions) {
+        console.log(`✅ [会话加载] 自动加载 ${result.sessions.length} 个历史会话`);
+        setSessions(result.sessions);
+        
+        // 🎯 自动恢复最近的会话（不管是否有对话历史）
+        setCurrentSession(currentSessionState => {
+          if (!currentSessionState && result.sessions.length > 0) {
+            const mostRecentSession = result.sessions[0]; // 已按时间排序
+            console.log(`🔄 [自动恢复] 恢复最近的会话: ${mostRecentSession.id}, 阶段: ${mostRecentSession.metadata?.progress?.currentStage}`);
+            return mostRecentSession;
+          }
+          return currentSessionState;
+        });
+      } else {
+        console.log('📭 [会话加载] 暂无历史会话');
+      }
+
+    } catch (error) {
+      console.warn('⚠️ [会话加载] 自动加载失败:', error);
+      // 不抛出错误，因为这不应该阻止用户使用应用
+    } finally {
+      setIsLoadingSessions(false);
+    }
+  }, [isLoaded, isSignedIn, userId, getToken]); // 🔧 依赖认证状态
+
+  // 🆕 在组件挂载时自动加载会话
+  useEffect(() => {
+    loadExistingSessions();
+  }, [loadExistingSessions]);
+
+  // 🆕 同步会话到后端数据库
+  const syncSessionToBackend = useCallback(async (session: SessionData) => {
+    try {
+      console.log(`🔄 [会话同步] 同步会话到数据库: ${session.id}, 消息数: ${session.conversationHistory.length}`);
+      
+      const syncResponse = await fetch('/api/session/sync', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sessionId: session.id,
+          sessionData: session
+        })
+      });
+      
+      if (syncResponse.ok) {
+        console.log(`✅ [会话同步] 会话 ${session.id} 已同步到数据库`);
+      } else {
+        console.warn(`⚠️ [会话同步] 同步失败: ${syncResponse.status}`);
+      }
+    } catch (syncError) {
+      console.warn(`⚠️ [会话同步] 同步请求失败:`, syncError);
+    }
+  }, []);
+
   const createNewSession = useCallback(async () => {
+    // 🔧 先获取当前用户 ID，确保在整个函数作用域可用
+    let currentUserId: string | null = null;
+    try {
+      const userResponse = await fetch('/api/auth/user');
+      if (userResponse.ok) {
+        const userData = await userResponse.json();
+        currentUserId = userData.userId;
+      }
+    } catch (userError) {
+      console.warn('⚠️ [会话创建] 获取用户ID失败:', userError);
+    }
+
     try {
       console.log('🔄 [会话创建] 开始创建新会话...');
       
@@ -69,10 +188,11 @@ export function useChatSystemV2() {
         setCurrentSession(existingSession);
         return existingSession;
       }
-      
+
       // 创建前端会话数据结构，使用后端返回的sessionId
       const newSession: SessionData = {
         id: sessionId, // 🔧 使用后端返回的sessionId
+        userId: currentUserId || undefined, // 🔧 设置用户 ID
         status: 'active',
         userIntent: {
           type: 'career_guidance',
@@ -173,6 +293,7 @@ export function useChatSystemV2() {
       
       const fallbackSession: SessionData = {
         id: sessionId,
+        userId: currentUserId || undefined, // 🔧 即使是回退会话也设置用户 ID
         status: 'active',
         userIntent: {
           type: 'career_guidance',
@@ -411,6 +532,11 @@ export function useChatSystemV2() {
 
           // 处理流式响应
           await handleStreamingResponse(response, targetSession);
+        }
+
+        // 🆕 消息处理完成后同步会话
+        if (targetSession) {
+          syncSessionToBackend(targetSession);
         }
         
       } catch (error) {
@@ -754,11 +880,14 @@ export function useChatSystemV2() {
                   setSessions((prev) => prev.map((s) => (s.id === session.id ? session : s)));
                 }
                 
-                // 🔧 关键修复：如果是完成状态，清理流式状态
+                // 🔧 关键修复：如果是完成状态，清理流式状态并同步会话
                 if (chunk.system_state?.done) {
                   console.log(`✅ [流式完成] 消息流式处理完成，总计${updateCount}次更新`);
                   streamingMessageId = null;
                   streamingMessageIndex = -1;
+                  
+                  // 🆕 自动同步会话到数据库
+                  syncSessionToBackend(session);
                 }
                 
                 messageReceived = true;
@@ -1056,6 +1185,7 @@ export function useChatSystemV2() {
     streamingResponses,
     currentError,
     retryCount,
+    isLoadingSessions, // 🆕 会话加载状态
     setSelectedModel,
     createNewSession,
     selectSession,

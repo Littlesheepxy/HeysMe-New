@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>认证测试</title>
+</head>
+<body>
+    <h1>Clerk 认证测试</h1>
+    <button onclick="testAuth()">测试认证状态</button>
+    <button onclick="testSessionsAPI()">测试会话API</button>
+    <div id="result"></div>
+
+    <script>
+        async function testAuth() {
+            try {
+                // 测试 Clerk 认证状态
+                if (window.Clerk) {
+                    const user = window.Clerk.user;
+                    console.log('Clerk 用户:', user);
+                    document.getElementById('result').innerHTML = `
+                        <h2>认证状态</h2>
+                        <p>用户ID: ${user?.id || 'null'}</p>
+                        <p>是否登录: ${user ? 'YES' : 'NO'}</p>
+                        <p>邮箱: ${user?.emailAddresses?.[0]?.emailAddress || 'null'}</p>
+                    `;
+                } else {
+                    document.getElementById('result').innerHTML = '<p>Clerk 未加载</p>';
+                }
+            } catch (error) {
+                console.error('认证测试失败:', error);
+                document.getElementById('result').innerHTML = `<p>错误: ${error.message}</p>`;
+            }
+        }
+
+        async function testSessionsAPI() {
+            try {
+                const response = await fetch('/api/sessions', {
+                    method: 'GET',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    credentials: 'include',
+                });
+
+                const result = await response.json();
+                console.log('API 响应:', result);
+                
+                document.getElementById('result').innerHTML = `
+                    <h2>会话API测试</h2>
+                    <p>成功: ${result.success}</p>
+                    <p>会话数量: ${result.count}</p>
+                    <p>认证状态: ${result.debug?.authenticated ? 'YES' : 'NO'}</p>
+                    <p>用户ID: ${result.debug?.userId || 'null'}</p>
+                    <pre>${JSON.stringify(result, null, 2)}</pre>
+                `;
+            } catch (error) {
+                console.error('API测试失败:', error);
+                document.getElementById('result').innerHTML = `<p>API错误: ${error.message}</p>`;
+            }
+        }
+    </script>
+</body>
+</html>

@@ -341,6 +341,62 @@ const config: Config = {
 				'100%': {
 					backgroundPosition: '200% center'
 				}
+			},
+			// 🎨 背景渐变动画
+			'moveHorizontal': {
+				"0%": {
+					transform: "translateX(-50%) translateY(-10%)",
+				},
+				"50%": {
+					transform: "translateX(50%) translateY(10%)",
+				},
+				"100%": {
+					transform: "translateX(-50%) translateY(-10%)",
+				},
+			},
+			'moveInCircle': {
+				"0%": {
+					transform: "rotate(0deg)",
+				},
+				"50%": {
+					transform: "rotate(180deg)",
+				},
+				"100%": {
+					transform: "rotate(360deg)",
+				},
+			},
+			'moveVertical': {
+				"0%": {
+					transform: "translateY(-50%)",
+				},
+				"50%": {
+					transform: "translateY(50%)",
+				},
+				"100%": {
+					transform: "translateY(-50%)",
+				},
+			},
+			'moveInCircleSlow': {
+				"0%": {
+					transform: "rotate(0deg)",
+				},
+				"50%": {
+					transform: "rotate(180deg)",
+				},
+				"100%": {
+					transform: "rotate(360deg)",
+				},
+			},
+			'moveInCircleFast': {
+				"0%": {
+					transform: "rotate(0deg)",
+				},
+				"50%": {
+					transform: "rotate(180deg)",
+				},
+				"100%": {
+					transform: "rotate(360deg)",
+				},
 			}
   		},
   		animation: {
@@ -362,6 +418,12 @@ const config: Config = {
 			'brand-ripple': 'brand-ripple 0.6s linear',
 			'message-slide-in': 'message-slide-in 0.4s cubic-bezier(0.16, 1, 0.3, 1)',
 			'glass-shimmer': 'glass-shimmer 2s linear infinite',
+			// 🎨 背景渐变动画
+			'moveVertical': 'moveVertical 30s ease infinite',
+			'moveInCircle': 'moveInCircle 20s reverse infinite',
+			'moveInCircleSlow': 'moveInCircleSlow 40s linear infinite',
+			'moveHorizontal': 'moveHorizontal 40s ease infinite',
+			'moveInCircleFast': 'moveInCircleFast 20s ease infinite',
   		},
 		// 🎨 字体系统
 		fontFamily: {
