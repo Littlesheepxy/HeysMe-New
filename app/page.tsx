@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { ThemeToggle } from "@/components/navigation/theme-toggle"
 import { useTheme } from "@/contexts/theme-context"
-import { Sparkles, Zap, Users, Shield } from "lucide-react"
+import { Sparkles, Zap, Users, Shield, Brain, Target, Palette } from "lucide-react"
+import CardSwap, { Card as SwapCard } from "@/components/ui/CardSwap/CardSwap"
 
 export default function HomePage() {
   const { theme } = useTheme()
@@ -38,34 +39,175 @@ export default function HomePage() {
         </nav>
       </header>
 
-      {/* Hero Section with brand colors */}
-      <section className="container mx-auto px-4 py-20 text-center">
-        <Badge className="mb-6 bg-emerald-100 text-emerald-700 border border-emerald-200" variant="secondary">
-          🚀 v0.1 MVP 版本
-        </Badge>
-        <h1
-          className={`text-5xl font-bold mb-6 bg-gradient-to-r bg-clip-text text-transparent ${
-            theme === "light" ? "from-emerald-600 via-teal-600 to-cyan-600" : "from-emerald-400 via-teal-400 to-cyan-400"
-          }`}
-        >
-          AI 驱动的职业身份平台
-        </h1>
-        <p className={`text-xl mb-8 max-w-2xl mx-auto ${theme === "light" ? "text-gray-600" : "text-gray-300"}`}>
-          通过智能对话，AI 为你生成个性化的职业主页。展示项目、技能、经历，让机会主动找到你。
-        </p>
-        <Button
-          variant="brand"
-          size="lg"
-          onClick={() => window.location.href = '/chat'}
-          className="text-lg px-8 py-4 rounded-2xl shadow-brand-xl hover:shadow-brand-glow transition-all duration-300 transform hover:scale-105"
-          style={{
-            background: 'linear-gradient(135deg, #34D399 0%, #2DD4BF 50%, #22D3EE 100%)',
-            color: 'white'
-          }}
-        >
-          <Sparkles className="w-5 h-5 mr-2" />
-          开始创建 HeysMe
-        </Button>
+      {/* Hero Section with brand colors and CardSwap */}
+      <section className="container mx-auto px-4 py-20">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:items-start">
+          {/* Left side: Hero content */}
+          <div className="text-center lg:text-left lg:pt-16">
+            <Badge className="mb-6 bg-emerald-100 text-emerald-700 border border-emerald-200" variant="secondary">
+              🚀 v0.1 MVP 版本
+            </Badge>
+            <h1
+              className={`text-4xl lg:text-5xl font-bold mb-6 bg-gradient-to-r bg-clip-text text-transparent ${
+                theme === "light" ? "from-emerald-600 via-teal-600 to-cyan-600" : "from-emerald-400 via-teal-400 to-cyan-400"
+              }`}
+            >
+              AI 驱动的职业身份平台
+            </h1>
+            <p className={`text-lg lg:text-xl mb-8 max-w-xl ${theme === "light" ? "text-gray-600" : "text-gray-300"}`}>
+              通过智能对话，AI 为你生成个性化的职业主页。展示项目、技能、经历，让机会主动找到你。
+            </p>
+            <Button
+              variant="brand"
+              size="lg"
+              onClick={() => window.location.href = '/chat'}
+              className="text-lg px-8 py-4 rounded-2xl shadow-brand-xl hover:shadow-brand-glow transition-all duration-300 transform hover:scale-105"
+              style={{
+                background: 'linear-gradient(135deg, #34D399 0%, #2DD4BF 50%, #22D3EE 100%)',
+                color: 'white'
+              }}
+            >
+              <Sparkles className="w-5 h-5 mr-2" />
+              开始创建 HeysMe
+            </Button>
+          </div>
+
+          {/* Right side: CardSwap */}
+          <div className="relative h-[600px] hidden lg:block">
+            <div className="absolute left-0 top-[60%] -translate-y-1/2 w-full max-w-lg">
+              <CardSwap
+                cardDistance={60}
+                verticalDistance={70}
+                delay={4000}
+                pauseOnHover={true}
+              >
+              <SwapCard
+                customClass="bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200 shadow-2xl"
+                className="text-gray-900 overflow-hidden"
+              >
+                {/* 浏览器标题栏 */}
+                <div className="bg-gradient-to-r from-emerald-100 to-emerald-50 border-b border-emerald-200 px-4 py-3 flex items-center gap-3">
+                  <div className="flex gap-2">
+                    <div className="w-3 h-3 bg-red-500 rounded-full shadow-sm"></div>
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full shadow-sm"></div>
+                    <div className="w-3 h-3 bg-green-500 rounded-full shadow-sm"></div>
+                  </div>
+                  <div className="flex-1 flex justify-center">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-lg px-4 py-2 text-xs text-emerald-700 border border-emerald-300 max-w-52 flex items-center gap-2 shadow-sm">
+                      <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
+                      <span className="font-medium">heysme.ai/ai-generation</span>
+                    </div>
+                  </div>
+                </div>
+                {/* 内容区域 */}
+                <div className="p-6 text-center bg-gradient-to-b from-white to-emerald-50/50">
+                  <div className="mb-4 inline-block">
+                    <Brain className="w-8 h-8 text-emerald-600" strokeWidth={1.5} />
+                  </div>
+                  <h3 className="text-lg font-bold mb-3 text-emerald-900">AI 智能生成</h3>
+                  <p className="text-emerald-700 text-sm leading-relaxed">
+                    让 AI 理解你的职业故事，自动构建专业形象，展现最真实的你
+                  </p>
+                  <div className="mt-4 h-1 bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full"></div>
+                </div>
+              </SwapCard>
+              
+              <SwapCard
+                customClass="bg-gradient-to-br from-teal-50 to-teal-100 border-teal-200 shadow-2xl"
+                className="text-gray-900 overflow-hidden"
+              >
+                {/* 浏览器标题栏 */}
+                <div className="bg-gradient-to-r from-teal-100 to-teal-50 border-b border-teal-200 px-4 py-3 flex items-center gap-3">
+                  <div className="flex gap-2">
+                    <div className="w-3 h-3 bg-red-500 rounded-full shadow-sm"></div>
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full shadow-sm"></div>
+                    <div className="w-3 h-3 bg-green-500 rounded-full shadow-sm"></div>
+                  </div>
+                  <div className="flex-1 flex justify-center">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-lg px-4 py-2 text-xs text-teal-700 border border-teal-300 max-w-52 flex items-center gap-2 shadow-sm">
+                      <div className="w-3 h-3 bg-teal-500 rounded-full"></div>
+                      <span className="font-medium">heysme.ai/targeting</span>
+                    </div>
+                  </div>
+                </div>
+                {/* 内容区域 */}
+                <div className="p-6 text-center bg-gradient-to-b from-white to-teal-50/50">
+                  <div className="mb-4 inline-block">
+                    <Target className="w-8 h-8 text-teal-600" strokeWidth={1.5} />
+                  </div>
+                  <h3 className="text-lg font-bold mb-3 text-teal-900">精准定位</h3>
+                  <p className="text-teal-700 text-sm leading-relaxed">
+                    根据行业特点和职业目标，定制化展示方案，让机会主动找到你
+                  </p>
+                  <div className="mt-4 h-1 bg-gradient-to-r from-teal-400 to-teal-600 rounded-full"></div>
+                </div>
+              </SwapCard>
+              
+              <SwapCard
+                customClass="bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200 shadow-2xl"
+                className="text-gray-900 overflow-hidden"
+              >
+                {/* 浏览器标题栏 */}
+                <div className="bg-gradient-to-r from-cyan-100 to-cyan-50 border-b border-cyan-200 px-4 py-3 flex items-center gap-3">
+                  <div className="flex gap-2">
+                    <div className="w-3 h-3 bg-red-500 rounded-full shadow-sm"></div>
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full shadow-sm"></div>
+                    <div className="w-3 h-3 bg-green-500 rounded-full shadow-sm"></div>
+                  </div>
+                  <div className="flex-1 flex justify-center">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-lg px-4 py-2 text-xs text-cyan-700 border border-cyan-300 max-w-52 flex items-center gap-2 shadow-sm">
+                      <div className="w-3 h-3 bg-cyan-500 rounded-full"></div>
+                      <span className="font-medium">heysme.ai/customization</span>
+                    </div>
+                  </div>
+                </div>
+                {/* 内容区域 */}
+                <div className="p-6 text-center bg-gradient-to-b from-white to-cyan-50/50">
+                  <div className="mb-4 inline-block">
+                    <Palette className="w-8 h-8 text-cyan-600" strokeWidth={1.5} />
+                  </div>
+                  <h3 className="text-lg font-bold mb-3 text-cyan-900">个性化设计</h3>
+                  <p className="text-cyan-700 text-sm leading-relaxed">
+                    丰富的主题选择和布局样式，打造独一无二的专业形象展示
+                  </p>
+                  <div className="mt-4 h-1 bg-gradient-to-r from-cyan-400 to-cyan-600 rounded-full"></div>
+                </div>
+              </SwapCard>
+              
+              <SwapCard
+                customClass="bg-gradient-to-br from-blue-50 to-blue-100 border-blue-200 shadow-2xl"
+                className="text-gray-900 overflow-hidden"
+              >
+                {/* 浏览器标题栏 */}
+                <div className="bg-gradient-to-r from-blue-100 to-blue-50 border-b border-blue-200 px-4 py-3 flex items-center gap-3">
+                  <div className="flex gap-2">
+                    <div className="w-3 h-3 bg-red-500 rounded-full shadow-sm"></div>
+                    <div className="w-3 h-3 bg-yellow-500 rounded-full shadow-sm"></div>
+                    <div className="w-3 h-3 bg-green-500 rounded-full shadow-sm"></div>
+                  </div>
+                  <div className="flex-1 flex justify-center">
+                    <div className="bg-white/80 backdrop-blur-sm rounded-lg px-4 py-2 text-xs text-blue-700 border border-blue-300 max-w-52 flex items-center gap-2 shadow-sm">
+                      <div className="w-3 h-3 bg-blue-500 rounded-full"></div>
+                      <span className="font-medium">heysme.ai/privacy</span>
+                    </div>
+                  </div>
+                </div>
+                {/* 内容区域 */}
+                <div className="p-6 text-center bg-gradient-to-b from-white to-blue-50/50">
+                  <div className="mb-4 inline-block">
+                    <Shield className="w-8 h-8 text-blue-600" strokeWidth={1.5} />
+                  </div>
+                  <h3 className="text-lg font-bold mb-3 text-blue-900">隐私保护</h3>
+                  <p className="text-blue-700 text-sm leading-relaxed">
+                    灵活的权限控制系统，让你完全掌控个人信息的展示范围
+                  </p>
+                  <div className="mt-4 h-1 bg-gradient-to-r from-blue-400 to-blue-600 rounded-full"></div>
+                </div>
+              </SwapCard>
+              </CardSwap>
+            </div>
+          </div>
+        </div>
       </section>
 
       {/* Features with brand cards */}

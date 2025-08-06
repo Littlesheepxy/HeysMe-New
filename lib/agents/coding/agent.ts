@@ -5,6 +5,11 @@ import {
 } from '@/lib/types/streaming';
 import { SessionData } from '@/lib/types/session';
 import { CodeFile } from './types';
+import { getCurrentUser } from '@/lib/supabase-server';
+import { 
+  HTML_CODING_AGENT_PROMPT, 
+  getHtmlCodingPrompt 
+} from '@/lib/prompts/coding/html-agent';
 
 /**
  * Coding Agent - AI驱动的代码生成
@@ -73,12 +78,24 @@ export class CodingAgent extends BaseAgent {
       yield this.createThinkingResponse('🤔 正在分析您的项目需求...', 10);
       await this.delay(1000);
 
-      yield this.createThinkingResponse('🎯 准备生成完整项目结构...', 20);
-      await this.delay(500);
-
-      // 🚀 完整项目生成：使用现有的流式AI生成逻辑
-      console.log('🚀 [初始生成] 调用完整项目生成流程');
-      yield* this.handleStreamingAIGeneration(userInput, sessionData, context);
+      // 步骤2: 检查用户计划，决定生成模式
+      const useHtmlMode = await this.shouldUseHtmlMode(sessionData, context);
+      
+      if (useHtmlMode) {
+        yield this.createThinkingResponse('📄 为您生成轻量级 HTML 页面...', 20);
+        await this.delay(500);
+        
+        // 🌐 HTML 静态页面生成
+        console.log('🌐 [HTML模式] 调用 HTML 静态页面生成流程');
+        yield* this.handleHtmlGeneration(userInput, sessionData, context);
+      } else {
+        yield this.createThinkingResponse('🎯 准备生成完整 Next.js 项目结构...', 20);
+        await this.delay(500);
+        
+        // 🚀 Next.js 项目生成：使用现有的流式AI生成逻辑
+        console.log('🚀 [Next.js模式] 调用完整项目生成流程');
+        yield* this.handleStreamingAIGeneration(userInput, sessionData, context);
+      }
 
     } catch (error) {
       console.error('❌ [初始项目生成错误]:', error);
@@ -144,6 +161,109 @@ export class CodingAgent extends BaseAgent {
             error: error instanceof Error ? error.message : '未知错误',
             retryable: true,
             mode: 'incremental'
+          }
+        }
+      });
+    }
+  }
+
+  /**
+   * 🌐 HTML 静态页面生成处理
+   */
+  private async* handleHtmlGeneration(
+    userInput: string, 
+    sessionData: SessionData,
+    context?: Record<string, any>
+  ): AsyncGenerator<StreamableAgentResponse, void, unknown> {
+    try {
+      yield this.createThinkingResponse('🔍 正在提取页面设计方案...', 30);
+      await this.delay(500);
+
+      // 从会话数据中提取设计方案和用户数据
+      const pageDesign = this.extractDesignData(sessionData);
+      const userData = this.extractUserData(sessionData);
+
+      yield this.createThinkingResponse('🎨 正在生成 HTML 页面...', 50);
+      await this.delay(500);
+
+      // 调用 AI 生成 HTML
+      const htmlPrompt = getHtmlCodingPrompt(pageDesign, userData);
+      const aiResponse = await this.callLLM(htmlPrompt, {
+        maxTokens: 8000,
+        sessionId: sessionData.id
+      });
+
+      yield this.createThinkingResponse('📋 正在解析生成结果...', 80);
+      await this.delay(300);
+
+      // 解析 AI 响应
+      let parsedResponse;
+      try {
+        // 尝试从响应中提取 JSON
+        const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/) || 
+                         aiResponse.match(/\{[\s\S]*\}/);
+        
+        if (jsonMatch) {
+          const jsonContent = jsonMatch[1] || jsonMatch[0];
+          parsedResponse = JSON.parse(jsonContent);
+        } else {
+          // 如果没有找到 JSON，尝试解析整个响应
+          parsedResponse = JSON.parse(aiResponse);
+        }
+      } catch (parseError) {
+        console.error('❌ [HTML生成] JSON解析失败:', parseError);
+        // 生成回退 HTML
+        parsedResponse = this.generateFallbackHtml(userInput, pageDesign, userData);
+      }
+
+      yield this.createThinkingResponse('✅ HTML 页面生成完成！', 100);
+      await this.delay(200);
+
+      // 返回最终结果
+      yield this.createResponse({
+        immediate_display: {
+          reply: '🎉 您的个人主页已生成完毕！这是一个现代化的 HTML 页面，使用了 Tailwind CSS 样式，完全响应式设计。您可以直接部署使用。',
+          agent_name: this.name,
+          timestamp: new Date().toISOString()
+        },
+        system_state: {
+          intent: 'code_generated',
+          done: true,
+          metadata: {
+            project_files: parsedResponse.files || [],
+            project_type: 'html_single_page',
+            tech_stack: parsedResponse.tech_stack || ['HTML5', 'Tailwind CSS'],
+            preview_features: parsedResponse.preview_features || {
+              responsive: true,
+              animations: true
+            },
+            deployment_ready: true,
+            mode: 'html_static'
+          }
+        }
+      });
+
+    } catch (error) {
+      console.error('❌ [HTML生成错误]:', error);
+      
+      // 生成回退 HTML
+      const fallbackFiles = this.generateFallbackHtml(userInput);
+      
+      yield this.createResponse({
+        immediate_display: {
+          reply: '⚠️ HTML 生成过程中遇到了一些问题，但我已为您生成了一个基础版本的个人主页。您可以在此基础上进行自定义。',
+          agent_name: this.name,
+          timestamp: new Date().toISOString()
+        },
+        system_state: {
+          intent: 'code_generated',
+          done: true,
+          metadata: {
+            project_files: fallbackFiles,
+            project_type: 'html_single_page',
+            tech_stack: ['HTML5', 'Tailwind CSS'],
+            deployment_ready: true,
+            mode: 'html_static'
           }
         }
       });
@@ -1093,6 +1213,172 @@ export class CodingAgent extends BaseAgent {
   }
 
   /**
+   * 🆕 从会话数据中提取设计方案
+   */
+  private extractDesignData(sessionData: SessionData): any {
+    try {
+      // 从collected_data中获取设计数据
+      const collectedData = sessionData.collectedData as any;
+      if (collectedData?.prompt_output || collectedData?.page_design) {
+        return collectedData.prompt_output || collectedData.page_design;
+      }
+      
+      // 备用：从metadata中获取
+      if ((sessionData.metadata as any)?.design_data) {
+        return (sessionData.metadata as any).design_data;
+      }
+      
+      // 默认设计数据
+      return {
+        design_strategy: {
+          visual_direction: 'modern_minimal',
+          color_scheme: 'warm_neutral',
+          typography_choice: 'sans_serif'
+        },
+        layout_concept: {
+          structure: ['hero', 'about', 'skills', 'contact']
+        }
+      };
+    } catch (error) {
+      console.error('❌ [数据提取] 设计数据提取失败:', error);
+      return {};
+    }
+  }
+
+  /**
+   * 🆕 从会话数据中提取用户数据
+   */
+  private extractUserData(sessionData: SessionData): any {
+    try {
+      // 从collected_data中获取用户数据
+      const collectedData = sessionData.collectedData as any;
+      if (collectedData?.info_collection || collectedData?.user_data) {
+        return collectedData.info_collection || collectedData.user_data;
+      }
+      
+      // 备用：构造基础用户数据
+      return {
+        name: '用户',
+        title: '专业人士',
+        skills: ['技能展示'],
+        email: 'contact@example.com'
+      };
+    } catch (error) {
+      console.error('❌ [数据提取] 用户数据提取失败:', error);
+      return {};
+    }
+  }
+
+  /**
+   * 🆕 生成回退 HTML 文件
+   */
+  private generateFallbackHtml(userInput: string, pageDesign?: any, userData?: any): CodeFile[] {
+    console.log('🤖 [回退生成] 使用回退 HTML 生成器...');
+    
+    const safeUserData = userData || { name: '个人主页', title: '欢迎访问' };
+    const userName = safeUserData.name || '个人主页';
+    
+    const htmlContent = `<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>${userName} - 个人主页</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+    <!-- Hero Section -->
+    <section class="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100" data-aos="fade-in">
+        <div class="text-center px-4">
+            <h1 class="text-5xl md:text-7xl font-bold mb-6 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                ${userName}
+            </h1>
+            <p class="text-xl md:text-2xl text-gray-600 mb-8 max-w-2xl mx-auto">
+                ${safeUserData.title || '欢迎来到我的个人主页'}
+            </p>
+            <div class="space-x-4">
+                <button class="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-full font-medium transition-colors duration-300">
+                    了解更多
+                </button>
+                <button class="border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-8 py-3 rounded-full font-medium transition-all duration-300">
+                    联系我
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section class="py-20 bg-white" data-aos="fade-up">
+        <div class="container mx-auto px-4">
+            <div class="max-w-4xl mx-auto text-center">
+                <h2 class="text-3xl md:text-4xl font-bold mb-8">关于我</h2>
+                <p class="text-lg text-gray-600 leading-relaxed">
+                    欢迎访问我的个人主页。这里展示了我的个人信息、技能和项目经验。
+                    感谢您的访问，期待与您的交流合作。
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Skills Section -->
+    <section class="py-20 bg-gray-50" data-aos="fade-up">
+        <div class="container mx-auto px-4">
+            <div class="max-w-4xl mx-auto text-center">
+                <h2 class="text-3xl md:text-4xl font-bold mb-12">技能专长</h2>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    ${(safeUserData.skills || ['Web开发', '用户体验', '项目管理', '团队协作']).map((skill: string) => 
+                        `<div class="bg-white p-4 rounded-lg shadow-sm hover:shadow-md transition-shadow duration-300">
+                            <div class="text-blue-600 font-medium">${skill}</div>
+                        </div>`
+                    ).join('')}
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section class="py-20 bg-white" data-aos="fade-up">
+        <div class="container mx-auto px-4">
+            <div class="max-w-2xl mx-auto text-center">
+                <h2 class="text-3xl md:text-4xl font-bold mb-8">联系方式</h2>
+                <p class="text-lg text-gray-600 mb-8">
+                    欢迎与我取得联系，期待我们的合作交流。
+                </p>
+                <a href="mailto:${safeUserData.email || 'contact@example.com'}" 
+                   class="inline-block bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-full font-medium transition-colors duration-300">
+                    发送邮件
+                </a>
+            </div>
+        </div>
+    </section>
+
+    <script>
+        AOS.init({
+            duration: 800,
+            easing: 'ease-in-out',
+            once: true
+        });
+    </script>
+</body>
+</html>`;
+
+    return [{
+      filename: 'index.html',
+      content: htmlContent,
+      description: '个人主页 HTML 文件 - 基础版本',
+      language: 'html',
+      type: 'page'
+    }];
+  }
+
+  /**
    * 生成回退文件
    */
   private generateFallbackFiles(userInput: string): CodeFile[] {
@@ -1201,7 +1487,58 @@ module.exports = {
   }
 
   /**
-   * 判断是否为专业模式
+   * 🆕 检查用户计划类型
+   */
+  private async getUserPlan(sessionData: SessionData): Promise<'free' | 'pro'> {
+    try {
+      const user = await getCurrentUser();
+      if (user?.plan) {
+        console.log('🔍 [用户计划] 检测到用户计划:', user.plan);
+        return user.plan as 'free' | 'pro';
+      }
+      
+      // 备用：从会话数据中获取
+      if (sessionData?.userId) {
+        // 如果有其他获取用户信息的方法，可以在这里添加
+        console.log('⚠️ [用户计划] 无法获取用户信息，默认为免费计划');
+      }
+      
+      return 'free'; // 默认为免费计划
+    } catch (error) {
+      console.error('❌ [用户计划] 获取用户计划失败:', error);
+      return 'free'; // 出错时默认为免费计划
+    }
+  }
+
+  /**
+   * 🆕 判断是否应该使用 HTML 模式
+   */
+  private async shouldUseHtmlMode(sessionData: SessionData, context?: Record<string, any>): Promise<boolean> {
+    // 1. 检查强制模式设置
+    if (context?.forceNextjsMode || context?.forceReactMode) {
+      console.log('🎯 [模式判断] 强制使用 Next.js 模式');
+      return false;
+    }
+    
+    if (context?.forceHtmlMode || context?.forceStaticMode) {
+      console.log('🎯 [模式判断] 强制使用 HTML 模式');
+      return true;
+    }
+    
+    // 2. 检查用户计划
+    const userPlan = await this.getUserPlan(sessionData);
+    
+    if (userPlan === 'free') {
+      console.log('🎯 [模式判断] 免费用户 - 使用 HTML 模式');
+      return true;
+    } else {
+      console.log('🎯 [模式判断] 高级用户 - 使用 Next.js 模式');
+      return false;
+    }
+  }
+
+  /**
+   * 判断是否为专业模式 (保留原有逻辑用于向后兼容)
    */
   private isExpertMode(sessionData?: SessionData, context?: Record<string, any>): boolean {
     // 1. 优先检查context中的强制模式标记
