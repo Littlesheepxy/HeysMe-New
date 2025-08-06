@@ -1,0 +1,135 @@
+{
+  "hero": {
+    "title": "🚀 Next-Gen LinkedIn for the AI Era: Smart, Dynamic, Monetizable",
+    "subtitle": "Everyone can own an intelligent digital twin. AI creates your multi-dimensional professional identity, automatically showcasing, dynamically evolving, from exposure to collaboration to monetization, all in one step.",
+    "primaryCta": "Create Your Digital Twin Now",
+    "secondaryCta": "Watch Demo"
+  },
+  "mission": {
+    "title": "🌟 Professional Identity Revolution in the AI Era",
+    "description": "In the AI era, professional identity is undergoing fundamental changes.",
+    "content": {
+      "line1": "Traditional resumes, homepages, and business cards can no longer meet the diverse, dynamically evolving display needs of individuals.",
+      "line2": "You are not just a job title or role, but a multi-faceted entity: creator, freelancer, job seeker, collaborator...",
+      "whyTitle": "💡 Why Build HeysMe?",
+      "whyContent": "Because no existing product can meet the needs of multi-dimensional professional identity in the AI era, so we decided to build it ourselves."
+    },
+    "cta": "🔥 Become the First Digital Twin Owner"
+  },
+  "value": {
+    "title": "🔥 Why Choose HeysMe?",
+    "subtitle": "Here, you can use AI to create unlimited professional personas:",
+    "features": [
+      {
+        "title": "Showcase",
+        "description": "Present the best version of yourself to the world"
+      },
+      {
+        "title": "Connect", 
+        "description": "Let collaborations, recruiting, and opportunities come to you"
+      },
+      {
+        "title": "Monetize",
+        "description": "Transform your skills and influence into real value"
+      }
+    ]
+  },
+  "features": {
+    "title": "⚡ AI-Powered, Revolutionary Professional Identity Experience",
+    "items": [
+      {
+        "title": "Smart Conversational Homepage Generation",
+        "description": "Chat with AI, upload documents and links, AI automatically parses and generates personalized homepage."
+      },
+      {
+        "title": "Vibe Coding Personalized Editing",
+        "description": "Fine-tune with Vibe Coding anytime after generation to create your unique style."
+      },
+      {
+        "title": "Multiple Identities, Multiple Scenarios",
+        "description": "One account, N personas. Switch anytime for always precise presentation."
+      },
+      {
+        "title": "Unique Domain",
+        "description": "Each digital twin gets its own domain, personal brand within reach."
+      },
+      {
+        "title": "AI Dynamic Evolution",
+        "description": "Your homepage is no longer static, AI makes it evolve with your growth."
+      }
+    ]
+  },
+  "creator": {
+    "title": "🎨 Creator Platform: New Stage for Inspiration and Monetization",
+    "features": [
+      "Browse and use massive homepage & resume templates",
+      "Create templates via prompts and monetize easily",
+      "Let creators design professional identity for the AI era"
+    ],
+    "cta": "👉 Explore Template Marketplace"
+  },
+  "plaza": {
+    "title": "🌐 Digital Identity Plaza: Connecting All Opportunities",
+    "subtitle": "Here's the new gateway for collaboration, recruiting, and job seeking:",
+    "features": [
+      {
+        "title": "Recruiters",
+        "description": "Find the best candidates precisely"
+      },
+      {
+        "title": "Creators",
+        "description": "Discover partners and business opportunities"
+      },
+      {
+        "title": "Individuals",
+        "description": "Let opportunities come knocking"
+      }
+    ],
+    "cta": "🚀 Enter Plaza, Discover Opportunities"
+  },
+  "useCases": {
+    "title": "🎯 Who Should Use HeysMe?",
+    "cases": [
+      {
+        "title": "Job Seekers",
+        "description": "Generate exclusive homepage with one click, let HR find you"
+      },
+      {
+        "title": "Freelancers",
+        "description": "Multi-scenario homepage showcasing different skills, easier client acquisition"
+      },
+      {
+        "title": "Creators & Influencers",
+        "description": "Showcase work, monetize influence"
+      },
+      {
+        "title": "Companies & Recruiters",
+        "description": "Quickly find the most suitable partners"
+      }
+    ]
+  },
+  "testimonials": {
+    "title": "💬 Voices of Users",
+    "items": [
+      {
+        "content": "This isn't another resume, but a completely new identity system for the AI era.",
+        "author": "Beta User A"
+      },
+      {
+        "content": "One platform helped me handle showcase, collaboration, and monetization beyond imagination.",
+        "author": "Creator B"
+      }
+    ]
+  },
+  "finalCta": {
+    "title": "🚀 Create Your AI Digital Twin Now",
+    "subtitle": "Your next opportunity starts here.",
+    "primaryCta": "🔥 Get Started",
+    "secondaryCta": "Learn More"
+  },
+  "slogans": [
+    "Let AI create countless versions of yourself.",
+    "Digital twin, infinite possibilities.",
+    "Professional identity revolution in the AI era."
+  ]
+}
