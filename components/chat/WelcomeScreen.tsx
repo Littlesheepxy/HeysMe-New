@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -414,15 +415,34 @@ export function WelcomeScreen({ inputValue, setInputValue, onSendMessage, isGene
     };
   }, [onFileUpload]);
 
-  // 自动调整textarea高度
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    setInputValue(e.target.value);
-    
-    // 自动调整高度
-    const textarea = e.target;
-    textarea.style.height = 'auto';
-    textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
-  };
+  // 🚀 IME支持状态
+  const [isComposing, setIsComposing] = useState(false);
+
+  // 🚀 防抖的DOM操作，避免输入卡顿
+  const debouncedHeightAdjust = useDebouncedCallback((textarea: HTMLTextAreaElement) => {
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+    }
+  }, 16); // 16ms ≈ 1帧时间
+
+  // 自动调整textarea高度 - 性能优化版本
+  const handleTextareaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
+    setInputValue(newValue); // 立即更新文本，保证输入流畅
+    debouncedHeightAdjust(e.target); // 防抖高度调整
+  }, [setInputValue, debouncedHeightAdjust]);
+
+  // 🚀 IME事件处理 - 支持中文输入法
+  const handleCompositionStart = useCallback(() => {
+    setIsComposing(true);
+  }, []);
+
+  const handleCompositionEnd = useCallback((e: React.CompositionEvent<HTMLTextAreaElement>) => {
+    setIsComposing(false);
+    // 确保组合输入完成后更新值
+    setInputValue((e.target as HTMLTextAreaElement).value);
+  }, [setInputValue]);
 
   // 处理增强文件上传组件的文件处理完成
   const handleFilesProcessed = (processedFiles: any[]) => {
@@ -708,14 +728,20 @@ export function WelcomeScreen({ inputValue, setInputValue, onSendMessage, isGene
                     value={inputValue}
                     onChange={handleTextareaChange}
                     onKeyPress={handleKeyPress}
+                    onCompositionStart={handleCompositionStart}
+                    onCompositionEnd={handleCompositionEnd}
                     placeholder="告诉我你想要什么样的页面..."
                     className={`w-full resize-none border-0 outline-none focus:outline-none focus:ring-0 bg-transparent text-base leading-relaxed min-h-[60px] max-h-[200px] pl-[9px] pr-12 overflow-hidden ${
                       theme === "light"
                         ? "placeholder:text-gray-400 text-gray-900"
                         : "placeholder:text-gray-500 text-white"
-                    }`}
+                    } ${isComposing ? 'ime-composing' : ''}`}
                     rows={2}
                     autoFocus
+                    autoComplete="off"
+                    autoCapitalize="off"
+                    autoCorrect="off"
+                    spellCheck="false"
                   />
                 </div>
                 

@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
+import { useDebouncedCallback } from 'use-debounce';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -249,14 +250,38 @@ export function EnhancedInputBox({
     };
   }, [onFileUpload, showFileUpload]);
 
-  // 自动调整textarea高度
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onChange(e.target.value);
+  // 🚀 IME支持状态
+  const [isComposing, setIsComposing] = useState(false);
+  
+  // 🚀 防抖的DOM操作 - 优化高度调整性能
+  const debouncedHeightAdjust = useDebouncedCallback((textarea: HTMLTextAreaElement) => {
+    if (textarea) {
+      textarea.style.height = 'auto';
+      textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+    }
+  }, 16); // 约等于一帧的时间
+  
+  // 🚀 即时文本更新 - 优化输入响应性
+  const handleTextareaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newValue = e.target.value;
     
-    const textarea = e.target;
-    textarea.style.height = 'auto';
-    textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
-  };
+    // 即时更新值，确保输入流畅
+    onChange(newValue);
+    
+    // 防抖高度调整，避免频繁DOM操作
+    debouncedHeightAdjust(e.target);
+  }, [onChange, debouncedHeightAdjust]);
+  
+  // 🚀 IME事件处理 - 支持中文输入法
+  const handleCompositionStart = useCallback(() => {
+    setIsComposing(true);
+  }, []);
+  
+  const handleCompositionEnd = useCallback((e: React.CompositionEvent<HTMLTextAreaElement>) => {
+    setIsComposing(false);
+    // 确保组合输入完成后更新值
+    onChange((e.target as HTMLTextAreaElement).value);
+  }, [onChange]);
 
   return (
     <div className={`w-full ${className}`}>
@@ -417,6 +442,8 @@ export function EnhancedInputBox({
               value={value}
               onChange={handleTextareaChange}
               onKeyPress={handleKeyPress}
+              onCompositionStart={handleCompositionStart}
+              onCompositionEnd={handleCompositionEnd}
               placeholder={placeholder}
               className={`w-full resize-none border-0 outline-none focus:outline-none focus:ring-0 bg-transparent text-base leading-relaxed min-h-[60px] max-h-[200px] overflow-hidden ${
                 showFileUpload ? "pl-[9px] pr-12" : "pl-[9px] pr-14"
@@ -424,9 +451,13 @@ export function EnhancedInputBox({
                 theme === "light"
                   ? "placeholder:text-gray-400 text-gray-900"
                   : "placeholder:text-gray-500 text-white"
-              }`}
+              } ${isComposing ? 'ime-composing' : ''}`}
               rows={2}
               disabled={disabled || isGenerating}
+              autoComplete="off"
+              autoCapitalize="off"
+              autoCorrect="off"
+              spellCheck="false"
             />
           </div>
           

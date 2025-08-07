@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useEffect, useState, memo, useMemo } from 'react';
+import { useRef, useEffect, useState, memo, useMemo, useCallback } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -93,17 +93,18 @@ export const ChatModeView = memo(function ChatModeView({
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [currentMessages]);
 
-  const handleSendClick = () => {
+  // 🚀 性能优化：缓存回调函数
+  const handleSendClick = useCallback(() => {
     if (inputValue.trim()) {
       onSendMessage(inputValue);
     }
-  };
+  }, [inputValue, onSendMessage]);
 
-  const handleFileUploadClick = () => {
+  const handleFileUploadClick = useCallback(() => {
     fileInputRef.current?.click();
-  };
+  }, []);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file && onFileUpload) {
       onFileUpload(file);
@@ -112,7 +113,13 @@ export const ChatModeView = memo(function ChatModeView({
     if (e.target) {
       e.target.value = '';
     }
-  };
+  }, [onFileUpload]);
+
+  // 🚀 性能优化：缓存onSendWithFiles回调
+  const handleSendWithFiles = useCallback((message: string, files: any[]) => {
+    console.log('发送带文件的消息:', message, files);
+    onSendMessage(message, { files });
+  }, [onSendMessage]);
 
   return (
     <>
@@ -261,11 +268,7 @@ export const ChatModeView = memo(function ChatModeView({
               onSend={handleSendClick}
               onKeyPress={onKeyPress}
               onFileUpload={onFileUpload}
-              onSendWithFiles={(message, files) => {
-                // 处理带文件的消息发送
-                console.log('发送带文件的消息:', message, files);
-                onSendMessage(message, { files });
-              }}
+              onSendWithFiles={handleSendWithFiles}
               placeholder="发送消息..."
               disabled={isGenerating}
               isGenerating={isGenerating}

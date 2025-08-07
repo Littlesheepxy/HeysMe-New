@@ -5,11 +5,7 @@ import {
 } from '@/lib/types/streaming';
 import { SessionData } from '@/lib/types/session';
 import { CodeFile } from './types';
-import { getCurrentUser } from '@/lib/supabase-server';
-import { 
-  HTML_CODING_AGENT_PROMPT, 
-  getHtmlCodingPrompt 
-} from '@/lib/prompts/coding/html-agent';
+
 
 /**
  * Coding Agent - AI驱动的代码生成
@@ -78,24 +74,13 @@ export class CodingAgent extends BaseAgent {
       yield this.createThinkingResponse('🤔 正在分析您的项目需求...', 10);
       await this.delay(1000);
 
-      // 步骤2: 检查用户计划，决定生成模式
-      const useHtmlMode = await this.shouldUseHtmlMode(sessionData, context);
+      // 步骤2: 直接生成完整 Next.js 项目
+      yield this.createThinkingResponse('🎯 准备生成完整 Next.js 项目结构...', 20);
+      await this.delay(500);
       
-      if (useHtmlMode) {
-        yield this.createThinkingResponse('📄 为您生成轻量级 HTML 页面...', 20);
-        await this.delay(500);
-        
-        // 🌐 HTML 静态页面生成
-        console.log('🌐 [HTML模式] 调用 HTML 静态页面生成流程');
-        yield* this.handleHtmlGeneration(userInput, sessionData, context);
-      } else {
-        yield this.createThinkingResponse('🎯 准备生成完整 Next.js 项目结构...', 20);
-        await this.delay(500);
-        
-        // 🚀 Next.js 项目生成：使用现有的流式AI生成逻辑
-        console.log('🚀 [Next.js模式] 调用完整项目生成流程');
-        yield* this.handleStreamingAIGeneration(userInput, sessionData, context);
-      }
+      // 🚀 Next.js 项目生成：使用现有的流式AI生成逻辑
+      console.log('🚀 [Next.js模式] 调用完整项目生成流程');
+      yield* this.handleStreamingAIGeneration(userInput, sessionData, context);
 
     } catch (error) {
       console.error('❌ [初始项目生成错误]:', error);
@@ -167,108 +152,7 @@ export class CodingAgent extends BaseAgent {
     }
   }
 
-  /**
-   * 🌐 HTML 静态页面生成处理
-   */
-  private async* handleHtmlGeneration(
-    userInput: string, 
-    sessionData: SessionData,
-    context?: Record<string, any>
-  ): AsyncGenerator<StreamableAgentResponse, void, unknown> {
-    try {
-      yield this.createThinkingResponse('🔍 正在提取页面设计方案...', 30);
-      await this.delay(500);
 
-      // 从会话数据中提取设计方案和用户数据
-      const pageDesign = this.extractDesignData(sessionData);
-      const userData = this.extractUserData(sessionData);
-
-      yield this.createThinkingResponse('🎨 正在生成 HTML 页面...', 50);
-      await this.delay(500);
-
-      // 调用 AI 生成 HTML
-      const htmlPrompt = getHtmlCodingPrompt(pageDesign, userData);
-      const aiResponse = await this.callLLM(htmlPrompt, {
-        maxTokens: 8000,
-        sessionId: sessionData.id
-      });
-
-      yield this.createThinkingResponse('📋 正在解析生成结果...', 80);
-      await this.delay(300);
-
-      // 解析 AI 响应
-      let parsedResponse;
-      try {
-        // 尝试从响应中提取 JSON
-        const jsonMatch = aiResponse.match(/```json\s*([\s\S]*?)\s*```/) || 
-                         aiResponse.match(/\{[\s\S]*\}/);
-        
-        if (jsonMatch) {
-          const jsonContent = jsonMatch[1] || jsonMatch[0];
-          parsedResponse = JSON.parse(jsonContent);
-        } else {
-          // 如果没有找到 JSON，尝试解析整个响应
-          parsedResponse = JSON.parse(aiResponse);
-        }
-      } catch (parseError) {
-        console.error('❌ [HTML生成] JSON解析失败:', parseError);
-        // 生成回退 HTML
-        parsedResponse = this.generateFallbackHtml(userInput, pageDesign, userData);
-      }
-
-      yield this.createThinkingResponse('✅ HTML 页面生成完成！', 100);
-      await this.delay(200);
-
-      // 返回最终结果
-      yield this.createResponse({
-        immediate_display: {
-          reply: '🎉 您的个人主页已生成完毕！这是一个现代化的 HTML 页面，使用了 Tailwind CSS 样式，完全响应式设计。您可以直接部署使用。',
-          agent_name: this.name,
-          timestamp: new Date().toISOString()
-        },
-        system_state: {
-          intent: 'code_generated',
-          done: true,
-          metadata: {
-            project_files: parsedResponse.files || [],
-            project_type: 'html_single_page',
-            tech_stack: parsedResponse.tech_stack || ['HTML5', 'Tailwind CSS'],
-            preview_features: parsedResponse.preview_features || {
-              responsive: true,
-              animations: true
-            },
-            deployment_ready: true,
-            mode: 'html_static'
-          }
-        }
-      });
-
-    } catch (error) {
-      console.error('❌ [HTML生成错误]:', error);
-      
-      // 生成回退 HTML
-      const fallbackFiles = this.generateFallbackHtml(userInput);
-      
-      yield this.createResponse({
-        immediate_display: {
-          reply: '⚠️ HTML 生成过程中遇到了一些问题，但我已为您生成了一个基础版本的个人主页。您可以在此基础上进行自定义。',
-          agent_name: this.name,
-          timestamp: new Date().toISOString()
-        },
-        system_state: {
-          intent: 'code_generated',
-          done: true,
-          metadata: {
-            project_files: fallbackFiles,
-            project_type: 'html_single_page',
-            tech_stack: ['HTML5', 'Tailwind CSS'],
-            deployment_ready: true,
-            mode: 'html_static'
-          }
-        }
-      });
-    }
-  }
 
   /**
    * AI生成模式处理
@@ -1212,66 +1096,10 @@ export class CodingAgent extends BaseAgent {
     return langMap[language] || 'txt';
   }
 
-  /**
-   * 🆕 从会话数据中提取设计方案
-   */
-  private extractDesignData(sessionData: SessionData): any {
-    try {
-      // 从collected_data中获取设计数据
-      const collectedData = sessionData.collectedData as any;
-      if (collectedData?.prompt_output || collectedData?.page_design) {
-        return collectedData.prompt_output || collectedData.page_design;
-      }
-      
-      // 备用：从metadata中获取
-      if ((sessionData.metadata as any)?.design_data) {
-        return (sessionData.metadata as any).design_data;
-      }
-      
-      // 默认设计数据
-      return {
-        design_strategy: {
-          visual_direction: 'modern_minimal',
-          color_scheme: 'warm_neutral',
-          typography_choice: 'sans_serif'
-        },
-        layout_concept: {
-          structure: ['hero', 'about', 'skills', 'contact']
-        }
-      };
-    } catch (error) {
-      console.error('❌ [数据提取] 设计数据提取失败:', error);
-      return {};
-    }
-  }
 
-  /**
-   * 🆕 从会话数据中提取用户数据
-   */
-  private extractUserData(sessionData: SessionData): any {
-    try {
-      // 从collected_data中获取用户数据
-      const collectedData = sessionData.collectedData as any;
-      if (collectedData?.info_collection || collectedData?.user_data) {
-        return collectedData.info_collection || collectedData.user_data;
-      }
-      
-      // 备用：构造基础用户数据
-      return {
-        name: '用户',
-        title: '专业人士',
-        skills: ['技能展示'],
-        email: 'contact@example.com'
-      };
-    } catch (error) {
-      console.error('❌ [数据提取] 用户数据提取失败:', error);
-      return {};
-    }
-  }
 
-  /**
-   * 🆕 生成回退 HTML 文件
-   */
+
+
   private generateFallbackHtml(userInput: string, pageDesign?: any, userData?: any): CodeFile[] {
     console.log('🤖 [回退生成] 使用回退 HTML 生成器...');
     
@@ -1486,56 +1314,7 @@ module.exports = {
     ];
   }
 
-  /**
-   * 🆕 检查用户计划类型
-   */
-  private async getUserPlan(sessionData: SessionData): Promise<'free' | 'pro'> {
-    try {
-      const user = await getCurrentUser();
-      if (user?.plan) {
-        console.log('🔍 [用户计划] 检测到用户计划:', user.plan);
-        return user.plan as 'free' | 'pro';
-      }
-      
-      // 备用：从会话数据中获取
-      if (sessionData?.userId) {
-        // 如果有其他获取用户信息的方法，可以在这里添加
-        console.log('⚠️ [用户计划] 无法获取用户信息，默认为免费计划');
-      }
-      
-      return 'free'; // 默认为免费计划
-    } catch (error) {
-      console.error('❌ [用户计划] 获取用户计划失败:', error);
-      return 'free'; // 出错时默认为免费计划
-    }
-  }
 
-  /**
-   * 🆕 判断是否应该使用 HTML 模式
-   */
-  private async shouldUseHtmlMode(sessionData: SessionData, context?: Record<string, any>): Promise<boolean> {
-    // 1. 检查强制模式设置
-    if (context?.forceNextjsMode || context?.forceReactMode) {
-      console.log('🎯 [模式判断] 强制使用 Next.js 模式');
-      return false;
-    }
-    
-    if (context?.forceHtmlMode || context?.forceStaticMode) {
-      console.log('🎯 [模式判断] 强制使用 HTML 模式');
-      return true;
-    }
-    
-    // 2. 检查用户计划
-    const userPlan = await this.getUserPlan(sessionData);
-    
-    if (userPlan === 'free') {
-      console.log('🎯 [模式判断] 免费用户 - 使用 HTML 模式');
-      return true;
-    } else {
-      console.log('🎯 [模式判断] 高级用户 - 使用 Next.js 模式');
-      return false;
-    }
-  }
 
   /**
    * 判断是否为专业模式 (保留原有逻辑用于向后兼容)
