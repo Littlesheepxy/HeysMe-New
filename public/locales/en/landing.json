@@ -13,7 +13,7 @@
     "brandSubtitle": "AI Digital Twin"
   },
   "hero": {
-    "title": "Next LinkedIn for the AI Era: Smart, Dynamic, Monetizable",
+    "title": "The AI-Powered Professional Platform",
     "subtitle": "Everyone deserves an AI-powered professional identity. Build multiple smart personas that evolve with you — showcase, connect, and earn, all in one place.",
     "primaryCta": "Create Your AI Profile Now",
     "secondaryCta": "Watch the Demo",
@@ -38,7 +38,7 @@
     }
   },
   "mission": {
-    "title": "Redefining Your Professional Identity in the AI Age",
+    "title": "Our Mission",
     "description": "The rules of work and self-presentation have changed.",
     "content": {
       "line1": "Resumes, business cards, and static portfolios no longer represent who we are — or who we're becoming.",
@@ -84,7 +84,7 @@
     "learnMore": "Learn More"
   },
   "features": {
-    "title": "A Smarter Way to Build Your Identity",
+    "title": "Our Core Features",
     "items": [
       {
         "title": "AI-Generated Personal Pages",
@@ -126,7 +126,7 @@
     }
   },
   "creator": {
-    "title": "🎨 The Creator Hub: Where Inspiration Meets Monetization",
+    "title": "The Creator Hub: Where Inspiration Meets Monetization",
     "features": [
       "Browse and use massive homepage & resume templates",
       "Create templates through Prompt format and easily monetize",
@@ -207,9 +207,9 @@
     "joinText": "Join thousands of people already building their AI-powered identities"
   },
   "finalCta": {
-    "title": "🚀 Start Building Your AI Digital Twin Now",
+    "title": "Start Building Your AI Digital Twin Now",
     "subtitle": "Your next opportunity starts here.",
-    "primaryCta": "🔥 Get Started Now",
+    "primaryCta": "Get Started Now",
     "secondaryCta": "Learn More",
     "features": [
       "Free to Start",

@@ -13,7 +13,7 @@
     "brandSubtitle": "AI 数字分身"
   },
   "hero": {
-    "title": "AI时代的下一代LinkedIn：智能、动态、可变现",
+    "title": "AI驱动的新一代职业平台",
     "subtitle": "人人都能拥有智能数字分身。AI为你打造多维职业身份，自动展示、动态演进，从曝光到合作到变现，一步到位。",
     "primaryCta": "立即创建你的数字分身",
     "secondaryCta": "观看演示",
@@ -38,7 +38,7 @@
     }
   },
   "mission": {
-    "title": "AI时代的职业身份革命",
+    "title": "我们的使命",
     "description": "AI正在重塑每一个人的职业身份。",
     "content": {
       "line1": "传统的简历、主页和名片，已无法满足个体多场景、多技能、持续成长的需求。",
@@ -65,7 +65,7 @@
     }
   },
   "value": {
-    "title": "为什么选择 HeysMe？",
+    "title": "我们能为你带来什么",
     "subtitle": "用AI为自己打造无限个职业分身：",
     "features": [
       {
@@ -84,7 +84,7 @@
     "learnMore": "了解更多"
   },
   "features": {
-    "title": "AI赋能的职业身份新体验",
+    "title": "产品核心功能",
     "items": [
       {
         "title": "智能对话生成主页",
@@ -108,7 +108,7 @@
       }
     ],
     "aiArchitecture": {
-      "title": "AI核心技术架构",
+      "title": "技术架构",
       "subtitle": "基于Claude AI的智能职业身份生成与管理系统",
       "input": {
         "title": "智能输入",
@@ -126,7 +126,7 @@
     }
   },
   "creator": {
-    "title": "🎨 创作者平台：灵感与变现的新舞台",
+    "title": "灵感广场",
     "features": [
       "浏览和使用海量主页 & 简历模板",
       "通过Prompt形式创作模板并轻松变现",
@@ -134,7 +134,7 @@
     ],
     "cta": "👉 探索模板市场",
     "revenueModel": {
-      "title": "创作者收益模式",
+      "title": "创作者收益模型",
       "items": [
         {
           "title": "模板设计",
@@ -152,7 +152,7 @@
     }
   },
   "plaza": {
-    "title": "数字身份广场：连接一切机会",
+    "title": "数字身份广场",
     "subtitle": "新一代招聘、合作与展示入口",
     "features": [
       {
@@ -171,7 +171,7 @@
     "cta": "立即进入广场，发现更多机会"
   },
   "useCases": {
-    "title": "谁适合使用 HeysMe？",
+    "title": "适用人群与场景",
     "cases": [
       {
         "title": "求职者",
@@ -207,9 +207,9 @@
     "joinText": "加入数万名满意用户，开启AI分身之旅"
   },
   "finalCta": {
-    "title": "🚀 现在，就创建你的AI数字分身",
+    "title": "现在，就创建你的AI数字分身",
     "subtitle": "你的下一次机会，从这里开始。",
-    "primaryCta": "🔥 立即开始",
+    "primaryCta": "立即开始",
     "secondaryCta": "了解更多",
     "features": [
       "免费开始",
