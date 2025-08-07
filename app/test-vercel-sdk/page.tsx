@@ -4,7 +4,7 @@ import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { createVercelInstance, testBasicConnection } from '@/test-vercel-sdk';
+import { createVercelInstance, testBasicConnection } from '../../test/test-vercel-sdk';
 import { DEFAULT_VERCEL_CONFIG } from '@/lib/config/vercel-config';
 
 export default function TestVercelSDKPage() {
