@@ -6,10 +6,23 @@ import { Badge } from "@/components/ui/badge"
 import { Sparkles, Play } from "lucide-react"
 import { useI18n } from "@/contexts/i18n-context"
 import CardSwap, { Card as SwapCard } from "@/components/ui/CardSwap/CardSwap"
+import RotatingText from "@/components/ui/RotatingText"
 import { Brain, Target, Palette, Shield } from "lucide-react"
 
 export function HeroSection() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+  
+  // 旋转文字数据
+  const rotatingWords = {
+    zh: ['智能', '动态', '可变现'],
+    en: ['Smart', 'Dynamic', 'Monetizable']
+  }
+  
+  // 基础标题（不包含旋转部分）
+  const baseTitle = {
+    zh: 'AI时代的下一代LinkedIn',
+    en: 'The Next LinkedIn for the AI Era'
+  }
 
   return (
     <section className="relative z-10 overflow-hidden min-h-screen flex items-center">
@@ -28,7 +41,7 @@ export function HeroSection() {
               transition={{ duration: 0.6, delay: 0.2 }}
             >
               <Badge className="mb-6 bg-white/20 backdrop-blur-sm text-white border border-white/30" variant="secondary">
-                🚀 v0.1 MVP 版本
+                {t('hero.badge')}
               </Badge>
             </motion.div>
 
@@ -38,7 +51,26 @@ export function HeroSection() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.8, delay: 0.4 }}
             >
-              {t('hero.title')}
+              <div className="mb-2">{baseTitle[locale as keyof typeof baseTitle]}</div>
+              <div className="flex items-center">
+                <span className="text-emerald-200 mr-3">—</span>
+                <div className="inline-block bg-white/20 backdrop-blur-sm rounded-2xl shadow-lg border border-white/30 px-4 py-2 min-w-[120px] text-center overflow-hidden">
+                  <RotatingText
+                    texts={rotatingWords[locale as keyof typeof rotatingWords]}
+                    mainClassName="inline-block text-white font-bold"
+                    splitLevelClassName="overflow-hidden"
+                    elementLevelClassName="inline-block"
+                    staggerFrom="first"
+                    initial={{ y: "100%", opacity: 0 }}
+                    animate={{ y: 0, opacity: 1 }}
+                    exit={{ y: "-100%", opacity: 0 }}
+                    staggerDuration={0.05}
+                    transition={{ type: "spring", damping: 25, stiffness: 400 }}
+                    rotationInterval={2500}
+                    splitBy="characters"
+                  />
+                </div>
+              </div>
             </motion.h1>
 
             <motion.p 
@@ -118,9 +150,9 @@ export function HeroSection() {
                     <div className="mb-4 inline-block">
                       <Brain className="w-8 h-8 text-emerald-600" strokeWidth={1.5} />
                     </div>
-                    <h3 className="text-lg font-bold mb-3 text-emerald-900">智能数字分身</h3>
+                    <h3 className="text-lg font-bold mb-3 text-emerald-900">{t('hero.cards.digitalTwin.title')}</h3>
                     <p className="text-emerald-700 text-sm leading-relaxed">
-                      AI为你创造多维职业身份，自动展示、动态演进
+                      {t('hero.cards.digitalTwin.description')}
                     </p>
                     <div className="mt-4 h-1 bg-gradient-to-r from-emerald-400 to-emerald-600 rounded-full"></div>
                   </div>
@@ -149,9 +181,9 @@ export function HeroSection() {
                     <div className="mb-4 inline-block">
                       <Target className="w-8 h-8 text-teal-600" strokeWidth={1.5} />
                     </div>
-                    <h3 className="text-lg font-bold mb-3 text-teal-900">智能变现</h3>
+                    <h3 className="text-lg font-bold mb-3 text-teal-900">{t('hero.cards.monetization.title')}</h3>
                     <p className="text-teal-700 text-sm leading-relaxed">
-                      从曝光到合作到变现，一步到位的价值转化
+                      {t('hero.cards.monetization.description')}
                     </p>
                     <div className="mt-4 h-1 bg-gradient-to-r from-teal-400 to-teal-600 rounded-full"></div>
                   </div>
@@ -180,9 +212,9 @@ export function HeroSection() {
                     <div className="mb-4 inline-block">
                       <Palette className="w-8 h-8 text-cyan-600" strokeWidth={1.5} />
                     </div>
-                    <h3 className="text-lg font-bold mb-3 text-cyan-900">动态演进</h3>
+                    <h3 className="text-lg font-bold mb-3 text-cyan-900">{t('hero.cards.evolution.title')}</h3>
                     <p className="text-cyan-700 text-sm leading-relaxed">
-                      随成长而进化的职业身份，永远展现最新的你
+                      {t('hero.cards.evolution.description')}
                     </p>
                     <div className="mt-4 h-1 bg-gradient-to-r from-cyan-400 to-cyan-600 rounded-full"></div>
                   </div>
@@ -211,9 +243,9 @@ export function HeroSection() {
                     <div className="mb-4 inline-block">
                       <Shield className="w-8 h-8 text-brand-600" strokeWidth={1.5} />
                     </div>
-                    <h3 className="text-lg font-bold mb-3 text-brand-900">多重身份</h3>
+                    <h3 className="text-lg font-bold mb-3 text-brand-900">{t('hero.cards.multiIdentity.title')}</h3>
                     <p className="text-brand-700 text-sm leading-relaxed">
-                      一个账号，无限分身，精准展示不同职业面貌
+                      {t('hero.cards.multiIdentity.description')}
                     </p>
                     <div className="mt-4 h-1 bg-gradient-to-r from-brand-400 to-brand-600 rounded-full"></div>
                   </div>

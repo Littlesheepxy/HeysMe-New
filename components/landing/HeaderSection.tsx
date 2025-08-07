@@ -28,10 +28,10 @@ export function HeaderSection() {
   }
 
   const navigation = [
-    { name: '产品特色', href: '#features' },
-    { name: '使用场景', href: '#use-cases' },
-    { name: '创作者平台', href: '#creator-hub' },
-    { name: '立即体验', href: '#final-cta' },
+    { name: t('header.navigation.features'), href: '#features' },
+    { name: t('header.navigation.useCases'), href: '#use-cases' },
+    { name: t('header.navigation.creatorHub'), href: '#creator-hub' },
+    { name: t('header.navigation.getStarted'), href: '#final-cta' },
   ]
 
   return (
@@ -69,7 +69,7 @@ export function HeaderSection() {
                   HeysMe
                 </span>
                 <div className={`text-xs ${isScrolled ? 'text-gray-500' : 'text-white/70'}`}>
-                  AI Digital Twin
+                  {t('header.brandSubtitle')}
                 </div>
               </div>
             </div>
@@ -118,7 +118,7 @@ export function HeaderSection() {
                     : 'text-white/90 hover:text-white bg-white/10 hover:bg-white/20 border border-white/20 hover:border-white/30 backdrop-blur-md'
                 }`}
               >
-                <span className="relative z-10">登录</span>
+                <span className="relative z-10">{t('header.auth.login')}</span>
                 {isScrolled && (
                   <div className="absolute inset-0 rounded-full bg-gradient-to-r from-gray-50 to-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 )}
@@ -134,7 +134,7 @@ export function HeaderSection() {
                     : 'text-white bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:via-emerald-600 hover:to-teal-600 shadow-lg hover:shadow-xl hover:shadow-emerald-300/30 border border-emerald-300/20'
                 }`}
               >
-                <span className="relative z-10">注册</span>
+                <span className="relative z-10">{t('header.auth.register')}</span>
                 <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full blur opacity-20 group-hover:opacity-30 transition-opacity duration-300" />
               </motion.button>
@@ -226,7 +226,7 @@ export function HeaderSection() {
                         : 'text-white/90 hover:text-white bg-white/10 hover:bg-white/20 border border-white/20 backdrop-blur-md'
                     }`}
                   >
-                    <span className="relative z-10">登录</span>
+                    <span className="relative z-10">{t('header.auth.login')}</span>
                     {isScrolled && (
                       <div className="absolute inset-0 rounded-full bg-gradient-to-r from-gray-50 to-white opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     )}
@@ -241,7 +241,7 @@ export function HeaderSection() {
                         : 'text-white bg-gradient-to-r from-emerald-400 via-emerald-500 to-teal-500 hover:from-emerald-500 hover:via-emerald-600 hover:to-teal-600 shadow-lg hover:shadow-xl hover:shadow-emerald-300/30 border border-emerald-300/20'
                     }`}
                   >
-                    <span className="relative z-10">注册</span>
+                    <span className="relative z-10">{t('header.auth.register')}</span>
                     <div className="absolute inset-0 bg-gradient-to-r from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     <div className="absolute -inset-1 bg-gradient-to-r from-emerald-400 to-teal-400 rounded-full blur opacity-20 group-hover:opacity-30 transition-opacity duration-300" />
                   </motion.button>

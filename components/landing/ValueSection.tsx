@@ -113,7 +113,7 @@ export function ValueSection() {
                     className="flex items-center text-gray-600 group-hover:text-gray-800 transition-colors duration-300"
                     whileHover={{ x: 5 }}
                   >
-                    <span className="text-sm font-medium mr-2">了解更多</span>
+                    <span className="text-sm font-medium mr-2">{t('value.learnMore')}</span>
                     <ArrowRight className="w-4 h-4" />
                   </motion.div>
                 </div>

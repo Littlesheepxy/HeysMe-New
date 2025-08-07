@@ -90,15 +90,19 @@ export function CreatorHubSection() {
             {/* 创作者平台可视化展示 */}
             <div className="relative bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-2xl">
               <div className="text-center mb-8">
-                <h3 className="text-2xl font-bold text-gray-800 mb-4">创作者收益模式</h3>
+                <h3 className="text-2xl font-bold text-gray-800 mb-4">{t('creator.revenueModel.title')}</h3>
               </div>
               
               <div className="space-y-6">
-                {[
-                  { title: '模板设计', earning: '$50-500', color: 'from-brand-400 to-brand-600' },
-                  { title: 'Prompt创作', earning: '$20-200', color: 'from-secondary-400 to-secondary-600' },
-                  { title: '定制服务', earning: '$100-1000', color: 'from-accent-400 to-accent-600' }
-                ].map((item, index) => (
+                {(() => {
+                  const items = t('creator.revenueModel.items')
+                  const itemsArray = Array.isArray(items) ? items : [
+                    { title: 'Template Design', earning: '$50-500' },
+                    { title: 'Prompt Creation', earning: '$20-200' },
+                    { title: 'Custom Services', earning: '$100-1000' }
+                  ]
+                  const colors = ['from-brand-400 to-brand-600', 'from-secondary-400 to-secondary-600', 'from-accent-400 to-accent-600']
+                  return itemsArray.map((item, index) => (
                   <motion.div
                     key={item.title}
                     className="flex items-center justify-between p-4 bg-gray-50 rounded-xl"
@@ -108,16 +112,16 @@ export function CreatorHubSection() {
                     transition={{ duration: 0.6, delay: 0.6 + index * 0.2 }}
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`w-10 h-10 bg-gradient-to-r ${item.color} rounded-lg flex items-center justify-center`}>
+                      <div className={`w-10 h-10 bg-gradient-to-r ${colors[index]} rounded-lg flex items-center justify-center`}>
                         <span className="text-white font-bold text-sm">{index + 1}</span>
                       </div>
                       <span className="font-medium text-gray-800">{item.title}</span>
                     </div>
-                    <span className={`font-bold bg-gradient-to-r ${item.color} bg-clip-text text-transparent`}>
+                    <span className={`font-bold bg-gradient-to-r ${colors[index]} bg-clip-text text-transparent`}>
                       {item.earning}
                     </span>
                   </motion.div>
-                ))}
+                ))})()}
               </div>
             </div>
           </motion.div>

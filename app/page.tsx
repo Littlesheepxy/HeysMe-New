@@ -1,6 +1,6 @@
 "use client"
 
-import { I18nProvider } from "@/contexts/i18n-context"
+import { I18nProvider, useI18n } from "@/contexts/i18n-context"
 import { useTheme } from "@/contexts/theme-context"
 import { BackgroundGradientAnimation } from "@/components/ui/background-gradient-animation"
 import {
@@ -19,6 +19,7 @@ import { Linkedin, Twitter, MessageCircle } from "lucide-react"
 
 // Footer Section Component - 简化版
 function FooterSectionComponent() {
+  const { t } = useI18n()
   const socialLinks = [
     {
       name: 'LinkedIn',
@@ -68,7 +69,7 @@ function FooterSectionComponent() {
                   <h3 className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent">
                     HeysMe
                   </h3>
-                  <p className="text-sm text-gray-600">AI 驱动的数字分身平台</p>
+                  <p className="text-sm text-gray-600">{t('footer.brandSubtitle')}</p>
                 </div>
               </div>
             </div>
@@ -77,7 +78,7 @@ function FooterSectionComponent() {
             <div className="lg:col-span-1 text-center">
               <div>
                 <p className="text-lg font-medium text-gray-700 mb-2">
-                  让AI为你创造无数个自己
+                  {t('footer.slogan')}
                 </p>
                 <div className="w-16 h-1 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full mx-auto"></div>
               </div>
@@ -86,7 +87,7 @@ function FooterSectionComponent() {
             {/* 右侧：社交媒体 */}
             <div className="lg:col-span-1 flex justify-center lg:justify-end">
               <div className="flex items-center space-x-6">
-                <span className="text-sm font-medium text-gray-600 hidden sm:block">关注我们</span>
+                <span className="text-sm font-medium text-gray-600 hidden sm:block">{t('footer.followUs')}</span>
                 <div className="flex space-x-3">
                   {socialLinks.map((social, index) => {
                     const IconComponent = social.icon
@@ -121,15 +122,15 @@ function FooterSectionComponent() {
           <div className="container mx-auto px-6 py-6">
             <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
               <div className="flex items-center space-x-4 text-sm text-gray-600">
-                <span className="font-semibold">LANDJOBX LTD.</span>
+                <span className="font-semibold">{t('footer.company')}</span>
                 <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
-                <span>© 2025 版权所有</span>
+                <span>{t('footer.copyright')}</span>
               </div>
               
               <div className="text-xs text-gray-500">
-                <span>Powered by AI</span>
+                <span>{t('footer.poweredBy')}</span>
                 <span className="mx-2">•</span>
-                <span>Built with ❤️</span>
+                <span>{t('footer.builtWith')}</span>
               </div>
             </div>
           </div>

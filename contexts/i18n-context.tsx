@@ -2,7 +2,6 @@
 
 import React, { createContext, useContext, useState, useEffect } from 'react'
 import { Languages } from 'lucide-react'
-import { translations } from '@/lib/translations'
 
 // 支持的语言类型
 export type Locale = 'zh' | 'en'
@@ -17,7 +16,7 @@ export const LOCALES: Record<Locale, { name: string; flag: string }> = {
 interface I18nContextType {
   locale: Locale
   setLocale: (locale: Locale) => void
-  t: (key: string) => string
+  t: (key: string) => any  // 支持返回字符串、数组或对象
   isLoading: boolean
 }
 
@@ -31,23 +30,25 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [isLoading, setIsLoading] = useState(true)
 
   // 加载翻译文件
-  const loadTranslations = (lang: Locale) => {
+  const loadTranslations = async (lang: Locale) => {
     try {
       setIsLoading(true)
-      // 使用本地翻译数据
-      const data = translations[lang]
-      if (data) {
-        setCurrentTranslations(data)
-        setIsLoading(false)
-      } else {
-        console.error(`No translations found for ${lang}`)
-        // 降级到中文
-        if (lang !== 'zh') {
-          loadTranslations('zh')
-        } else {
-          setIsLoading(false)
+      // 添加时间戳参数来破坏缓存，确保获取最新的翻译文件
+      const timestamp = Date.now()
+      const response = await fetch(`/locales/${lang}/landing.json?v=${timestamp}`, {
+        cache: 'no-store', // 禁用缓存
+        headers: {
+          'Cache-Control': 'no-cache', // 强制不使用缓存
+          'Pragma': 'no-cache'
         }
+      })
+      if (!response.ok) {
+        throw new Error(`Failed to fetch translations for ${lang}`)
       }
+      const data = await response.json()
+      setCurrentTranslations(data)
+      console.log(`✅ 已加载 ${lang} 翻译文件 (${timestamp})`, data)
+      setIsLoading(false)
     } catch (error) {
       console.error(`Failed to load translations for ${lang}:`, error)
       // 降级到中文
@@ -59,8 +60,8 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     }
   }
 
-  // 翻译函数
-  const t = (key: string): string => {
+  // 翻译函数 - 支持字符串、数组和对象
+  const t = (key: string): any => {
     // 如果正在加载或没有翻译数据，返回键名
     if (isLoading || !currentTranslations || Object.keys(currentTranslations).length === 0) {
       return key
@@ -78,7 +79,8 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
       }
     }
     
-    return typeof value === 'string' ? value : key
+    // 返回实际值（字符串、数组或对象），而不只是字符串
+    return value !== null && value !== undefined ? value : key
   }
 
   // 切换语言

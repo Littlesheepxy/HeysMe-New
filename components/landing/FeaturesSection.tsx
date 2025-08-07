@@ -139,8 +139,8 @@ export function FeaturesSection() {
           transition={{ duration: 0.8, delay: 0.4 }}
         >
           <div className="text-center mb-12">
-            <h3 className="text-3xl font-bold text-gray-800 mb-4">AI核心技术架构</h3>
-            <p className="text-lg text-gray-600">基于Claude AI的智能职业身份生成与管理系统</p>
+            <h3 className="text-3xl font-bold text-gray-800 mb-4">{t('features.aiArchitecture.title')}</h3>
+            <p className="text-lg text-gray-600">{t('features.aiArchitecture.subtitle')}</p>
           </div>
 
           {/* 技术架构图 */}
@@ -154,9 +154,12 @@ export function FeaturesSection() {
               transition={{ duration: 0.6, delay: 0.6 }}
             >
               <div className="bg-gradient-to-br from-blue-50 to-blue-100 rounded-2xl p-6 shadow-lg">
-                <h4 className="text-xl font-bold text-blue-800 mb-4">智能输入</h4>
+                <h4 className="text-xl font-bold text-blue-800 mb-4">{t('features.aiArchitecture.input.title')}</h4>
                 <div className="space-y-3">
-                  {['对话输入', '文档上传', '链接解析', '社交媒体'].map((item, index) => (
+                  {(() => {
+                    const items = t('features.aiArchitecture.input.items')
+                    const itemsArray = Array.isArray(items) ? items : ['Conversational Input', 'Document Upload', 'Link Parsing', 'Social Media']
+                    return itemsArray.map((item, index) => (
                     <motion.div
                       key={item}
                       className="bg-white rounded-lg p-3 text-sm font-medium text-blue-700 shadow-sm"
@@ -167,7 +170,7 @@ export function FeaturesSection() {
                     >
                       {item}
                     </motion.div>
-                  ))}
+                  ))})()}
                 </div>
               </div>
             </motion.div>
@@ -188,17 +191,21 @@ export function FeaturesSection() {
                   transition={{ type: "spring", stiffness: 300 }}
                 >
                   <Bot className="w-12 h-12 mx-auto mb-4" />
-                  <h4 className="text-2xl font-bold mb-2">Claude AI</h4>
-                  <p className="text-brand-100">智能分析引擎</p>
+                  <h4 className="text-2xl font-bold mb-2">{t('features.aiArchitecture.processing.title')}</h4>
+                  <p className="text-brand-100">{t('features.aiArchitecture.processing.subtitle')}</p>
                 </motion.div>
 
                 {/* 环绕的处理模块 */}
-                {[
-                  { name: '内容理解', position: 'top-0 left-1/2 -translate-x-1/2 -translate-y-1/2' },
-                  { name: '价值提取', position: 'top-1/2 right-0 translate-x-1/2 -translate-y-1/2' },
-                  { name: '个性化', position: 'bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2' },
-                  { name: '动态优化', position: 'top-1/2 left-0 -translate-x-1/2 -translate-y-1/2' }
-                ].map((module, index) => (
+                {(() => {
+                  const modules = t('features.aiArchitecture.processing.modules')
+                  const modulesArray = Array.isArray(modules) ? modules : ['Content Understanding', 'Value Extraction', 'Personalization', 'Dynamic Optimization']
+                  const moduleConfigs = [
+                    { name: modulesArray[0] || 'Content Understanding', position: 'top-0 left-1/2 -translate-x-1/2 -translate-y-1/2' },
+                    { name: modulesArray[1] || 'Value Extraction', position: 'top-1/2 right-0 translate-x-1/2 -translate-y-1/2' },
+                    { name: modulesArray[2] || 'Personalization', position: 'bottom-0 left-1/2 -translate-x-1/2 translate-y-1/2' },
+                    { name: modulesArray[3] || 'Dynamic Optimization', position: 'top-1/2 left-0 -translate-x-1/2 -translate-y-1/2' }
+                  ]
+                  return moduleConfigs.map((module, index) => (
                   <motion.div
                     key={module.name}
                     className={`absolute ${module.position} bg-white rounded-lg px-3 py-2 text-xs font-medium text-brand-700 shadow-lg border border-brand-200`}
@@ -209,7 +216,7 @@ export function FeaturesSection() {
                   >
                     {module.name}
                   </motion.div>
-                ))}
+                ))})()}
               </div>
             </motion.div>
 
@@ -222,9 +229,12 @@ export function FeaturesSection() {
               transition={{ duration: 0.6, delay: 1.0 }}
             >
               <div className="bg-gradient-to-br from-emerald-50 to-emerald-100 rounded-2xl p-6 shadow-lg">
-                <h4 className="text-xl font-bold text-emerald-800 mb-4">智能输出</h4>
+                <h4 className="text-xl font-bold text-emerald-800 mb-4">{t('features.aiArchitecture.output.title')}</h4>
                 <div className="space-y-3">
-                  {['个性化主页', '多身份管理', '动态更新', '价值展示'].map((item, index) => (
+                  {(() => {
+                    const items = t('features.aiArchitecture.output.items')
+                    const itemsArray = Array.isArray(items) ? items : ['Personalized Homepage', 'Multi-Identity Management', 'Dynamic Updates', 'Value Showcase']
+                    return itemsArray.map((item, index) => (
                     <motion.div
                       key={item}
                       className="bg-white rounded-lg p-3 text-sm font-medium text-emerald-700 shadow-sm"
@@ -235,7 +245,7 @@ export function FeaturesSection() {
                     >
                       {item}
                     </motion.div>
-                  ))}
+                  ))})()}
                 </div>
               </div>
             </motion.div>

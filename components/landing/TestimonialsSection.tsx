@@ -74,7 +74,7 @@ export function TestimonialsSection() {
                 </div>
                 <div>
                   <div className="font-semibold text-gray-800">{testimonial.author}</div>
-                  <div className="text-sm text-gray-600">HeysMe 用户</div>
+                  <div className="text-sm text-gray-600">{t('testimonials.userLabel')}</div>
                 </div>
               </div>
 
@@ -93,21 +93,25 @@ export function TestimonialsSection() {
           transition={{ duration: 0.6, delay: 0.6 }}
         >
           <p className="text-lg text-gray-600 mb-6">
-            加入成千上万满意用户的行列
+            {t('testimonials.joinText')}
           </p>
           <div className="flex items-center justify-center gap-2 text-sm text-gray-500">
             <div className="flex -space-x-2">
-              {[...Array(5)].map((_, i) => (
-                <div
-                  key={i}
-                  className="w-8 h-8 bg-gradient-to-r from-brand-400 to-secondary-400 rounded-full border-2 border-white flex items-center justify-center text-white text-xs font-bold"
-                  style={{ transform: `translateX(${i * -4}px)` }}
-                >
-                  {String.fromCharCode(65 + i)}
-                </div>
-              ))}
+              {(() => {
+                const letters = t('finalCta.userStats.letters')
+                const lettersArray = Array.isArray(letters) ? letters : ['A', 'B', 'C', 'D', 'E']
+                return lettersArray.map((letter, i) => (
+                  <div
+                    key={i}
+                    className="w-8 h-8 bg-gradient-to-r from-brand-400 to-secondary-400 rounded-full border-2 border-white flex items-center justify-center text-white text-xs font-bold"
+                    style={{ transform: `translateX(${i * -4}px)` }}
+                  >
+                    {letter}
+                  </div>
+                ))
+              })()}
             </div>
-            <span className="ml-4">+2000 满意用户</span>
+            <span className="ml-4">{t('finalCta.userStats.count')}</span>
           </div>
         </motion.div>
       </div>

@@ -1,63 +1,129 @@
 {
+  "header": {
+    "navigation": {
+      "features": "产品特色",
+      "useCases": "使用场景", 
+      "creatorHub": "创作者平台",
+      "getStarted": "立即体验"
+    },
+    "auth": {
+      "login": "登录",
+      "register": "注册"
+    },
+    "brandSubtitle": "AI 数字分身"
+  },
   "hero": {
-    "title": "🚀 AI时代的下一代LinkedIn：智能、动态、可变现",
+    "title": "AI时代的下一代LinkedIn：智能、动态、可变现",
     "subtitle": "人人都能拥有智能数字分身。AI为你打造多维职业身份，自动展示、动态演进，从曝光到合作到变现，一步到位。",
     "primaryCta": "立即创建你的数字分身",
-    "secondaryCta": "观看演示"
+    "secondaryCta": "观看演示",
+    "badge": "🚀v0.1 MVP 版本",
+    "cards": {
+      "digitalTwin": {
+        "title": "智能数字分身",
+        "description": "AI为你创造多维职业身份，自动展示、动态演进"
+      },
+      "monetization": {
+        "title": "智能变现", 
+        "description": "从曝光到合作到变现，一步到位的价值转化"
+      },
+      "evolution": {
+        "title": "动态演进",
+        "description": "随成长而进化的职业身份，永远展现最新的你"
+      },
+      "multiIdentity": {
+        "title": "多重身份",
+        "description": "一个账号，无限分身，精准展示不同职业面貌"
+      }
+    }
   },
   "mission": {
-    "title": "🌟 AI时代的职业身份革命",
-    "description": "在AI时代，职业身份正在发生根本性变化。",
+    "title": "AI时代的职业身份革命",
+    "description": "AI正在重塑每一个人的职业身份。",
     "content": {
-      "line1": "传统的简历、主页、名片已无法满足个体多样化、动态演进的展示需求。",
-      "line2": "你不仅仅是一个岗位、一个角色，而是多面体：创作者、自由职业者、求职者、合作者……",
-      "whyTitle": "💡 为什么做 HeysMe？",
-      "whyContent": "因为没有任何产品能在AI时代满足这种多维职业身份的诉求，所以我们决定亲手打造它。"
+      "line1": "传统的简历、主页和名片，已无法满足个体多场景、多技能、持续成长的需求。",
+      "line2": "你不再只是一个岗位或标签，而是多个身份的集合：创作者、自由职业者、求职者、合作者等。",
+      "whyTitle": "为什么做 HeysMe？",
+      "whyContent": "因为没有任何产品能真正满足AI时代下个体「多维职业身份」的表达与管理，我们决定亲自打造它。",
+      "brandMeaning": {
+        "title": "HeysMe = Hey, it's Me!",
+        "description": "代表你每一个分身、每一个面向世界的自己。"
+      }
     },
-    "cta": "🔥 成为第一批数字分身拥有者"
+    "cta": "立即创建你的数字分身",
+    "comparison": {
+      "traditional": {
+        "title": "传统方式",
+        "subtitle": "静态展示，单一维度，难以更新",
+        "items": ["简历", "名片", "个人主页"]
+      },
+      "ai": {
+        "title": "HeysMe AI",
+        "subtitle": "智能生成，多维身份，动态进化",
+        "items": ["创作者身份", "求职身份", "自由职业形象", "合作伙伴形象"]
+      }
+    }
   },
   "value": {
-    "title": "🔥 为什么选择 HeysMe？",
-    "subtitle": "在这里，你可以用AI打造无限个职业分身：",
+    "title": "为什么选择 HeysMe？",
+    "subtitle": "用AI为自己打造无限个职业分身：",
     "features": [
       {
         "title": "展示",
-        "description": "向世界呈现最好的自己"
+        "description": "随时展示当下最好的你，打造个人品牌"
       },
       {
-        "title": "连接", 
-        "description": "让合作、招聘、机会主动找上门"
+        "title": "连接",
+        "description": "让招聘方、合作方主动找到你"
       },
       {
         "title": "变现",
         "description": "将你的技能和影响力转化为真实价值"
       }
-    ]
+    ],
+    "learnMore": "了解更多"
   },
   "features": {
-    "title": "⚡ AI赋能，全新职业身份体验",
+    "title": "AI赋能的职业身份新体验",
     "items": [
       {
         "title": "智能对话生成主页",
-        "description": "与AI对话，上传文档、链接，AI自动解析并生成个性化主页。"
+        "description": "与AI对话，上传文档或链接，快速生成个性化主页"
       },
       {
         "title": "Vibe Coding 个性化编辑",
-        "description": "生成后随时用Vibe Coding微调，打造你的专属风格。"
+        "description": "生成后可自由微调，打造符合你风格的专属分身"
       },
       {
         "title": "多身份多场景",
-        "description": "一个账号，N个分身。随时切换，让展示始终精准。"
+        "description": "一个账号，多个分身，覆盖不同场景与职业角色"
       },
       {
         "title": "独特域名",
-        "description": "每个数字分身都拥有专属域名，在线个人品牌触手可及。"
+        "description": "每个分身配有独立域名，塑造专业在线形象"
       },
       {
         "title": "AI动态演进",
-        "description": "你的主页不再静止，AI让它随你的成长而不断进化。"
+        "description": "随着你的成长与更新，主页自动进化，始终保持最新状态"
       }
-    ]
+    ],
+    "aiArchitecture": {
+      "title": "AI核心技术架构",
+      "subtitle": "基于Claude AI的智能职业身份生成与管理系统",
+      "input": {
+        "title": "智能输入",
+        "items": ["对话式输入", "文档上传", "链接解析", "社交媒体采集"]
+      },
+      "processing": {
+        "title": "Claude AI",
+        "subtitle": "智能分析引擎",
+        "modules": ["内容理解", "价值提取", "个性化生成", "动态优化"]
+      },
+      "output": {
+        "title": "智能输出",
+        "items": ["个性化主页", "多身份分身", "持续更新", "价值展示"]
+      }
+    }
   },
   "creator": {
     "title": "🎨 创作者平台：灵感与变现的新舞台",
@@ -66,70 +132,108 @@
       "通过Prompt形式创作模板并轻松变现",
       "让创作者为AI时代设计职业身份"
     ],
-    "cta": "👉 探索模板市场"
+    "cta": "👉 探索模板市场",
+    "revenueModel": {
+      "title": "创作者收益模式",
+      "items": [
+        {
+          "title": "模板设计",
+          "earning": "$50-500"
+        },
+        {
+          "title": "Prompt创作", 
+          "earning": "$20-200"
+        },
+        {
+          "title": "定制服务",
+          "earning": "$100-1000"
+        }
+      ]
+    }
   },
   "plaza": {
-    "title": "🌐 数字身份广场：连接一切机会",
-    "subtitle": "这里是合作、招聘、求职的新入口：",
+    "title": "数字身份广场：连接一切机会",
+    "subtitle": "新一代招聘、合作与展示入口",
     "features": [
       {
         "title": "招聘方",
-        "description": "精准找到最佳候选人"
+        "description": "精准匹配多维人才，快速找到合适人选"
       },
       {
         "title": "创作者",
-        "description": "发现合作伙伴与商业机会"
+        "description": "寻找志同道合的合作伙伴与变现机会"
       },
       {
         "title": "个人",
-        "description": "让机会主动来敲门"
+        "description": "主动展示多面技能，让机会自动找上门"
       }
     ],
-    "cta": "🚀 进入广场，发现机会"
+    "cta": "立即进入广场，发现更多机会"
   },
   "useCases": {
-    "title": "🎯 谁适合使用 HeysMe？",
+    "title": "谁适合使用 HeysMe？",
     "cases": [
       {
         "title": "求职者",
-        "description": "一键生成专属主页，让HR主动找你"
+        "description": "生成多维主页，精准呈现你的价值，让HR主动找你"
       },
       {
         "title": "自由职业者",
-        "description": "多场景主页展示不同技能，接单更轻松"
+        "description": "一个平台展示多个技能场景，接单更轻松"
       },
       {
-        "title": "创作者 & Influencer",
-        "description": "展示作品、变现影响力"
+        "title": "创作者与Influencer",
+        "description": "展示作品组合，拓展影响力并轻松变现"
       },
       {
-        "title": "企业 & 招聘方",
-        "description": "快速找到最合适的合作伙伴"
+        "title": "企业与招聘方",
+        "description": "更快发现具备特定能力与匹配度的合作者"
       }
     ]
   },
   "testimonials": {
-    "title": "💬 用户的声音",
+    "title": "用户的声音",
     "items": [
       {
-        "content": "这不是另一种简历，而是AI时代的全新身份系统。",
-        "author": "测试用户A"
+        "content": "这不仅仅是简历工具，而是AI时代的职业身份系统。",
+        "author": "王小慧，自由撰稿人"
       },
       {
-        "content": "一个平台，帮我搞定了展示、合作、变现，超乎想象。",
-        "author": "创作者B"
+        "content": "在一个平台上同时搞定展示、合作、变现，效率提升太多。",
+        "author": "Leo Zhang，产品经理 & 创作者"
       }
-    ]
+    ],
+    "userLabel": "HeysMe 用户",
+    "joinText": "加入数万名满意用户，开启AI分身之旅"
   },
   "finalCta": {
     "title": "🚀 现在，就创建你的AI数字分身",
     "subtitle": "你的下一次机会，从这里开始。",
     "primaryCta": "🔥 立即开始",
-    "secondaryCta": "了解更多"
+    "secondaryCta": "了解更多",
+    "features": [
+      "免费开始",
+      "3分钟创建",
+      "AI智能生成",
+      "随时可修改"
+    ],
+    "userStats": {
+      "count": "+2000 满意用户",
+      "letters": ["A", "B", "C", "D", "E"]
+    }
   },
   "slogans": [
     "让AI为你创造无数个自己。",
     "数字分身，无限可能。",
     "AI时代的职业身份革命。"
-  ]
+  ],
+  "footer": {
+    "brandSubtitle": "AI 驱动的数字分身平台",
+    "slogan": "让AI为你创造无数个自己",
+    "followUs": "关注我们",
+    "company": "LANDJOBX LTD.",
+    "copyright": "© 2025 版权所有",
+    "poweredBy": "Powered by AI",
+    "builtWith": "Built with ❤️"
+  }
 }

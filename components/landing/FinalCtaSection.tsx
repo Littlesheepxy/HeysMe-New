@@ -95,22 +95,17 @@ export function FinalCtaSection() {
                 transition={{ duration: 0.6, delay: 0.8 }}
               >
                 <div className="flex flex-wrap justify-center gap-8 text-white/80">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-brand-400 rounded-full"></div>
-                    <span className="text-sm">免费开始</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-secondary-400 rounded-full"></div>
-                    <span className="text-sm">3分钟创建</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-accent-400 rounded-full"></div>
-                    <span className="text-sm">AI智能生成</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-brand-500 rounded-full"></div>
-                    <span className="text-sm">随时可修改</span>
-                  </div>
+                  {(() => {
+                    const features = t('finalCta.features')
+                    const featuresArray = Array.isArray(features) ? features : ['Free to Start', '3-Minute Creation', 'AI Smart Generation', 'Always Editable']
+                    const colors = ['bg-brand-400', 'bg-secondary-400', 'bg-accent-400', 'bg-brand-500']
+                    return featuresArray.map((feature, index) => (
+                      <div key={feature} className="flex items-center gap-2">
+                        <div className={`w-2 h-2 ${colors[index]} rounded-full`}></div>
+                        <span className="text-sm">{feature}</span>
+                      </div>
+                    ))
+                  })()}
                 </div>
 
                 {/* Slogan 循环展示 */}
@@ -125,7 +120,7 @@ export function FinalCtaSection() {
                     "{(() => {
                       const slogans = t('slogans')
                       const slogansArray = Array.isArray(slogans) ? slogans : []
-                      return slogansArray[0] || '让AI为你创造无数个自己。'
+                      return slogansArray[0] || 'Let AI create countless versions of yourself.'
                     })()}"
                   </p>
                 </motion.div>

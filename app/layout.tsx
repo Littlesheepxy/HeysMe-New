@@ -4,8 +4,7 @@ import { Inter } from "next/font/google"
 import "./globals.css"
 import { ClerkProvider } from "@clerk/nextjs"
 import { ThemeProvider } from "@/contexts/theme-context"
-import { StagewiseToolbar } from "@stagewise/toolbar-next"
-import ReactPlugin from "@stagewise-plugins/react"
+
 import { Toaster } from "@/components/ui/toaster"
 
 const inter = Inter({ subsets: ["latin"] })
@@ -64,16 +63,6 @@ export default function RootLayout({
           <ThemeProvider>
             {children}
             <Toaster />
-            {/* 只在开发环境显示 stagewise 工具栏，并添加样式隔离 */}
-            {process.env.NODE_ENV === 'development' && (
-              <div style={{ isolation: 'isolate', zIndex: 9999 }}>
-                <StagewiseToolbar 
-                  config={{
-                    plugins: [ReactPlugin]
-                  }}
-                />
-              </div>
-            )}
           </ThemeProvider>
         </body>
       </html>
