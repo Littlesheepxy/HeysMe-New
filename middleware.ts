@@ -35,40 +35,46 @@ const isPublicRoute = createRouteMatcher([
 ])
 
 export default clerkMiddleware(async (auth, req) => {
-  // 🔧 公开路由直接放行，不需要认证检查
-  if (isPublicRoute(req)) {
+  try {
+    // 🔧 公开路由直接放行，不需要认证检查
+    if (isPublicRoute(req)) {
+      return NextResponse.next()
+    }
+
+    const authData = await auth()
+    
+    // 重定向旧的登录路由到新的 Clerk 登录页面
+    if (req.nextUrl.pathname.startsWith("/auth/login")) {
+      const redirectUrl = req.nextUrl.searchParams.get("redirect_url") || "/chat"
+      const signInUrl = new URL("/sign-in", req.url)
+      signInUrl.searchParams.set("redirect_url", redirectUrl)
+      return NextResponse.redirect(signInUrl)
+    }
+    
+    // 如果是受保护的路由且用户未登录，重定向到登录页面
+    if (isProtectedRoute(req) && !authData.userId) {
+      const signInUrl = new URL("/sign-in", req.url)
+      signInUrl.searchParams.set("redirect_url", req.url)
+      return NextResponse.redirect(signInUrl)
+    }
+
+    // 如果用户已登录且访问登录/注册页面，重定向到聊天页面
+    if (authData.userId && (req.nextUrl.pathname === "/sign-in" || req.nextUrl.pathname === "/sign-up")) {
+      // 检查是否有指定的重定向URL
+      const redirectUrl = req.nextUrl.searchParams.get("redirect_url")
+      if (redirectUrl) {
+        return NextResponse.redirect(new URL(redirectUrl, req.url))
+      }
+      // 默认重定向到聊天页面
+      return NextResponse.redirect(new URL("/chat", req.url))
+    }
+
+    return NextResponse.next()
+  } catch (error) {
+    console.error('❌ [中间件错误]:', error);
+    // 如果中间件出错，允许请求继续，但记录错误
     return NextResponse.next()
   }
-
-  const authData = await auth()
-  
-  // 重定向旧的登录路由到新的 Clerk 登录页面
-  if (req.nextUrl.pathname.startsWith("/auth/login")) {
-    const redirectUrl = req.nextUrl.searchParams.get("redirect_url") || "/chat"
-    const signInUrl = new URL("/sign-in", req.url)
-    signInUrl.searchParams.set("redirect_url", redirectUrl)
-    return NextResponse.redirect(signInUrl)
-  }
-  
-  // 如果是受保护的路由且用户未登录，重定向到登录页面
-  if (isProtectedRoute(req) && !authData.userId) {
-    const signInUrl = new URL("/sign-in", req.url)
-    signInUrl.searchParams.set("redirect_url", req.url)
-    return NextResponse.redirect(signInUrl)
-  }
-
-  // 如果用户已登录且访问登录/注册页面，重定向到聊天页面
-  if (authData.userId && (req.nextUrl.pathname === "/sign-in" || req.nextUrl.pathname === "/sign-up")) {
-    // 检查是否有指定的重定向URL
-    const redirectUrl = req.nextUrl.searchParams.get("redirect_url")
-    if (redirectUrl) {
-      return NextResponse.redirect(new URL(redirectUrl, req.url))
-    }
-    // 默认重定向到聊天页面
-    return NextResponse.redirect(new URL("/chat", req.url))
-  }
-
-  return NextResponse.next()
 })
 
 export const config = {
