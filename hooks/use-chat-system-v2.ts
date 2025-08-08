@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useCallback, useEffect } from "react"
+import { useState, useCallback, useEffect, useMemo } from "react"
 // 移除对agentOrchestrator的导入，客户端应该通过API调用后端
 // import { agentOrchestrator } from "@/lib/utils/agent-orchestrator"
 import { SessionData } from "@/lib/types/session"
@@ -1176,7 +1176,8 @@ export function useChatSystemV2() {
     [sessions]
   );
 
-  return {
+  // 🚀 使用 useMemo 缓存返回对象，避免无限重渲染
+  return useMemo(() => ({
     sessions,
     currentSession,
     isGenerating,
@@ -1208,5 +1209,31 @@ export function useChatSystemV2() {
       regenerateTitle: titleGeneration.regenerateTitle,
       clearError: titleGeneration.clearError,
     },
-  }
+  }), [
+    sessions,
+    currentSession,
+    isGenerating,
+    generatedPage,
+    selectedModel,
+    streamingResponses,
+    currentError,
+    retryCount,
+    isLoadingSessions,
+    setSelectedModel,
+    createNewSession,
+    selectSession,
+    sendMessage,
+    generatePage,
+    retryCurrentOperation,
+    resetToStage,
+    clearChat,
+    deleteSession,
+    updateSessionTitle,
+    shareSession,
+    titleGeneration.isGenerating,
+    titleGeneration.error,
+    titleGeneration.generateTitle,
+    titleGeneration.regenerateTitle,
+    titleGeneration.clearError,
+  ])
 } 

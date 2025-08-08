@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback, memo } from 'react';
+
 import { useDebouncedCallback } from 'use-debounce';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -8,51 +9,60 @@ import { Input } from '@/components/ui/input';
 import { Sparkles, Send, Paperclip, Upload, X } from 'lucide-react';
 import { useTheme } from '@/contexts/theme-context';
 
-// 🎨 品牌动态文本样式
+
+
+// 🎨 高性能打字机和品牌样式优化
 const dynamicTextStyles = `
-  @keyframes brand-gradient-shift {
-    0% { background-position: 0% 50%; }
-    25% { background-position: 100% 50%; }
-    50% { background-position: 100% 100%; }
-    75% { background-position: 0% 100%; }
-    100% { background-position: 0% 50%; }
+  /* 打字机文本渲染优化 */
+  .typewriter-text {
+    /* GPU加速 */
+    transform: translateZ(0);
+    will-change: contents;
+    /* 字体渲染优化 */
+    text-rendering: optimizeSpeed;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    /* 减少重绘 */
+    contain: layout style paint;
   }
   
-  @keyframes brand-glow {
-    0%, 100% { 
-      filter: brightness(1) drop-shadow(0 0 2px rgba(16, 185, 129, 0.3));
-    }
-    50% { 
-      filter: brightness(1.2) drop-shadow(0 0 8px rgba(16, 185, 129, 0.6));
-    }
-  }
-  
-  @keyframes brand-breathe {
-    0%, 100% { 
-      transform: scale(1);
-      opacity: 0.9;
-    }
-    50% { 
-      transform: scale(1.05);
-      opacity: 1;
-    }
-  }
-  
-  @keyframes cursor-blink {
-    0%, 50% { opacity: 1; }
-    51%, 100% { opacity: 0; }
+  /* 光标优化 */
+  .typewriter-cursor {
+    /* GPU加速渲染 */
+    transform: translateZ(0);
+    will-change: opacity;
+    /* 优化渲染性能 */
+    contain: layout style paint;
+    backface-visibility: hidden;
   }
   
   .animate-brand-glow {
-    animation: brand-glow 3s ease-in-out infinite;
+    filter: brightness(1) drop-shadow(0 0 2px rgba(16, 185, 129, 0.3));
   }
   
   .animate-brand-breathe {
-    animation: brand-breathe 4s ease-in-out infinite;
+    transform: scale(1);
+    opacity: 0.95;
   }
   
-  .cursor-blink {
-    animation: cursor-blink 1s infinite;
+  /* 高性能输入框优化 */
+  .high-performance-input {
+    /* 强制GPU合成层 */
+    transform: translateZ(0);
+    will-change: contents;
+    /* 隔离渲染上下文 */
+    isolation: isolate;
+    contain: layout style paint size;
+    /* 减少重绘范围 */
+    backface-visibility: hidden;
+    /* 优化滚动性能 */
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* IME 输入法优化 */
+  .ime-composing {
+    ime-mode: active;
+    text-decoration: underline;
   }
 `;
 
@@ -69,9 +79,7 @@ interface FileWithPreview {
 }
 
 interface WelcomeScreenProps {
-  inputValue: string;
-  setInputValue: (value: string) => void;
-  onSendMessage: () => void;
+  onSendMessage: (message: string) => void;
   isGenerating?: boolean;
   chatMode?: 'normal' | 'professional';
   onFileUpload?: (file: File) => void;
@@ -80,52 +88,172 @@ interface WelcomeScreenProps {
   isPrivacyMode?: boolean;
 }
 
-// 打字机效果Hook
-const useTypewriter = (phrases: string[], baseText: string = "") => {
-  const [currentText, setCurrentText] = useState("");
-  const [currentPhraseIndex, setCurrentPhraseIndex] = useState(0);
-  const [isDeleting, setIsDeleting] = useState(false);
-  const [isComplete, setIsComplete] = useState(false);
+// 🚀 高性能打字机效果Hook - 使用 requestAnimationFrame 优化
+const useTypewriter = (phrases: string[], baseText: string = "", typingSpeed: number = 80) => {
+  const [displayText, setDisplayText] = useState(baseText);
+  const [showCursor, setShowCursor] = useState(true);
+  
+  // 使用 ref 管理动画状态，避免不必要的重渲染
+  const animationRef = useRef<{
+    currentPhraseIndex: number;
+    currentCharIndex: number;
+    isDeleting: boolean;
+    isPaused: boolean;
+    lastUpdateTime: number;
+    pauseStartTime: number;
+    animationId: number | null;
+    cursorAnimationId: number | null;
+  }>({
+    currentPhraseIndex: 0,
+    currentCharIndex: baseText.length,
+    isDeleting: false,
+    isPaused: false,
+    lastUpdateTime: 0,
+    pauseStartTime: 0,
+    animationId: null,
+    cursorAnimationId: null
+  });
 
+  // 缓存计算结果
+  const phrasesRef = useRef(phrases);
+  const baseTextRef = useRef(baseText);
+  const typingSpeedRef = useRef(typingSpeed);
+  
   useEffect(() => {
-    const currentPhrase = phrases[currentPhraseIndex];
+    phrasesRef.current = phrases;
+    baseTextRef.current = baseText;
+    typingSpeedRef.current = typingSpeed;
+  }, [phrases, baseText, typingSpeed]);
+
+  // 主动画循环
+  const animateTyping = useCallback((currentTime: number) => {
+    const state = animationRef.current;
+    const phrases = phrasesRef.current;
+    const baseText = baseTextRef.current;
+    const speed = typingSpeedRef.current;
     
-    const timeout = setTimeout(() => {
-      if (!isDeleting) {
-        // 打字阶段
-        if (currentText.length < currentPhrase.length) {
-          setCurrentText(currentPhrase.slice(0, currentText.length + 1));
+    if (phrases.length === 0) return;
+
+    const currentPhrase = phrases[state.currentPhraseIndex];
+    const fullText = baseText + currentPhrase;
+    
+    // 暂停逻辑
+    if (state.isPaused) {
+      if (currentTime - state.pauseStartTime >= 2000) { // 2秒暂停
+        state.isPaused = false;
+        state.isDeleting = true;
+        state.lastUpdateTime = currentTime;
+      }
+      state.animationId = requestAnimationFrame(animateTyping);
+      return;
+    }
+
+    // 检查是否到了更新时间
+    const timeSinceLastUpdate = currentTime - state.lastUpdateTime;
+    const currentSpeed = state.isDeleting ? speed / 2 : speed;
+    
+    if (timeSinceLastUpdate >= currentSpeed) {
+      if (!state.isDeleting) {
+        // 正在输入
+        if (state.currentCharIndex < fullText.length) {
+          state.currentCharIndex++;
+          const newText = fullText.slice(0, state.currentCharIndex);
+          setDisplayText(newText);
         } else {
-          // 完成打字，等待一会后开始删除
-          setTimeout(() => setIsDeleting(true), 1500);
+          // 输入完成，开始暂停
+          state.isPaused = true;
+          state.pauseStartTime = currentTime;
         }
       } else {
-        // 删除阶段
-        if (currentText.length > 0) {
-          setCurrentText(currentText.slice(0, -1));
+        // 正在删除
+        if (state.currentCharIndex > baseText.length) {
+          state.currentCharIndex--;
+          const newText = fullText.slice(0, state.currentCharIndex);
+          setDisplayText(newText);
         } else {
           // 删除完成，切换到下一个短语
-          setIsDeleting(false);
-          setCurrentPhraseIndex((prev) => (prev + 1) % phrases.length);
+          state.isDeleting = false;
+          state.currentPhraseIndex = (state.currentPhraseIndex + 1) % phrases.length;
         }
       }
-    }, isDeleting ? 30 : 80); // 删除速度比打字速度快，整体更流畅
+      state.lastUpdateTime = currentTime;
+    }
 
-    return () => clearTimeout(timeout);
-  }, [currentText, currentPhraseIndex, isDeleting, phrases]);
+    state.animationId = requestAnimationFrame(animateTyping);
+  }, []);
 
-  return { text: baseText + currentText, showCursor: true };
+  // 光标闪烁动画 - 修复时间计算
+  const cursorStateRef = useRef({ lastToggle: 0, isVisible: true });
+  
+  const animateCursor = useCallback((currentTime: number) => {
+    const state = animationRef.current;
+    const cursorState = cursorStateRef.current;
+    
+    // 每530ms切换一次光标状态
+    if (currentTime - cursorState.lastToggle >= 530) {
+      cursorState.isVisible = !cursorState.isVisible;
+      cursorState.lastToggle = currentTime;
+      setShowCursor(cursorState.isVisible);
+    }
+    
+    state.cursorAnimationId = requestAnimationFrame(animateCursor);
+  }, []);
+
+  // 启动动画
+  useEffect(() => {
+    const state = animationRef.current;
+    const cursorState = cursorStateRef.current;
+    const currentTime = performance.now();
+    
+    // 重置状态
+    state.currentPhraseIndex = 0;
+    state.currentCharIndex = baseTextRef.current.length;
+    state.isDeleting = false;
+    state.isPaused = false;
+    state.lastUpdateTime = currentTime;
+    
+    // 重置光标状态
+    cursorState.lastToggle = currentTime;
+    cursorState.isVisible = true;
+    setShowCursor(true);
+    
+    // 启动动画循环
+    state.animationId = requestAnimationFrame(animateTyping);
+    state.cursorAnimationId = requestAnimationFrame(animateCursor);
+
+    // 清理函数
+    return () => {
+      if (state.animationId) {
+        cancelAnimationFrame(state.animationId);
+        state.animationId = null;
+      }
+      if (state.cursorAnimationId) {
+        cancelAnimationFrame(state.cursorAnimationId);
+        state.cursorAnimationId = null;
+      }
+    };
+  }, [animateTyping, animateCursor]);
+
+  return {
+    text: displayText,
+    showCursor,
+    baseTextLength: baseTextRef.current.length
+  };
 };
 
-export function WelcomeScreen({ inputValue, setInputValue, onSendMessage, isGenerating, chatMode, onFileUpload, onSendWithFiles, sessionId, isPrivacyMode = false }: WelcomeScreenProps) {
+export const WelcomeScreen = memo(function WelcomeScreen({ onSendMessage, isGenerating, chatMode, onFileUpload, onSendWithFiles, sessionId, isPrivacyMode = false }: WelcomeScreenProps) {
   const { theme } = useTheme();
+  
+  // 🚀 内部状态管理 - 避免父组件重渲染
+  const [inputValue, setInputValue] = useState("");
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [showDropzone, setShowDropzone] = useState(false);
   const [isDragging, setIsDragging] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<FileWithPreview[]>([]);
   const [dragCounter, setDragCounter] = useState(0);
 
-  // 动态文本短语
+  // 🎯 恢复打字机效果
   const phrases = [
     "求职简历，展示给HR！",
     "作品集，展示给客户！", 
@@ -136,7 +264,7 @@ export function WelcomeScreen({ inputValue, setInputValue, onSendMessage, isGene
   ];
 
   const baseText = "你好！我是 HeysMe AI 助手，我可以快速帮助你创建";
-  const { text: dynamicText, showCursor } = useTypewriter(phrases, baseText);
+  const { text: dynamicText, showCursor, baseTextLength } = useTypewriter(phrases, baseText, 120);
 
   // 处理键盘事件
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -148,14 +276,19 @@ export function WelcomeScreen({ inputValue, setInputValue, onSendMessage, isGene
 
   // 处理发送消息（包含文件）
   const handleSendMessage = () => {
+    if (!inputValue.trim()) return;
+    
     if (uploadedFiles.length > 0 && onSendWithFiles) {
       // 有文件时，使用新的发送方式
       onSendWithFiles(inputValue, uploadedFiles);
       setUploadedFiles([]); // 清空文件列表
     } else {
-      // 没有文件时，使用原来的发送方式
-      onSendMessage();
+      // 没有文件时，传递消息内容
+      onSendMessage(inputValue);
     }
+    
+    // 清空输入框
+    setInputValue("");
   };
 
   const handleFileUploadClick = () => {
@@ -418,20 +551,36 @@ export function WelcomeScreen({ inputValue, setInputValue, onSendMessage, isGene
   // 🚀 IME支持状态
   const [isComposing, setIsComposing] = useState(false);
 
-  // 🚀 防抖的DOM操作，避免输入卡顿
-  const debouncedHeightAdjust = useDebouncedCallback((textarea: HTMLTextAreaElement) => {
+  // 🚀 极简DOM操作 - 直接使用 requestAnimationFrame，无防抖
+  const adjustTextareaHeight = useCallback((textarea: HTMLTextAreaElement) => {
     if (textarea) {
-      textarea.style.height = 'auto';
-      textarea.style.height = Math.min(textarea.scrollHeight, 200) + 'px';
+      requestAnimationFrame(() => {
+        textarea.style.height = 'auto';
+        const newHeight = Math.min(textarea.scrollHeight, 200);
+        textarea.style.height = newHeight + 'px';
+      });
     }
-  }, 16); // 16ms ≈ 1帧时间
+  }, []);
 
-  // 自动调整textarea高度 - 性能优化版本
+  // 极简的文本区域处理 - 最小化处理逻辑
   const handleTextareaChange = useCallback((e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newValue = e.target.value;
-    setInputValue(newValue); // 立即更新文本，保证输入流畅
-    debouncedHeightAdjust(e.target); // 防抖高度调整
-  }, [setInputValue, debouncedHeightAdjust]);
+    adjustTextareaHeight(e.target);
+  }, [adjustTextareaHeight]);
+  
+  // 输入焦点优化
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const [isInputFocused, setIsInputFocused] = useState(false);
+  
+  const handleFocus = useCallback(() => {
+    setIsInputFocused(true);
+    // 当输入框获得焦点时，无需特殊处理，让动画继续运行
+    // 分离的渲染层已经确保动画不会影响输入性能
+  }, []);
+  
+  const handleBlur = useCallback(() => {
+    setIsInputFocused(false);
+    // 失焦时也无需特殊处理，渲染层隔离确保了性能
+  }, []);
 
   // 🚀 IME事件处理 - 支持中文输入法
   const handleCompositionStart = useCallback(() => {
@@ -462,6 +611,7 @@ export function WelcomeScreen({ inputValue, setInputValue, onSendMessage, isGene
 
   return (
     <>
+
       {/* 注入动态样式 */}
       <style jsx>{dynamicTextStyles}</style>
       
@@ -505,41 +655,32 @@ export function WelcomeScreen({ inputValue, setInputValue, onSendMessage, isGene
                       background: 'linear-gradient(to right, #34d399, #14b8a6)'
                     } : undefined}
                   >
-                    {chatMode === 'professional' ? '专家' : '普通'}
+                    {chatMode === 'professional' ? '专业' : '普通'}
                   </motion.div>
                 )}
               </div>
             </h1>
             
-            {/* 打字机效果文本 */}
-            <div className={`text-base sm:text-lg min-h-16 flex items-center justify-center ${
-              theme === "light" ? "text-gray-600" : "text-gray-300"
-            }`}>
+            {/* 优化的打字机文本显示 */}
+            <div 
+              className={`text-base sm:text-lg min-h-16 flex items-center justify-center typewriter-text ${
+                theme === "light" ? "text-gray-600" : "text-gray-300"
+              }`}
+            >
               <div className="text-center leading-relaxed px-2 sm:px-4 w-full max-w-6xl">
                 <div className="inline-block break-words">
-                  {dynamicText.split('').map((char, index) => {
-                    // 判断当前字符是否在变化的部分
-                    const isInChangingPart = index >= baseText.length;
-                    return (
-                      <span
-                        key={index}
-                        className={isInChangingPart ? 'font-semibold' : ''}
-                        style={isInChangingPart ? {
-                          background: 'linear-gradient(to right, #10b981, #14b8a6)',
-                          WebkitBackgroundClip: 'text',
-                          WebkitTextFillColor: 'transparent',
-                          backgroundClip: 'text'
-                        } : undefined}
-                      >
-                        {char}
-                      </span>
-                    );
-                  })}
-                  {showCursor && (
-                    <span className={`inline-block w-0.5 h-6 ml-1 cursor-blink ${
-                      theme === "light" ? "bg-gray-400" : "bg-gray-500"
-                    }`}></span>
-                  )}
+                  {/* 高性能打字机效果 */}
+                  <span className="inline typewriter-text">
+                    {dynamicText.slice(0, baseTextLength)}
+                  </span>
+                  <span className="inline font-semibold bg-gradient-to-r from-emerald-500 to-teal-500 bg-clip-text text-transparent typewriter-text">
+                    {dynamicText.slice(baseTextLength)}
+                  </span>
+                  <span 
+                    className={`typewriter-cursor inline-block w-0.5 h-5 ml-1 transition-opacity duration-75 ease-in-out ${
+                      showCursor ? "opacity-100" : "opacity-0"
+                    } ${theme === "light" ? "bg-emerald-500" : "bg-emerald-400"}`}
+                  />
                 </div>
               </div>
             </div>
@@ -549,8 +690,12 @@ export function WelcomeScreen({ inputValue, setInputValue, onSendMessage, isGene
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5 }}
+            transition={{ delay: 0.5, duration: 0.3 }} // 缩短动画时间
             className="w-full"
+            style={{ 
+              transform: 'translateZ(0)', // 启用硬件加速
+              willChange: 'transform, opacity' // 提示浏览器优化
+            }}
           >
             {/* 🎨 快捷发送按钮 - 横向滑动布局 */}
             <div className="mb-4 relative">
@@ -586,8 +731,12 @@ export function WelcomeScreen({ inputValue, setInputValue, onSendMessage, isGene
                       key={index}
                       initial={{ opacity: 0, x: 20 }}
                       animate={{ opacity: 1, x: 0 }}
-                      transition={{ delay: 0.6 + index * 0.1 }}
+                      transition={{ 
+                        delay: 0.6 + index * 0.05, // 减少延迟差
+                        duration: 0.2 // 缩短动画时间
+                      }}
                       className="flex-shrink-0"
+                      style={{ transform: 'translateZ(0)' }} // 硬件加速
                     >
                       <Button
                         variant="ghost"
@@ -610,7 +759,7 @@ export function WelcomeScreen({ inputValue, setInputValue, onSendMessage, isGene
             </div>
 
             <div className="relative">
-              {/* ChatGPT风格的输入框容器 */}
+              {/* 高性能输入框容器 - 完全隔离的渲染层 */}
               <div 
                 className={`relative rounded-3xl transition-all duration-300 border-2 cursor-text min-h-[90px] ${
                   isDragging
@@ -622,6 +771,17 @@ export function WelcomeScreen({ inputValue, setInputValue, onSendMessage, isGene
                 onClick={() => {
                   const input = document.querySelector('#welcome-input') as HTMLTextAreaElement;
                   input?.focus();
+                }}
+                style={{
+                  // 创建独立的合成层，完全隔离输入框
+                  transform: 'translateZ(0)',
+                  isolation: 'isolate',
+                  contain: 'layout style paint',
+                  // 强制GPU加速
+                  backfaceVisibility: 'hidden',
+                  perspective: '1000px',
+                  // 优化重绘性能
+                  willChange: 'contents'
                 }}
               >
                 {/* 拖拽上传蒙版 - 只在拖拽时显示 */}
@@ -724,24 +884,32 @@ export function WelcomeScreen({ inputValue, setInputValue, onSendMessage, isGene
                   </AnimatePresence>
 
                   <textarea
+                    ref={inputRef}
                     id="welcome-input"
                     value={inputValue}
-                    onChange={handleTextareaChange}
+                    onChange={(e) => {
+                      // 极简处理 - 只更新状态，暂时移除高度调整
+                      setInputValue(e.target.value);
+                      // handleTextareaChange(e); // 暂时注释掉
+                    }}
                     onKeyPress={handleKeyPress}
                     onCompositionStart={handleCompositionStart}
                     onCompositionEnd={handleCompositionEnd}
+                    onFocus={handleFocus}
+                    onBlur={handleBlur}
                     placeholder="告诉我你想要什么样的页面..."
-                    className={`w-full resize-none border-0 outline-none focus:outline-none focus:ring-0 bg-transparent text-base leading-relaxed min-h-[60px] max-h-[200px] pl-[9px] pr-12 overflow-hidden ${
-                      theme === "light"
-                        ? "placeholder:text-gray-400 text-gray-900"
-                        : "placeholder:text-gray-500 text-white"
-                    } ${isComposing ? 'ime-composing' : ''}`}
+                    className="w-full resize-none border-0 outline-none bg-transparent text-base p-2"
                     rows={2}
                     autoFocus
                     autoComplete="off"
                     autoCapitalize="off"
                     autoCorrect="off"
                     spellCheck="false"
+                    style={{ 
+                      // 最简化样式
+                      minHeight: '60px',
+                      maxHeight: '200px'
+                    }}
                   />
                 </div>
                 
@@ -851,4 +1019,4 @@ export function WelcomeScreen({ inputValue, setInputValue, onSendMessage, isGene
       </div>
     </>
   );
-} 
+}); 

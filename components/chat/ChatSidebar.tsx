@@ -351,12 +351,16 @@ export function ChatSidebar({
         )}
       </div>
 
-      {/* 🎨 会话列表 - 移到用户中心上方，增加滚动支持 */}
+      {/* 🎨 会话列表 - 优化性能，减少动画 */}
       {(!isCollapsed || isMobile) && (
-        <motion.div 
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
+        <div 
           className="flex-1 min-h-0 sidebar-content-fade relative z-10 flex flex-col"
+          style={{
+            // 启用硬件加速和渲染隔离
+            transform: 'translateZ(0)',
+            isolation: 'isolate',
+            contain: 'layout style paint'
+          }}
         >
           <div className={`px-4 py-2 flex-shrink-0 ${
             theme === "light" ? "text-gray-500" : "text-gray-400"
@@ -364,16 +368,46 @@ export function ChatSidebar({
             <span className="text-xs font-medium pl-2">最近对话</span>
           </div>
           
-          <div className="flex-1 min-h-0">
-            <ScrollArea className="h-full brand-scrollbar" style={{ width: '100%', maxWidth: '100%' }}>
-              <div className="px-4 pb-4 space-y-1" style={{ width: '100%', maxWidth: '100%' }}>
+          <div 
+            className="flex-1 min-h-0"
+            style={{
+              // 强制合成层，完全隔离滚动性能
+              transform: 'translateZ(0)',
+              isolation: 'isolate',
+              contain: 'strict'
+            }}
+          >
+            <ScrollArea 
+              className="h-full brand-scrollbar" 
+              style={{ 
+                width: '100%', 
+                maxWidth: '100%',
+                // 启用硬件加速滚动
+                WebkitOverflowScrolling: 'touch',
+                scrollBehavior: 'smooth'
+              }}
+            >
+              <div 
+                className="px-4 pb-4 space-y-1" 
+                style={{ 
+                  width: '100%', 
+                  maxWidth: '100%',
+                  // 优化大列表渲染
+                  contentVisibility: 'auto',
+                  containIntrinsicSize: '1px 500px'
+                }}
+              >
                 {sessions.length > 0 ? (
                   sessions.map((session, index) => (
-                    <motion.div
+                    // 完全静态渲染，只在第一次加载时有动画
+                    <div
                       key={session.id}
-                      initial={{ opacity: 0, y: 10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: index * 0.05 }}
+                      className={index < 10 ? "animate-in fade-in duration-200" : ""}
+                      style={{ 
+                        animationDelay: index < 10 ? `${index * 20}ms` : '0ms',
+                        transform: 'translateZ(0)',
+                        contain: 'layout style paint'
+                      }}
                     >
                       <ConversationItem
                         session={session}
@@ -384,7 +418,7 @@ export function ChatSidebar({
                         onShare={onShareSession}
                         onTitleUpdate={onUpdateSessionTitle}
                       />
-                    </motion.div>
+                    </div>
                   ))
                 ) : (
                   <div className={`text-center p-8 ${theme === "light" ? "text-gray-400" : "text-gray-500"}`}>
@@ -397,7 +431,7 @@ export function ChatSidebar({
               </div>
             </ScrollArea>
           </div>
-        </motion.div>
+        </div>
       )}
 
       {/* 🎨 折叠状态下的会话指示器 */}

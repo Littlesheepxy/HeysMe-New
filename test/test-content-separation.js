@@ -1,5 +1,5 @@
 // 测试新的内容分离机制
-const { separateVisibleAndHiddenContent, StreamContentProcessor } = require('./lib/agents/welcome/utils.ts');
+const { separateVisibleAndHiddenContent, StreamContentProcessor } = require('../lib/agents/welcome/utils.ts');
 
 // 测试1: 完整的响应
 console.log('🧪 测试1: 完整的响应分离');

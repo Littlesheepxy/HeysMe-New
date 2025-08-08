@@ -14,11 +14,8 @@ import { EnhancedInputBox } from '@/components/ui/enhanced-input-box';
 
 interface ChatModeViewProps {
   currentSession: any;
-  inputValue: string;
-  setInputValue: (value: string) => void;
   isGenerating: boolean;
   onSendMessage: (message: string, option?: any) => void;
-  onKeyPress: (e: React.KeyboardEvent) => void;
   sessionId?: string;
   onFileUpload?: (file: File) => void;
 }
@@ -26,15 +23,15 @@ interface ChatModeViewProps {
 // 🔧 优化：使用React.memo减少不必要的重新渲染
 export const ChatModeView = memo(function ChatModeView({
   currentSession,
-  inputValue,
-  setInputValue,
   isGenerating,
   onSendMessage,
-  onKeyPress,
   sessionId,
   onFileUpload
 }: ChatModeViewProps) {
   const { theme } = useTheme();
+  
+  // 🚀 内部状态管理 - 避免父组件重渲染
+  const [inputValue, setInputValue] = useState("");
   
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -97,6 +94,7 @@ export const ChatModeView = memo(function ChatModeView({
   const handleSendClick = useCallback(() => {
     if (inputValue.trim()) {
       onSendMessage(inputValue);
+      setInputValue(""); // 清空输入框
     }
   }, [inputValue, onSendMessage]);
 
@@ -266,7 +264,7 @@ export const ChatModeView = memo(function ChatModeView({
               value={inputValue}
               onChange={setInputValue}
               onSend={handleSendClick}
-              onKeyPress={onKeyPress}
+
               onFileUpload={onFileUpload}
               onSendWithFiles={handleSendWithFiles}
               placeholder="发送消息..."

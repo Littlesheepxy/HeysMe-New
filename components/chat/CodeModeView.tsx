@@ -15,13 +15,9 @@ import { EnhancedInputBox } from '@/components/ui/enhanced-input-box';
 interface CodeModeViewProps {
   currentSession: any;
   generatedCode: any[];
-  inputValue: string;
-  setInputValue: (value: string) => void;
   isGenerating: boolean;
   onBack: () => void;
-  onSendMessage: () => void;
   onSendChatMessage?: (message: string, options?: any) => void;
-  onKeyPress: (e: React.KeyboardEvent) => void;
   onDownload: () => void;
   onDeploy: () => void;
   onEditCode: (filename: string) => void;
@@ -32,13 +28,9 @@ interface CodeModeViewProps {
 export function CodeModeView({
   currentSession,
   generatedCode,
-  inputValue,
-  setInputValue,
   isGenerating,
   onBack,
-  onSendMessage,
   onSendChatMessage,
-  onKeyPress,
   onDownload,
   onDeploy,
   onEditCode,
@@ -46,6 +38,10 @@ export function CodeModeView({
   onFileUpload
 }: CodeModeViewProps) {
   const { theme } = useTheme();
+  
+  // 🚀 内部状态管理 - 避免父组件重渲染
+  const [inputValue, setInputValue] = useState("");
+  
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   
@@ -159,8 +155,12 @@ export function CodeModeView({
                         <EnhancedInputBox
               value={inputValue}
               onChange={setInputValue}
-              onSend={onSendMessage}
-              onKeyPress={onKeyPress}
+              onSend={() => {
+                if (inputValue.trim() && onSendChatMessage) {
+                  onSendChatMessage(inputValue);
+                  setInputValue("");
+                }
+              }}
               onFileUpload={onFileUpload}
               onSendWithFiles={(message, files) => {
                 // 处理带文件的消息发送

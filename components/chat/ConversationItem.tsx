@@ -10,7 +10,7 @@
 
 'use client';
 
-import { useState, useCallback, useRef, useEffect } from 'react';
+import { useState, useCallback, useRef, useEffect, memo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   MessageSquare, 
@@ -48,7 +48,7 @@ interface ConversationItemProps {
   className?: string;
 }
 
-export function ConversationItem({
+export const ConversationItem = memo(function ConversationItem({
   session,
   isActive,
   isCollapsed = false,
@@ -158,12 +158,11 @@ export function ConversationItem({
 
 
 
-  // 折叠状态下的简化显示
+  // 折叠状态下的简化显示 - 移除过度动画
   if (isCollapsed) {
     return (
-      <motion.div
-        whileHover={{ scale: 1.05 }}
-        className={`w-10 h-10 rounded-full cursor-pointer transition-all duration-200 flex items-center justify-center relative group ${
+      <div
+        className={`w-10 h-10 rounded-full cursor-pointer transition-transform duration-150 hover:scale-105 flex items-center justify-center relative group ${
           isActive
             ? theme === "light"
               ? "bg-emerald-100 text-emerald-700"
@@ -174,32 +173,29 @@ export function ConversationItem({
         } ${className}`}
         onClick={handleClick}
         title={displayTitle}
+        style={{ 
+          transform: 'translateZ(0)', // 硬件加速
+          contain: 'layout style' // 隔离重排
+        }}
       >
         <MessageSquare className="w-3.5 h-3.5" />
         
-        {/* 标题生成指示器 */}
+        {/* 标题生成指示器 - 使用CSS动画替代Framer Motion */}
         {isGenerating && (
-          <motion.div
-            animate={{ rotate: 360 }}
-            transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-            className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full flex items-center justify-center"
+          <div
+            className="absolute -top-1 -right-1 w-3 h-3 bg-emerald-500 rounded-full flex items-center justify-center animate-spin"
           >
             <Sparkles className="w-2 h-2 text-white" />
-          </motion.div>
+          </div>
         )}
-      </motion.div>
+      </div>
     );
   }
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -10 }}
-      className={`group relative ${className}`}
-    >
+    <div className={`group relative ${className}`}>
       <div
-        className={`w-full flex items-center gap-2 h-10 px-3 rounded-[10px] font-medium transition-all duration-200 cursor-pointer ${
+        className={`w-full flex items-center gap-2 h-10 px-3 rounded-[10px] font-medium transition-all duration-150 cursor-pointer ${
           isActive
             ? theme === "light"
               ? "bg-emerald-50 text-emerald-700 shadow-sm"
@@ -209,6 +205,11 @@ export function ConversationItem({
               : "text-gray-400 bg-transparent hover:bg-emerald-900/20 hover:text-emerald-300"
         }`}
         onClick={handleClick}
+        style={{
+          // 启用硬件加速和渲染隔离
+          transform: 'translateZ(0)',
+          contain: 'layout style paint'
+        }}
       >
         {/* 会话图标 */}
         <MessageSquare className="w-3.5 h-3.5 flex-shrink-0" />
@@ -267,15 +268,11 @@ export function ConversationItem({
                     </span>
                   </div>
                   
-                  {/* 标题状态指示器 */}
+                  {/* 标题状态指示器 - 使用CSS动画提升性能 */}
                   {isGenerating && (
-                    <motion.div
-                      animate={{ rotate: 360 }}
-                      transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                      className="flex-shrink-0"
-                    >
+                    <div className="flex-shrink-0 animate-spin">
                       <Sparkles className="w-3 h-3 text-emerald-500" />
-                    </motion.div>
+                    </div>
                   )}
                   
                   {titleError && (
@@ -349,6 +346,6 @@ export function ConversationItem({
       </div>
       
 
-    </motion.div>
+    </div>
   );
-} 
+}); 

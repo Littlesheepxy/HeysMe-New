@@ -13,10 +13,12 @@ import { ChatHeader } from "@/components/chat/ChatHeader"
 import { ChatSidebar } from "@/components/chat/ChatSidebar"
 import { WelcomeScreen } from "@/components/chat/WelcomeScreen"
 import { ChatModeView } from "@/components/chat/ChatModeView"
+
 import { CodeModeView } from "@/components/chat/CodeModeView"
 import { ErrorMonitor } from "@/components/ui/error-monitor"
 import { VercelStatusIndicator } from "@/components/ui/vercel-status-indicator"
 import { useVercelErrorMonitor } from "@/hooks/use-vercel-error-monitor"
+
 
 export default function ChatPage() {
   const { theme } = useTheme()
@@ -41,7 +43,7 @@ export default function ChatPage() {
     titleGeneration,
   } = useChatSystemV2()
   
-  const [inputValue, setInputValue] = useState("")
+  // 移除 inputValue 状态，让 WelcomeScreen 自己管理
   const [hasStartedChat, setHasStartedChat] = useState(false)
   const [isCodeMode, setIsCodeMode] = useState(false)
   const [userManuallyReturnedToChat, setUserManuallyReturnedToChat] = useState(false) // 🔧 新增：用户是否手动返回过对话模式
@@ -225,13 +227,13 @@ export default function ChatPage() {
   }, [isSidebarCollapsed])
 
   // 发送消息
-  const handleSendMessage = async () => {
-    if (!inputValue.trim()) return
+  const handleSendMessage = async (messageContent: string) => {
+    if (!messageContent.trim()) return
 
     // 检查认证状态
     if (!authLoading && !isAuthenticated) {
       // 未登录，显示登录提示
-      setPendingMessage(inputValue)
+      setPendingMessage(messageContent)
       setShowAuthDialog(true)
       return
     }
@@ -247,12 +249,12 @@ export default function ChatPage() {
     )
 
     // 根据模式选择不同的处理方式
-    let messageToSend = inputValue
+    let messageToSend = messageContent
     let sendOptions: any = {}
 
     if (isInExpertMode) {
       // 🎯 专业模式测试：通过context参数传递模式信息
-      messageToSend = inputValue
+      messageToSend = messageContent
       sendOptions = {
         forceAgent: 'coding',
         context: {
@@ -264,7 +266,7 @@ export default function ChatPage() {
       console.log('🎯 [专业模式测试发送] 消息:', messageToSend, '选项:', sendOptions)
     } else if (chatMode === 'professional') {
       // 专业模式：通过context参数传递模式信息
-      messageToSend = inputValue
+      messageToSend = messageContent
       sendOptions = {
         forceAgent: 'coding',
         context: {
@@ -280,27 +282,19 @@ export default function ChatPage() {
       console.log('🎯 [专业模式发送] 消息:', messageToSend, '选项:', sendOptions)
     } else {
       // 普通模式：直接使用用户输入
-      messageToSend = inputValue
+      messageToSend = messageContent
       sendOptions = undefined
     }
 
     // 🔧 修复：先发送消息，让用户消息立即显示，会话创建在 sendMessage 内部处理
     sendMessage(messageToSend, sendOptions)
-    setInputValue("")
   }
 
-  // 处理键盘事件
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === "Enter" && !e.shiftKey) {
-      e.preventDefault()
-      handleSendMessage()
-    }
-  }
+  // 处理键盘事件 - 现在由各个组件自己处理
 
   // 开始新对话
   const handleNewChat = async () => {
     setHasStartedChat(false)
-    setInputValue("")
     setIsCodeMode(false)
     setGeneratedCode([])
     
@@ -386,7 +380,6 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
 
       // 发送消息
       sendMessage(fullMessage);
-      setInputValue("");
 
       // 显示成功提示
       toast({
@@ -730,9 +723,9 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
     }
   }, [isCodeMode, vercelErrorMonitor.startMonitoring, vercelErrorMonitor.stopMonitoring, vercelErrorMonitor.deploymentStatus, vercelErrorMonitor.isMonitoring]);
 
-  // 🔧 错误监控回调
+  // 🔧 错误监控回调 - 暂时禁用，因为没有全局输入框
   const handleCopyErrorToInput = (errorMessage: string) => {
-    setInputValue(errorMessage);
+    // TODO: 需要新的方式来处理错误复制到输入框
     setShowErrorMonitor(false);
     // 聚焦到输入框
     setTimeout(() => {
@@ -750,6 +743,7 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
           : "bg-page-gradient-dark"
       }`}
     >
+
       {/* 🎨 左侧侧边栏 - 全高度布局 */}
       <ChatSidebar 
         sessions={sessions}
@@ -784,13 +778,10 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
             <CodeModeView
               currentSession={currentSession}
               generatedCode={generatedCode}
-              inputValue={inputValue}
-              setInputValue={setInputValue}
               isGenerating={isGenerating}
               onBack={handleBackToChat}
-              onSendMessage={handleSendMessage}
               onSendChatMessage={sendMessage}
-              onKeyPress={handleKeyPress}
+
               onDownload={handleCodeDownload}
               onDeploy={handleDeploy}
               onEditCode={handleEditCode}
@@ -801,19 +792,15 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
             /* 正常对话模式 */
             <ChatModeView
               currentSession={currentSession}
-              inputValue={inputValue}
-              setInputValue={setInputValue}
               isGenerating={isGenerating}
               onSendMessage={sendMessage}
-              onKeyPress={handleKeyPress}
+
               sessionId={currentSession?.id}
               onFileUpload={handleFileUpload}
             />
           ) : (
             /* 欢迎屏幕 */
             <WelcomeScreen
-              inputValue={inputValue}
-              setInputValue={setInputValue}
               onSendMessage={handleSendMessage}
               isGenerating={isGenerating}
               chatMode={chatMode}

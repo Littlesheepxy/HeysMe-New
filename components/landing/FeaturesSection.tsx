@@ -3,16 +3,12 @@
 import { motion } from "framer-motion"
 import { useI18n } from "@/contexts/i18n-context"
 
-import { 
-  MessageSquare, 
-  Code2, 
-  Users, 
-  Globe, 
+import {
+  MessageSquare,
+  Code2,
+  Users,
+  Globe,
   Bot,
-  Sparkles,
-  Zap,
-  Palette,
-  Link,
   TrendingUp
 } from "lucide-react"
 
@@ -70,19 +66,6 @@ export function FeaturesSection() {
       <div className="container mx-auto relative z-10">
         {/* 标题区域 */}
         <div className="text-center pt-32 pb-16">
-          <motion.div
-            className="flex items-center justify-center gap-3 mb-6"
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-          >
-            <div className="w-8 h-8 bg-gradient-to-r from-brand-500 to-secondary-500 rounded-xl flex items-center justify-center">
-              <Sparkles className="w-5 h-5 text-white" />
-            </div>
-            <span className="text-sm font-semibold text-brand-600 tracking-wider uppercase">Features</span>
-          </motion.div>
-          
           <motion.h2 
             className="text-4xl md:text-5xl font-bold mb-6 bg-gradient-to-r from-brand-600 via-secondary-600 to-accent-600 bg-clip-text text-transparent"
             initial={{ opacity: 0, y: 20 }}
