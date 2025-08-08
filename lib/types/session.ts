@@ -29,6 +29,7 @@ export interface SessionData {
     resume?: GeneratedResume;
     portfolio?: GeneratedPortfolio;
     coverLetter?: GeneratedCoverLetter;
+    codeProject?: GeneratedCodeProject;
   };
 }
 
@@ -237,6 +238,25 @@ export interface GeneratedCoverLetter {
     tone: string;
     length: 'short' | 'medium' | 'long';
     generatedAt: Date;
+  };
+}
+
+// 生成的代码项目
+export interface GeneratedCodeProject {
+  id: string;
+  name: string;
+  description?: string;
+  files: Array<{
+    filename: string;
+    content: string;
+    language: string;
+  }>;
+  metadata: {
+    template: string;
+    framework: string;
+    generatedAt: Date;
+    deploymentUrl?: string; // 保存的预览链接
+    lastDeployedAt?: Date;   // 最后部署时间
   };
 }
 

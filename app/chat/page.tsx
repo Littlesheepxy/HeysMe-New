@@ -213,6 +213,32 @@ export default function ChatPage() {
     }
   }, [isAuthenticated, authLoading, pendingMessage, executePendingAction, sendMessage])
 
+  // 🔧 恢复保存的预览URL
+  useEffect(() => {
+    if (currentSession) {
+      // 🎯 优先从数据库中的会话数据恢复
+      if (currentSession.generatedContent?.codeProject?.metadata?.deploymentUrl) {
+        const savedUrl = currentSession.generatedContent.codeProject.metadata.deploymentUrl;
+        console.log('🗄️ [预览恢复] 从数据库会话数据恢复预览URL:', savedUrl);
+        setDeploymentUrl(savedUrl);
+      } else {
+        // 🔄 备用方案：从localStorage恢复
+        const storageKey = `deployment-url-${currentSession.id}`;
+        const savedUrl = localStorage.getItem(storageKey);
+        if (savedUrl) {
+          console.log('💾 [预览恢复] 从localStorage恢复预览URL:', savedUrl);
+          setDeploymentUrl(savedUrl);
+        } else {
+          // 如果没有保存的URL，清空当前URL
+          console.log('🔍 [预览恢复] 未找到保存的预览URL，清空状态');
+          setDeploymentUrl('');
+        }
+      }
+    } else {
+      setDeploymentUrl('');
+    }
+  }, [currentSession?.id, currentSession?.generatedContent?.codeProject?.metadata?.deploymentUrl]);
+
   // 监听键盘快捷键
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -386,6 +412,62 @@ export default function ChatPage() {
 
       // 🎯 将部署URL存储到状态中，供预览组件使用
       setDeploymentUrl(result.deployment.url)
+
+      // 🔧 保存部署URL到会话数据中
+      if (currentSession && result.deployment.url) {
+        // 1. 保存到localStorage（即时备份）
+        const storageKey = `deployment-url-${currentSession.id}`;
+        localStorage.setItem(storageKey, result.deployment.url);
+        
+        // 2. 更新当前会话数据，准备同步到数据库
+        const updatedSession = {
+          ...currentSession,
+          generatedContent: {
+            ...currentSession.generatedContent,
+            codeProject: {
+              id: `project-${currentSession.id}`,
+              name: currentSession.id,
+              description: '通过HeysMe生成的代码项目',
+              files: generatedCode.map(file => ({
+                filename: file.filename,
+                content: file.content,
+                language: file.language
+              })),
+              metadata: {
+                template: 'custom',
+                framework: 'next',
+                generatedAt: new Date(),
+                deploymentUrl: result.deployment.url,
+                lastDeployedAt: new Date()
+              }
+            }
+          }
+        };
+        
+        // 3. 立即同步到数据库（关键时机）
+        try {
+          const syncResponse = await fetch('/api/session/sync', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              sessionId: currentSession.id,
+              sessionData: updatedSession
+            })
+          });
+          
+          if (syncResponse.ok) {
+            console.log('💾 [部署保存] 预览URL已保存到数据库:', result.deployment.url);
+          } else {
+            console.warn('⚠️ [部署保存] 数据库保存失败，已保存到localStorage');
+          }
+        } catch (error) {
+          console.warn('⚠️ [部署保存] 数据库同步失败:', error);
+        }
+        
+        console.log('💾 [部署保存] 预览URL保存完成 - localStorage + 数据库同步');
+      }
 
       // 可以选择自动打开预览链接
       if (result.deployment.url) {

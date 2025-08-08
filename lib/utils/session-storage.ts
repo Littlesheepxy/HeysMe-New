@@ -137,6 +137,7 @@ export class SessionStorageManager {
           personalization: sessionData.personalization,
           collected_data: sessionData.collectedData,
           metadata: sessionMetadata,
+          generated_content: sessionData.generatedContent || {}, // 🔧 使用专门的字段存储生成内容
           created_at: this.ensureDate(sessionData.metadata.createdAt).toISOString(),
           updated_at: this.ensureDate(sessionData.metadata.updatedAt).toISOString(),
           last_active: this.ensureDate(sessionData.metadata.lastActive).toISOString(),
@@ -459,13 +460,94 @@ export class SessionStorageManager {
         startTime: new Date(flow.start_time),
         endTime: flow.end_time ? new Date(flow.end_time) : undefined,
       })),
+      // 🔧 从专门的generated_content字段恢复
+      generatedContent: supabaseSession.generated_content || undefined,
       metadata: {
         ...supabaseSession.metadata,
         createdAt: new Date(supabaseSession.created_at),
         updatedAt: new Date(supabaseSession.updated_at),
         lastActive: new Date(supabaseSession.last_active),
+        // 🔧 修复：确保progress字段正确恢复，如果缺失则根据会话内容推断
+        progress: this.inferProgressFromSession(supabaseSession, conversationHistory),
       },
     };
+  }
+
+  /**
+   * 🔧 根据会话内容推断progress信息
+   */
+  private inferProgressFromSession(supabaseSession: any, conversationHistory: any[]): any {
+    // 如果metadata中已有progress且包含currentStage，直接使用
+    if (supabaseSession.metadata?.progress?.currentStage) {
+      console.log(`✅ [会话恢复] 使用存储的阶段: ${supabaseSession.metadata.progress.currentStage}`);
+      return supabaseSession.metadata.progress;
+    }
+
+    // 根据消息历史推断当前阶段
+    let inferredStage = 'welcome';
+    
+    // 检查是否有代码生成相关的消息
+    const hasCodeGeneration = conversationHistory.some(entry => 
+      entry.metadata?.projectGenerated === true ||
+      entry.metadata?.intent === 'project_complete' ||
+      entry.metadata?.hasCode === true ||
+      entry.agent === 'coding' ||
+      (entry.type === 'agent_response' && entry.content?.includes('```'))
+    );
+
+    // 检查是否有设计相关的消息
+    const hasDesign = conversationHistory.some(entry =>
+      entry.agent === 'prompt_output' ||
+      entry.metadata?.intent === 'design_complete'
+    );
+
+    // 检查是否有信息收集相关的消息
+    const hasInfoCollection = conversationHistory.some(entry =>
+      entry.agent === 'info_collection' ||
+      entry.metadata?.intent === 'info_complete'
+    );
+
+    // 推断阶段
+    if (hasCodeGeneration) {
+      inferredStage = 'code_generation';
+    } else if (hasDesign) {
+      inferredStage = 'page_design';
+    } else if (hasInfoCollection) {
+      inferredStage = 'info_collection';
+    } else {
+      inferredStage = 'welcome';
+    }
+
+    console.log(`🔧 [会话恢复] 根据消息历史推断阶段: ${inferredStage} (消息数: ${conversationHistory.length})`);
+
+    return {
+      currentStage: inferredStage,
+      completedStages: this.getCompletedStages(inferredStage),
+      totalStages: 4,
+      percentage: this.getProgressPercentage(inferredStage)
+    };
+  }
+
+  /**
+   * 根据当前阶段获取已完成的阶段列表
+   */
+  private getCompletedStages(currentStage: string): string[] {
+    const stageOrder = ['welcome', 'info_collection', 'page_design', 'code_generation'];
+    const currentIndex = stageOrder.indexOf(currentStage);
+    return currentIndex > 0 ? stageOrder.slice(0, currentIndex) : [];
+  }
+
+  /**
+   * 根据当前阶段获取进度百分比
+   */
+  private getProgressPercentage(currentStage: string): number {
+    const stageProgress: Record<string, number> = {
+      'welcome': 10,
+      'info_collection': 40,
+      'page_design': 70,
+      'code_generation': 90
+    };
+    return stageProgress[currentStage] || 0;
   }
 
   /**

@@ -142,18 +142,23 @@ export default function VercelPreview({
     setIsRefreshing(true);
     
     try {
-      if (onRefresh) {
-        // 如果有自定义刷新回调，使用它（通常是重新部署）
-        console.log('🔄 [刷新] 触发重新部署...');
+      // 🔧 首先尝试简单的iframe刷新，避免重新部署
+      if (iframeRef.current) {
+        console.log('🔄 [刷新] 尝试iframe刷新而不重新部署...');
+        iframeRef.current.src = iframeRef.current.src;
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      } else if (onRefresh) {
+        // 如果iframe刷新失败，使用自定义刷新回调
+        console.log('🔄 [刷新] iframe不可用，触发重新部署...');
         onRefresh();
       } else {
-        // 否则调用内部的重新部署逻辑
+        // 最后才调用内部的重新部署逻辑
         console.log('🔄 [刷新] 触发内部重新部署...');
         await handleDeploy();
       }
       
-      // 等待部署完成
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // 等待刷新完成
+      await new Promise(resolve => setTimeout(resolve, 1000));
     } finally {
       setIsRefreshing(false);
     }

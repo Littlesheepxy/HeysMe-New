@@ -333,7 +333,7 @@ export function CodePreviewToggle({
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [showAiTip, setShowAiTip] = useState(true);
 
-  // 🚀 自动部署逻辑：项目完成后自动触发部署
+  // 🚀 自动部署逻辑：项目完成后自动触发部署（但要检查是否已有保存的URL）
   React.useEffect(() => {
     if (
       autoDeployEnabled && 
@@ -343,6 +343,13 @@ export function CodePreviewToggle({
       !isStreaming &&
       onDeploy
     ) {
+      // 🔧 检查是否已有保存的预览URL
+      if (deploymentUrl) {
+        console.log('✅ [自动部署] 检测到已保存的预览URL，跳过重新部署:', deploymentUrl);
+        setHasAutoDeployed(true);
+        return;
+      }
+
       console.log('🚀 [自动部署] 触发自动部署，项目已完成');
       console.log(`📊 [自动部署] 检测到 ${files.length} 个文件，开始部署流程`);
       
@@ -360,14 +367,19 @@ export function CodePreviewToggle({
       
       return () => clearTimeout(deployTimer);
     }
-  }, [autoDeployEnabled, isProjectComplete, hasAutoDeployed, files.length, isStreaming, onDeploy]);
+  }, [autoDeployEnabled, isProjectComplete, hasAutoDeployed, files.length, isStreaming, onDeploy, deploymentUrl]);
 
   // 重置自动部署状态，当文件发生变化时
   React.useEffect(() => {
     if (files.length > 0) {
       setHasAutoDeployed(false);
+      
+      // 🔧 如果文件内容发生变化，清理之前的预览URL（仅当没有外部URL时）
+      if (!deploymentUrl) {
+        setPreviewUrl('');
+      }
     }
-  }, [files]);
+  }, [files, deploymentUrl]);
 
   // 监听外部传入的部署URL并更新预览
   React.useEffect(() => {
