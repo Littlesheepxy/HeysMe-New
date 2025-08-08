@@ -15,6 +15,7 @@ export function getVercelConfig(): VercelPreviewConfig {
     bearerToken: process.env.VERCEL_TOKEN || '',
     teamId: process.env.VERCEL_TEAM_ID,
     teamSlug: process.env.VERCEL_TEAM_SLUG,
+
   };
 
   // 🔧 验证必需的配置 - 更严格的检查
@@ -44,6 +45,7 @@ export function getSimpleVercelConfig(): VercelConfig & { enabled: boolean } {
     bearerToken: process.env.VERCEL_TOKEN || '',
     teamId: process.env.VERCEL_TEAM_ID,
     teamSlug: process.env.VERCEL_TEAM_SLUG,
+
   };
 
   // 🔧 验证配置

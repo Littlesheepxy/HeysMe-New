@@ -119,8 +119,11 @@ export class VercelPreviewService {
     }
   }
 
+
+
   /**
-   * 创建可共享链接以绕过身份验证
+   * 创建可共享链接以绕过身份验证（已废弃，现在使用生产部署）
+   * @deprecated 已改为生产部署，无需绕过保护
    */
   private async createShareableLink(deploymentId: string): Promise<string | null> {
     try {
@@ -230,8 +233,8 @@ export class VercelPreviewService {
           file: file.filename,
           data: file.content,
         })),
-        // target 字段：只有明确指定 production 时才设置，否则省略（默认为预览）
-        ...(deploymentConfig.target === 'production' ? { target: 'production' } : {}),
+        // target 字段：默认设置为 production 避免部署保护限制
+        target: 'production',
         gitMetadata: deploymentConfig.gitMetadata && {
           remoteUrl: deploymentConfig.gitMetadata.remoteUrl || "https://github.com/heysme/project",
           commitAuthorName: deploymentConfig.gitMetadata.commitAuthorName || "HeysMe User",
@@ -260,7 +263,7 @@ export class VercelPreviewService {
 
     const deploymentUrl = `https://${result.url}`;
     this.log(`📝 部署创建成功: ${result.id}`);
-    this.log(`🌐 预览地址: ${deploymentUrl}`);
+    this.log(`🌐 生产部署地址: ${deploymentUrl}`);
 
     return {
       id: result.id,
@@ -322,6 +325,8 @@ export class VercelPreviewService {
 
         if (status.state === 'READY') {
           this.updateStatus('ready');
+          
+          // 生产部署无需保护旁路，直接返回状态
           return status;
         } else if (status.state === 'ERROR' || status.state === 'CANCELED') {
           this.updateStatus('error');

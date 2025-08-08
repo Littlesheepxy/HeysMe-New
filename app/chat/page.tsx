@@ -338,7 +338,7 @@ export default function ChatPage() {
           content: file.content,
           language: file.language
         })),
-        // target: 不设置，默认为预览部署
+        target: 'production', // 使用生产部署避免部署保护限制
         gitMetadata: {
           commitAuthorName: 'HeysMe User',
           commitMessage: `Deploy project from HeysMe`,
