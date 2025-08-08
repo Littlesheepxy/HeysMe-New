@@ -15,7 +15,7 @@ export interface VercelConfig {
 export interface DeploymentConfig {
   projectName: string;
   files: CodeFile[];
-  target?: 'production' | 'preview';
+  target?: 'production' | 'staging' | string;
   gitMetadata?: {
     remoteUrl?: string;
     commitAuthorName?: string;
@@ -120,6 +120,98 @@ export class VercelPreviewService {
   }
 
   /**
+   * 创建可共享链接以绕过身份验证
+   */
+  private async createShareableLink(deploymentId: string): Promise<string | null> {
+    try {
+      this.log(`🔗 为部署 ${deploymentId} 创建可共享链接...`);
+      
+      // 使用Vercel API创建可共享链接
+      const response = await fetch(`https://api.vercel.com/v1/deployments/${deploymentId}/share`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.config.bearerToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          // 可选：设置链接过期时间（默认永不过期）
+          // expiresAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString() // 30天后过期
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      const data = await response.json();
+      return data.url || null;
+    } catch (error) {
+      this.log(`❌ 创建可共享链接失败: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * 根据项目名称获取项目信息
+   */
+  private async getProjectByName(projectName: string): Promise<{id: string; name: string} | null> {
+    try {
+      const result = await this.vercel.projects.getProjects({
+        teamId: this.config.teamId,
+        slug: this.config.teamSlug,
+      });
+
+      const projects = Array.isArray(result) ? result : result.projects || [];
+      const normalizedName = projectName.toLowerCase().replace(/[^a-z0-9-]/g, '-');
+      
+      const project = projects.find((p: any) => 
+        p.name === normalizedName || 
+        p.name === projectName ||
+        p.name.includes(normalizedName.substring(0, 20)) // 部分匹配
+      );
+
+      if (project) {
+        return { id: project.id, name: project.name };
+      }
+      
+      return null;
+    } catch (error) {
+      this.log(`❌ 获取项目失败: ${error}`);
+      return null;
+    }
+  }
+
+  /**
+   * 禁用项目的Vercel身份验证（仅对预览部署）
+   */
+  private async disableProjectSSO(projectId: string): Promise<boolean> {
+    try {
+      this.log(`🔓 为项目 ${projectId} 禁用预览部署的身份验证...`);
+      
+      const response = await fetch(`https://api.vercel.com/v9/projects/${projectId}`, {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${this.config.bearerToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          ssoProtection: null // 禁用身份验证
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+
+      this.log(`✅ 项目身份验证已禁用`);
+      return true;
+    } catch (error) {
+      this.log(`❌ 禁用项目身份验证失败: ${error}`);
+      return false;
+    }
+  }
+
+  /**
    * 创建部署 - 官方文档标准实现
    */
   private async createDeployment(deploymentConfig: DeploymentConfig): Promise<{ id: string; url: string }> {
@@ -138,7 +230,8 @@ export class VercelPreviewService {
           file: file.filename,
           data: file.content,
         })),
-        target: deploymentConfig.target || 'preview',
+        // target 字段：只有明确指定 production 时才设置，否则省略（默认为预览）
+        ...(deploymentConfig.target === 'production' ? { target: 'production' } : {}),
         gitMetadata: deploymentConfig.gitMetadata && {
           remoteUrl: deploymentConfig.gitMetadata.remoteUrl || "https://github.com/heysme/project",
           commitAuthorName: deploymentConfig.gitMetadata.commitAuthorName || "HeysMe User",
@@ -278,9 +371,27 @@ export class VercelPreviewService {
       };
       this.log(`✅ 项目已创建: ${this.currentProject.name}`);
 
+      // 🔓 立即禁用新项目的身份验证
+      try {
+        await this.disableProjectSSO(result.id);
+      } catch (ssoError) {
+        this.log(`⚠️ 新项目禁用身份验证失败: ${ssoError}`);
+      }
+
     } catch (error) {
       // 项目可能已存在，这是正常的
       this.log(`📂 使用现有项目继续部署...`);
+      
+      // 🔍 尝试获取现有项目ID并禁用身份验证
+      try {
+        const existingProjects = await this.getProjectByName(projectName);
+        if (existingProjects && existingProjects.id) {
+          this.currentProject = existingProjects;
+          await this.disableProjectSSO(existingProjects.id);
+        }
+      } catch (existingError) {
+        this.log(`⚠️ 处理现有项目身份验证失败: ${existingError}`);
+      }
     }
   }
 

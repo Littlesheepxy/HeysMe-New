@@ -68,6 +68,7 @@ interface CodePreviewToggleProps {
   autoDeployEnabled?: boolean;
   isProjectComplete?: boolean;
   onAutoDeployStatusChange?: (enabled: boolean) => void;
+  deploymentUrl?: string;
 }
 
 type ViewMode = 'code' | 'preview' | 'deploy';
@@ -321,7 +322,8 @@ export function CodePreviewToggle({
   onSendMessage,
   autoDeployEnabled = false,
   isProjectComplete = false,
-  onAutoDeployStatusChange
+  onAutoDeployStatusChange,
+  deploymentUrl
 }: CodePreviewToggleProps) {
   const { theme } = useTheme();
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
@@ -342,10 +344,18 @@ export function CodePreviewToggle({
       onDeploy
     ) {
       console.log('🚀 [自动部署] 触发自动部署，项目已完成');
+      console.log(`📊 [自动部署] 检测到 ${files.length} 个文件，开始部署流程`);
+      
       // 延迟一秒后自动部署，确保所有文件都已准备就绪
-      const deployTimer = setTimeout(() => {
-        onDeploy();
-        setHasAutoDeployed(true);
+      const deployTimer = setTimeout(async () => {
+        try {
+          console.log('🎯 [自动部署] 调用部署函数...');
+          await onDeploy();
+          setHasAutoDeployed(true);
+          console.log('✅ [自动部署] 部署函数调用完成');
+        } catch (error) {
+          console.error('❌ [自动部署] 部署失败:', error);
+        }
       }, 1000);
       
       return () => clearTimeout(deployTimer);
@@ -358,6 +368,14 @@ export function CodePreviewToggle({
       setHasAutoDeployed(false);
     }
   }, [files]);
+
+  // 监听外部传入的部署URL并更新预览
+  React.useEffect(() => {
+    if (deploymentUrl && deploymentUrl !== previewUrl) {
+      console.log('🔗 [CodePreviewToggle] 更新预览URL:', deploymentUrl);
+      setPreviewUrl(deploymentUrl);
+    }
+  }, [deploymentUrl, previewUrl]);
 
   const currentFile = files.find(f => f.filename === activeFile);
 
@@ -375,6 +393,7 @@ export function CodePreviewToggle({
   };
 
   const handlePreviewReady = (url: string) => {
+    console.log('🎉 [CodePreviewToggle] 预览就绪:', url);
     setPreviewUrl(url);
   };
 
@@ -644,12 +663,23 @@ export function CodePreviewToggle({
                 projectName={previewData?.projectName || '项目预览'}
                 description={previewData?.description}
                 isLoading={false}
-                previewUrl={previewUrl}
+                previewUrl={deploymentUrl || previewUrl}
                 enableVercelDeploy={true}
                 onPreviewReady={handlePreviewReady}
                 onLoadingChange={(loading: boolean) => console.log('Loading:', loading)}
                 isEditMode={editMode === 'ai'}
                 onContentChange={handleContentChange}
+                onRefresh={async () => {
+                  console.log('🔄 [CodePreviewToggle] 刷新请求，重新部署...');
+                  if (onDeploy) {
+                    try {
+                      await onDeploy();
+                      console.log('✅ [CodePreviewToggle] 重新部署完成');
+                    } catch (error) {
+                      console.error('❌ [CodePreviewToggle] 重新部署失败:', error);
+                    }
+                  }
+                }}
               />
             </motion.div>
           ) : viewMode === 'deploy' ? (

@@ -102,26 +102,6 @@ export default function VercelPreview({
     onDeviceChange?.(device);
   }, [onDeviceChange]);
 
-  // 刷新预览
-  const handleRefresh = useCallback(async () => {
-    if (isRefreshing) return;
-    
-    setIsRefreshing(true);
-    
-    try {
-      if (onRefresh) {
-        onRefresh();
-      } else if (iframeRef.current) {
-        iframeRef.current.src = iframeRef.current.src;
-      }
-      
-      // 模拟刷新延迟
-      await new Promise(resolve => setTimeout(resolve, 1000));
-    } finally {
-      setIsRefreshing(false);
-    }
-  }, [isRefreshing, onRefresh]);
-
   // 部署到 Vercel 预览
   const handleDeploy = useCallback(async () => {
     if (!files.length || isDeploying) return;
@@ -133,7 +113,7 @@ export default function VercelPreview({
       await deployProject({
         projectName: projectName.toLowerCase().replace(/\s+/g, '-'),
         files,
-        target: 'preview',
+        // target 省略，默认为预览部署
         gitMetadata: {
           commitAuthorName: 'HeysMe User',
           commitMessage: `Preview deployment: ${projectName}`,
@@ -154,6 +134,30 @@ export default function VercelPreview({
       console.error('部署失败:', error);
     }
   }, [files, projectName, description, deployProject, isDeploying]);
+
+  // 刷新预览
+  const handleRefresh = useCallback(async () => {
+    if (isRefreshing) return;
+    
+    setIsRefreshing(true);
+    
+    try {
+      if (onRefresh) {
+        // 如果有自定义刷新回调，使用它（通常是重新部署）
+        console.log('🔄 [刷新] 触发重新部署...');
+        onRefresh();
+      } else {
+        // 否则调用内部的重新部署逻辑
+        console.log('🔄 [刷新] 触发内部重新部署...');
+        await handleDeploy();
+      }
+      
+      // 等待部署完成
+      await new Promise(resolve => setTimeout(resolve, 2000));
+    } finally {
+      setIsRefreshing(false);
+    }
+  }, [isRefreshing, onRefresh, handleDeploy]);
 
   // 下载代码
   const handleDownload = useCallback(() => {
@@ -392,7 +396,36 @@ export default function VercelPreview({
                 className="w-full h-full rounded-lg border-0"
                 title="预览"
                 sandbox="allow-scripts allow-same-origin allow-forms allow-popups allow-modals"
+                onError={() => {
+                  console.warn('⚠️ iframe加载失败，可能是由于Vercel身份验证限制');
+                }}
               />
+              
+              {/* 401错误提示和备用方案 */}
+              <div className="absolute inset-0 bg-gray-50 dark:bg-gray-900 flex items-center justify-center opacity-0 pointer-events-none" 
+                   id={`fallback-${deploymentUrl || previewUrl}`}>
+                <div className="text-center p-6">
+                  <div className="text-yellow-500 mb-4">
+                    <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L4.082 16.5c-.77.833.192 2.5 1.732 2.5z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-lg font-semibold mb-2">预览需要身份验证</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4">
+                    由于Vercel身份验证限制，无法在iframe中直接预览
+                  </p>
+                  <Button
+                    onClick={() => {
+                      const url = deploymentUrl || previewUrl;
+                      if (url) window.open(url, '_blank');
+                    }}
+                    className="flex items-center gap-2"
+                  >
+                    <ExternalLink className="w-4 h-4" />
+                    在新标签页中打开
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         )}

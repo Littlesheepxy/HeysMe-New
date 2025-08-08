@@ -15,14 +15,14 @@ export async function POST(request: NextRequest) {
     const { 
       projectName, 
       files, 
-      target = 'preview',
+      target,
       gitMetadata,
       projectSettings,
       meta 
     }: {
       projectName: string;
       files: CodeFile[];
-      target?: 'production' | 'preview';
+      target?: 'production' | 'staging' | string;
       gitMetadata?: any;
       projectSettings?: any;
       meta?: any;

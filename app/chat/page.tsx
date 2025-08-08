@@ -51,6 +51,7 @@ export default function ChatPage() {
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [chatMode, setChatMode] = useState<'normal' | 'professional'>('normal')
   const [isPrivacyMode, setIsPrivacyMode] = useState(false)
+  const [deploymentUrl, setDeploymentUrl] = useState<string>('')
   
   // Vercel 错误监控状态
   const [showErrorMonitor, setShowErrorMonitor] = useState(false)
@@ -315,8 +316,92 @@ export default function ChatPage() {
   }
 
   // 处理部署
-  const handleDeploy = () => {
-    console.log('部署项目')
+  const handleDeploy = async () => {
+    console.log('🚀 开始部署项目...')
+    
+    if (!generatedCode || generatedCode.length === 0) {
+      console.error('❌ 没有可部署的代码文件')
+      toast({
+        title: "部署失败",
+        description: "没有可部署的代码文件",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      // 准备部署数据
+      const deployData = {
+        projectName: currentSession?.id || `heysme-project-${Date.now()}`,
+        files: generatedCode.map(file => ({
+          filename: file.filename,
+          content: file.content,
+          language: file.language
+        })),
+        // target: 不设置，默认为预览部署
+        gitMetadata: {
+          commitAuthorName: 'HeysMe User',
+          commitMessage: `Deploy project from HeysMe`,
+          commitRef: 'main',
+          dirty: false,
+        },
+        projectSettings: {
+          buildCommand: 'npm run build',
+          installCommand: 'npm install',
+        },
+        meta: {
+          source: 'heysme-chat',
+          timestamp: new Date().toISOString(),
+        }
+      }
+
+      console.log('📤 发送部署请求...', deployData)
+
+      // 调用部署API
+      const response = await fetch('/api/vercel-deploy', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(deployData),
+      })
+
+      const result = await response.json()
+      console.log('📥 部署响应:', result)
+
+      if (!response.ok) {
+        throw new Error(result.details || result.error || `HTTP ${response.status}`)
+      }
+
+      if (!result.success) {
+        throw new Error(result.error || 'Deployment failed')
+      }
+
+      // 部署成功
+      console.log('✅ 部署成功:', result.deployment)
+      toast({
+        title: "部署成功",
+        description: `项目已成功部署到: ${result.deployment.url}`,
+      })
+
+      // 🎯 将部署URL存储到状态中，供预览组件使用
+      setDeploymentUrl(result.deployment.url)
+
+      // 可以选择自动打开预览链接
+      if (result.deployment.url) {
+        window.open(result.deployment.url, '_blank')
+      }
+
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      console.error('❌ 部署失败:', errorMessage)
+      
+      toast({
+        title: "部署失败",
+        description: errorMessage,
+        variant: "destructive",
+      })
+    }
   }
 
   // 处理代码编辑
@@ -787,6 +872,7 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
               onEditCode={handleEditCode}
               getReactPreviewData={getReactPreviewData}
               onFileUpload={handleFileUpload}
+              deploymentUrl={deploymentUrl}
             />
           ) : hasStartedChat ? (
             /* 正常对话模式 */

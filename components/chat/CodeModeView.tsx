@@ -23,6 +23,7 @@ interface CodeModeViewProps {
   onEditCode: (filename: string) => void;
   getReactPreviewData: () => any;
   onFileUpload?: (file: File) => void;
+  deploymentUrl?: string;
 }
 
 export function CodeModeView({
@@ -35,7 +36,8 @@ export function CodeModeView({
   onDeploy,
   onEditCode,
   getReactPreviewData,
-  onFileUpload
+  onFileUpload,
+  deploymentUrl
 }: CodeModeViewProps) {
   const { theme } = useTheme();
   
@@ -204,6 +206,7 @@ export function CodeModeView({
               autoDeployEnabled={autoPreviewEnabled}
               isProjectComplete={isProjectComplete}
               onAutoDeployStatusChange={setAutoPreviewEnabled}
+              deploymentUrl={deploymentUrl}
             />
           </div>
         </div>

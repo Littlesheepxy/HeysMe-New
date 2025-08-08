@@ -464,6 +464,10 @@ export function CodeEditorPanel({
             enableVercelDeploy={!isStreaming} // 🎯 生成期间禁用部署
             onPreviewReady={setPreviewUrl}
             onLoadingChange={setIsLoading}
+            onRefresh={() => {
+              console.log('🔄 [CodeEditorPanel] 刷新请求，重新部署...');
+              // 这里会触发VercelPreview内部的重新部署逻辑
+            }}
           />
         </div>
       )}

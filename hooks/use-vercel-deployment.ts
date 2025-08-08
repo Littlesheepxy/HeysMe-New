@@ -33,7 +33,7 @@ export function useVercelDeployment(options?: UseVercelDeploymentOptions) {
   const deployProject = useCallback(async (params: {
     projectName: string;
     files: CodeFile[];
-    target?: 'production' | 'preview';
+    target?: 'production' | 'staging' | string;
     gitMetadata?: any;
     projectSettings?: any;
     meta?: any;
@@ -46,6 +46,7 @@ export function useVercelDeployment(options?: UseVercelDeploymentOptions) {
       // 触发状态更新
       options?.onStatusChange?.('initializing');
       options?.onLog?.('🚀 开始部署流程...');
+      options?.onLog?.(`📊 部署参数: ${params.projectName}, ${params.files.length} 个文件`);
 
       // 调用部署 API
       const response = await fetch('/api/vercel-deploy', {
@@ -56,7 +57,10 @@ export function useVercelDeployment(options?: UseVercelDeploymentOptions) {
         body: JSON.stringify(params),
       });
 
+      options?.onLog?.(`📡 收到 API 响应: ${response.status}`);
+
       const data = await response.json();
+      options?.onLog?.(`📋 响应数据: ${JSON.stringify(data, null, 2)}`);
 
       if (!response.ok) {
         throw new Error(data.details || data.error || `HTTP ${response.status}`);
@@ -72,6 +76,7 @@ export function useVercelDeployment(options?: UseVercelDeploymentOptions) {
       
       options?.onStatusChange?.('ready');
       options?.onLog?.(`✅ 部署成功: ${deployment.url}`);
+      options?.onLog?.(`🔗 部署ID: ${deployment.id}`);
       options?.onDeploymentReady?.(deployment);
 
       return deployment;
