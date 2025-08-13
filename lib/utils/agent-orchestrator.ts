@@ -213,13 +213,42 @@ export class AgentOrchestrator {
     const sessionData = await sessionManager.getSession(sessionId);
     if (!sessionData) return null;
 
+    // 🔧 修复：返回调试面板需要的完整数据结构
     return {
+      id: sessionId,
       sessionId,
       currentStage: sessionData.metadata.progress.currentStage,
       overallProgress: sessionData.metadata.progress.percentage,
       status: sessionData.status,
       createdAt: sessionData.metadata.createdAt,
-      lastActive: sessionData.metadata.lastActive
+      lastActive: sessionData.metadata.lastActive,
+      
+      // 调试面板需要的额外数据
+      metadata: {
+        ...sessionData.metadata,
+        // 确保包含所有Agent的历史和收集信息
+        welcomeHistory: (sessionData.metadata as any).welcomeHistory || [],
+        infoCollectionHistory: (sessionData.metadata as any).infoCollectionHistory || [],
+        codingHistory: (sessionData.metadata as any).codingHistory || [],
+        collectedInfo: (sessionData.metadata as any).collectedInfo || {},
+        progress: sessionData.metadata.progress,
+        
+        // 🆕 包含调试日志信息
+        roundTracking: (sessionData.metadata as any).roundTracking || [],
+        aiCallHistory: (sessionData.metadata as any).aiCallHistory || [],
+        storageStatus: (sessionData.metadata as any).storageStatus || {},
+        lastAiPrompt: (sessionData.metadata as any).lastAiPrompt,
+        lastAiResponse: (sessionData.metadata as any).lastAiResponse
+      },
+      
+      // 包含完整的对话历史
+      conversationHistory: sessionData.conversationHistory || [],
+      
+      // Agent流程信息
+      agentFlow: {
+        currentAgent: sessionData.metadata.progress.currentStage,
+        agentHistory: sessionData.agentFlow || []
+      }
     };
   }
 
@@ -265,13 +294,19 @@ export class AgentOrchestrator {
       if (!session) {
         console.log(`🆕 [编排器] 未找到会话 ${sessionId}，创建新会话`);
         session = this.createNewSession(sessionId);
-        sessionManager.updateSession(sessionId, session);
+        await sessionManager.updateSession(sessionId, session);
       } else {
         console.log(`✅ [编排器] 找到会话 ${sessionId}`);
+        // 🔧 关键调试：显示从存储中恢复的会话状态
+        const metadata = session.metadata as any;
+        console.log(`📊 [会话恢复] 历史长度: ${metadata.welcomeHistory?.length || 0}, 收集信息: ${JSON.stringify(metadata.collectedInfo || {})}`);
       }
     } else {
       console.log(`✅ [编排器] 使用传入的会话数据 ${sessionId}`);
-      sessionManager.updateSession(sessionId, session);
+      // 🔧 关键调试：显示传入会话的状态
+      const metadata = session.metadata as any;
+      console.log(`📊 [传入会话] 历史长度: ${metadata.welcomeHistory?.length || 0}, 收集信息: ${JSON.stringify(metadata.collectedInfo || {})}`);
+      await sessionManager.updateSession(sessionId, session);
     }
     
     return session;
@@ -388,12 +423,28 @@ export class AgentOrchestrator {
         hasInteraction: !!response.interaction
       });
       
+      // 🔧 移除过早保存：只在Agent完成时保存，避免保存未完成的数据
+      
       // 如果Agent完成，处理后续流程
       if (response.system_state?.done) {
         console.log(`✅ [编排器] ${agentName} 处理完毕`);
         
         // 记录完成情况
         sessionManager.recordAgentCompletion(session, agentName, agentStartTime, response);
+        
+        // 🔧 关键修复：Agent完成后立即强制保存会话数据
+        console.log(`💾 [编排器] 强制保存会话数据: ${session.id}`);
+        
+        // 🔧 关键调试：显示要保存的会话数据状态
+        const debugMetadata = session.metadata as any;
+        console.log(`🔍 [保存前检查] welcomeHistory长度: ${debugMetadata.welcomeHistory?.length || 0}, collectedInfo:`, debugMetadata.collectedInfo || {});
+        
+        await sessionManager.updateSession(session.id, session);
+        
+        // 🔧 验证保存后的状态
+        const savedSession = await sessionManager.getSession(session.id);
+        const savedMetadata = savedSession?.metadata as any;
+        console.log(`🔍 [保存后验证] welcomeHistory长度: ${savedMetadata?.welcomeHistory?.length || 0}, collectedInfo:`, savedMetadata?.collectedInfo || {});
         
         // 🔧 修复：检查是否为静默推进，如果是则不发送空响应
         const isSilentAdvance = response.system_state?.metadata?.silent_advance;

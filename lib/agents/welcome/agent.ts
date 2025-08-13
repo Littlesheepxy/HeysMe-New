@@ -7,9 +7,6 @@ import {
   UserIntentAnalysis,
   WelcomeAIResponse,
   WelcomeSummaryResult,
-  getSystemPrompt,
-  getFirstRoundPrompt,
-  getContinuationPrompt,
   parseAIResponse,
   tryParseStreamingResponse,
   calculateCollectionProgress,
@@ -17,12 +14,19 @@ import {
   generateCollectionSummary,
   StreamContentProcessor
 } from './utils';
+import { 
+  WELCOME_SYSTEM_PROMPT,
+  FIRST_ROUND_PROMPT_TEMPLATE,
+  CONTINUATION_PROMPT_TEMPLATE 
+} from '@/lib/prompts/welcome';
 
 /**
  * 对话式Welcome Agent - 纯对话收集用户信息
  * 不使用按钮交互，完全通过自然对话收集所需信息
  */
 export class ConversationalWelcomeAgent extends BaseAgent {
+  private isFirstRound: boolean = true; // 🔧 本地轮次管理
+  
   constructor() {
     const capabilities: AgentCapabilities = {
       canStream: true,
@@ -47,23 +51,25 @@ export class ConversationalWelcomeAgent extends BaseAgent {
     console.log(`📝 [用户输入] "${input.user_input}"`);
     
     try {
-      // 检查是否是首轮对话
+      // 🔧 简化：初始化本地轮次状态（仅在刷新时从数据库恢复）
       const metadata = sessionData.metadata as any;
       const conversationHistory = metadata.welcomeHistory || [];
       const currentInfo = metadata.collectedInfo || {};
-      const isFirstRound = conversationHistory.length === 0;
-
-      console.log(`🔄 [对话轮次] ${isFirstRound ? '首轮' : '第' + (conversationHistory.length + 1) + '轮'}`);
-
-      // 构建prompt
-      let userPrompt: string;
-      if (isFirstRound) {
-        userPrompt = getFirstRoundPrompt(input.user_input);
+      
+      // 🔧 关键修复：每次都检查数据库历史状态（因为每次都是新Agent实例）
+      if (conversationHistory.length > 0) {
+        this.isFirstRound = false; // 从数据库恢复：有历史就不是首轮
+        console.log(`🔄 [轮次恢复] 检测到 ${conversationHistory.length} 条历史，设置为续轮`);
       } else {
-        const historyText = buildConversationHistoryText(conversationHistory);
-        const currentIntent = metadata.userIntentAnalysis;
-        userPrompt = getContinuationPrompt(input.user_input, historyText, currentInfo, currentIntent);
+        this.isFirstRound = true; // 确保默认为首轮
+        console.log(`🆕 [轮次初始化] 无历史记录，设置为首轮`);
       }
+
+      // 🔧 关键调试：显示会话数据的详细状态
+      console.log(`🔍 [会话数据详情] sessionId: ${sessionData.id}`);
+      console.log(`🔍 [metadata.welcomeHistory] 长度: ${conversationHistory.length}, 内容:`, conversationHistory);
+      console.log(`🔍 [metadata.collectedInfo] 内容:`, currentInfo);
+      console.log(`🔄 [对话轮次] ${this.isFirstRound ? '首轮' : '续轮'} (本地管理)`);
 
       console.log(`🎯 [大模型调用] 发送流式对话请求`);
       
@@ -77,7 +83,7 @@ export class ConversationalWelcomeAgent extends BaseAgent {
       
       console.log(`🌊 [流式处理] 开始接收AI响应流`);
       
-      for await (const chunk of this.callAIModelStreaming(userPrompt)) {
+      for await (const chunk of this.callAIModelStreaming(input.user_input, conversationHistory, this.isFirstRound, sessionData)) {
         chunkCount++;
         
         // 🆕 使用内容分离处理器处理每个chunk
@@ -132,31 +138,97 @@ export class ConversationalWelcomeAgent extends BaseAgent {
       console.log(`🔍 [流式完成] 解析最终AI响应`);
       console.log(`📝 [累积响应] 长度: ${contentProcessor.getCurrentVisibleContent().length}, 内容前100字: ${contentProcessor.getCurrentVisibleContent().substring(0, 100)}`);
       
-      // 更新对话历史
-      conversationHistory.push(
-        { role: 'user', content: input.user_input },
-        { role: 'assistant', content: finalAiResponse?.reply || '' }
-      );
+      // 🔧 关键调试：显示最终AI响应的完整内容
+      const fullResponse = contentProcessor.getCurrentVisibleContent();
+      console.log(`🔍 [完整AI响应] 内容:\n${fullResponse}`);
       
-      // 更新会话数据
-      metadata.welcomeHistory = conversationHistory;
-      metadata.collectedInfo = { ...currentInfo, ...finalAiResponse?.collected_info || {} };
+      // 🔧 关键修复：完全依赖BaseAgent的历史管理
+      // BaseAgent在流式处理完成后会自动更新历史，我们只需要同步回session
+      const baseAgentHistory = this.conversationHistory.get(sessionData.id);
+      if (baseAgentHistory) {
+        console.log(`🔄 [历史同步] 从BaseAgent同步历史回session，BaseAgent: ${baseAgentHistory.length}, Session: ${conversationHistory.length}`);
+        // 直接使用BaseAgent的历史（已包含最新的user和assistant消息）
+        metadata.welcomeHistory = [...baseAgentHistory];
+        console.log(`✅ [历史同步] 已同步BaseAgent历史到session，新长度: ${metadata.welcomeHistory.length}`);
+      } else {
+        console.log(`⚠️ [历史同步] BaseAgent历史不存在，保持原session历史`);
+      }
+      // 🔧 简化逻辑：只使用AI解析的信息，检查四个要素是否非空
+      const aiExtractedInfo = finalAiResponse?.collected_info || {};
+      
+      // 直接使用AI解析的信息，与现有信息合并
+      metadata.collectedInfo = { 
+        ...currentInfo, 
+        ...aiExtractedInfo 
+      };
+      
+      // 🔍 调试：显示AI解析的四个要素状态
+      console.log(`🔍 [AI解析信息] user_role: ${aiExtractedInfo.user_role || 'null'}`);
+      console.log(`🔍 [AI解析信息] use_case: ${aiExtractedInfo.use_case || 'null'}`);
+      console.log(`🔍 [AI解析信息] style: ${aiExtractedInfo.style || 'null'}`);
+      console.log(`🔍 [AI解析信息] highlight_focus: ${aiExtractedInfo.highlight_focus || 'null'}`);
+      
+      // 🔍 检查四个要素是否都有内容（非null、非undefined、非空字符串）
+      const hasValidUserRole = aiExtractedInfo.user_role && aiExtractedInfo.user_role.trim() !== '';
+      const hasValidUseCase = aiExtractedInfo.use_case && aiExtractedInfo.use_case.trim() !== '';
+      const hasValidStyle = aiExtractedInfo.style && aiExtractedInfo.style.trim() !== '';
+      const hasValidHighlightFocus = aiExtractedInfo.highlight_focus && aiExtractedInfo.highlight_focus.trim() !== '';
+      
+      const allFieldsComplete = hasValidUserRole && hasValidUseCase && hasValidStyle && hasValidHighlightFocus;
+      console.log(`🎯 [四要素检查] 用户角色: ${hasValidUserRole}, 使用场景: ${hasValidUseCase}, 风格: ${hasValidStyle}, 重点: ${hasValidHighlightFocus}, 全部完整: ${allFieldsComplete}`);
       metadata.userIntentAnalysis = finalAiResponse?.user_intent_analysis;
       
+      // 🔧 关键修复：确保会话数据的完整性，更新根级别字段
+      sessionData.metadata = metadata;
+      sessionData.metadata.updatedAt = new Date();
+      sessionData.metadata.lastActive = new Date();
+      
+      // 🔍 关键调试：显示最终保存的会话数据状态
+      console.log(`💾 [会话保存前] welcomeHistory长度: ${metadata.welcomeHistory?.length || 0}`);
+      console.log(`💾 [会话保存前] collectedInfo:`, metadata.collectedInfo);
+      console.log(`💾 [会话保存前] sessionData.id: ${sessionData.id}`);
+      
       console.log(`💾 [信息更新] 当前收集状态:`, metadata.collectedInfo);
+      console.log(`📊 [历史状态] 对话历史长度: ${conversationHistory.length}`);
+      console.log(`🔍 [历史详情] 对话记录:`, conversationHistory.map((msg: any) => `${msg.role}: ${msg.content.slice(0, 50)}...`));
 
-      // 🔧 修复：根据完成状态发送最终响应，避免重复
-      if (finalAiResponse?.completion_status === 'ready') {
-        console.log(`🎉 [收集完成] 信息收集完整，开始汇总处理`);
+      // 🔧 关键调试：显示最终解析结果
+      console.log(`🔍 [最终解析] finalAiResponse:`, finalAiResponse);
+      console.log(`🔍 [完成状态] completion_status: ${finalAiResponse?.completion_status}`);
+      
+      // 🔧 关键修复：基于收集进度判断是否完成，不依赖AI返回的completion_status
+      const collectionProgress = calculateCollectionProgress(metadata.collectedInfo);
+      const conversationRounds = Math.floor(conversationHistory.length / 2);
+      
+      // 🔧 简化完成条件：基于AI解析的四个要素是否完整
+      // 1. AI解析的四个要素全部有内容 或者
+      // 2. 用户明确表示要进入下一步 或者
+      // 3. 对话轮次达到5轮以上（防止无限循环）
+      
+      const userWantsToAdvance = finalAiResponse?.reply?.includes('跳过') || 
+                               finalAiResponse?.reply?.includes('快进') ||
+                               finalAiResponse?.reply?.includes('下一步') ||
+                               input.user_input?.includes('跳过') ||
+                               input.user_input?.includes('快进') ||
+                               input.user_input?.includes('下一步');
+      
+      const shouldComplete = allFieldsComplete || userWantsToAdvance || conversationRounds >= 5;
+      
+      console.log(`🎯 [完成判断] 收集进度: ${collectionProgress}%, 对话轮次: ${conversationRounds}, 四要素完整: ${allFieldsComplete}, 用户要求进入下一步: ${userWantsToAdvance}, 是否完成: ${shouldComplete}`);
+      
+      if (shouldComplete) {
+        console.log(`🎉 [收集完成] 信息收集达到完成条件，开始汇总处理`);
         
         // 🆕 使用系统汇总，不再调用AI
-        const summaryResult = this.generateSystemSummary(metadata.collectedInfo, finalAiResponse.user_intent_analysis);
+        const summaryResult = this.generateSystemSummary(metadata.collectedInfo, finalAiResponse?.user_intent_analysis);
         
         // 保存汇总结果到会话数据，供下一个Agent使用
         metadata.welcomeSummary = summaryResult;
         
         // 🔧 关键修复：不发送AI的原始回复，直接发送advance响应
-        yield this.createAdvanceResponse(finalAiResponse, summaryResult, sessionData);
+        if (finalAiResponse) {
+          yield this.createAdvanceResponse(finalAiResponse, summaryResult, sessionData);
+        }
       } else {
         console.log(`🔄 [继续收集] 继续对话收集信息`);
         
@@ -192,22 +264,54 @@ export class ConversationalWelcomeAgent extends BaseAgent {
   }
 
   /**
-   * 🆕 流式调用AI模型进行对话
+   * 🆕 流式调用AI模型进行对话 - 本地轮次管理
    */
-  private async* callAIModelStreaming(userPrompt: string): AsyncGenerator<string, void, unknown> {
+  private async* callAIModelStreaming(
+    userInput: string,
+    conversationHistory: any[],
+    isFirstRound: boolean,
+    sessionData: SessionData
+  ): AsyncGenerator<string, void, unknown> {
     try {
-      yield* generateStreamWithModel(
-        'claude',
-        'claude-sonnet-4-20250514',
-        [
-          { role: 'system', content: getSystemPrompt() },
-          { role: 'user', content: userPrompt }
-        ],
-        { maxTokens: 64000 }
-      );
+      // 🎯 核心逻辑：基于本地isFirstRound判断，准备用户输入
+      let finalUserInput: string;
+      if (isFirstRound) {
+        // 首轮：使用完整prompt模板
+        finalUserInput = FIRST_ROUND_PROMPT_TEMPLATE.replace('{userInput}', userInput);
+        console.log(`📝 [本地首轮] 使用完整prompt模板，用户输入: ${userInput}`);
+      } else {
+        // 续轮：直接使用用户输入
+        finalUserInput = userInput;
+        console.log(`📝 [本地续轮] 直接使用用户输入: ${userInput}`);
+      }
+      
+      // 🔧 只在刷新恢复时同步历史到BaseAgent
+      if (!this.conversationHistory.has(sessionData.id)) {
+        this.conversationHistory.set(sessionData.id, []);
+      }
+      
+      const baseAgentHistory = this.conversationHistory.get(sessionData.id)!;
+      if (baseAgentHistory.length === 0 && conversationHistory.length > 0) {
+        console.log(`🔄 [刷新恢复] 恢复 ${conversationHistory.length} 条session历史到BaseAgent`);
+        baseAgentHistory.push(...conversationHistory);
+      }
+      
+      console.log(`🎯 [AI调用] 准备调用BaseAgent，历史管理: 本地轮次`);
+      
+      // 🆕 使用BaseAgent的统一流式方法
+      yield* this.callLLMStreaming(finalUserInput, {
+        system: WELCOME_SYSTEM_PROMPT,
+        maxTokens: 64000,
+        sessionId: sessionData.id,
+        useHistory: true
+      });
+      
+      // 🔧 调用完成后，更新本地轮次状态
+      this.isFirstRound = false;
+      console.log(`✅ [轮次更新] 已设置为续轮，下次将直接使用用户输入`);
       
     } catch (error) {
-      console.error('❌ [AI流式调用失败]:', error);
+      console.error('❌ [Welcome AI调用失败]:', error);
       throw new Error('AI对话调用失败');
     }
   }
@@ -221,7 +325,7 @@ export class ConversationalWelcomeAgent extends BaseAgent {
         'claude',
         'claude-sonnet-4-20250514',
         [
-          { role: 'system', content: getSystemPrompt() },
+          { role: 'system', content: WELCOME_SYSTEM_PROMPT },
           { role: 'user', content: userPrompt }
         ],
         { maxTokens: 64000 }
@@ -379,6 +483,8 @@ export class ConversationalWelcomeAgent extends BaseAgent {
       return `用户为认真制作类型，但信息收集不完整（${completionProgress}%），建议引导式收集更多信息`;
     }
   }
+
+
 
   /**
    * 处理用户交互 - 对话式Agent不需要特殊交互处理

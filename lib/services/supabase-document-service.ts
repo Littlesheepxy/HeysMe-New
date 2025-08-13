@@ -46,6 +46,9 @@ export class SupabaseDocumentService {
     options: DocumentUploadOptions = {}
   ): Promise<UploadedDocument> {
     try {
+      // 🔧 设置用户上下文，用于RLS策略验证
+      await this.setUserContext(userId);
+      
       // 1. 文件验证
       this.validateFile(file);
 
@@ -203,6 +206,9 @@ export class SupabaseDocumentService {
    * 获取用户的文档列表
    */
   async getUserDocuments(userId: string, sessionId?: string): Promise<UploadedDocument[]> {
+    // 🔧 设置用户上下文
+    await this.setUserContext(userId);
+    
     let query = supabase
       .from('user_documents')
       .select('*')
@@ -291,6 +297,29 @@ export class SupabaseDocumentService {
   }
 
   // ==================== 私有方法 ====================
+
+  /**
+   * 设置用户上下文，用于RLS策略验证
+   * 注意：由于当前RLS策略已设置为允许所有访问，此函数暂时禁用
+   */
+  private async setUserContext(userId: string): Promise<void> {
+    // 🔧 暂时禁用RPC调用，因为函数不存在且当前RLS策略允许所有访问
+    console.log(`📝 [用户上下文] 跳过设置用户上下文（当前RLS策略允许访问）: ${userId}`);
+    
+    /* 
+    // 🔧 未来启用：当创建了set_current_user_id函数后取消注释
+    try {
+      const { error } = await supabase.rpc('set_current_user_id', { user_id_value: userId });
+      if (error) {
+        console.warn('⚠️ [用户上下文] 设置用户上下文失败:', error.message);
+      } else {
+        console.log(`✅ [用户上下文] 已设置用户上下文: ${userId}`);
+      }
+    } catch (error) {
+      console.warn('⚠️ [用户上下文] 设置用户上下文异常:', error);
+    }
+    */
+  }
 
   private validateFile(file: File): void {
     // 支持的MIME类型（支持通配符）

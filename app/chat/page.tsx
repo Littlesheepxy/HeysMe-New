@@ -18,6 +18,7 @@ import { CodeModeView } from "@/components/chat/CodeModeView"
 import { ErrorMonitor } from "@/components/ui/error-monitor"
 import { VercelStatusIndicator } from "@/components/ui/vercel-status-indicator"
 import { useVercelErrorMonitor } from "@/hooks/use-vercel-error-monitor"
+import { SessionDebugPanel } from "@/components/debug/SessionDebugPanel"
 
 
 export default function ChatPage() {
@@ -1022,6 +1023,13 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
         isChecking={vercelErrorMonitor.isChecking}
         onCopyToInput={handleCopyErrorToInput}
       />
+
+      {/* Debug 面板 - 开发模式下显示 */}
+      {process.env.NODE_ENV === 'development' && (
+        <SessionDebugPanel 
+          sessionId={currentSession?.id}
+        />
+      )}
     </div>
   )
 }

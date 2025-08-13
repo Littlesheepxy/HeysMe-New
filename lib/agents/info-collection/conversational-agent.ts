@@ -221,10 +221,22 @@ export class ConversationalInfoCollectionAgent extends BaseAgent {
       available_tools: Array.from(this.tools.keys()).join(', ')
     });
 
+    // 🔧 关键修复：将session历史同步到BaseAgent
+    const infoCollectionHistory = (sessionData?.metadata as any)?.infoCollectionHistory || [];
+    if (!this.conversationHistory.has(sessionData.id)) {
+      this.conversationHistory.set(sessionData.id, []);
+    }
+    const baseAgentHistory = this.conversationHistory.get(sessionData.id)!;
+    if (baseAgentHistory.length === 0 && infoCollectionHistory.length > 0) {
+      console.log(`🔄 [InfoCollection历史同步] 从session恢复 ${infoCollectionHistory.length} 条历史到BaseAgent`);
+      baseAgentHistory.push(...infoCollectionHistory);
+    }
+
     const response = await this.callLLM(prompt, {
       schemaType: 'conversationalAnalysis',
-              maxTokens: 64000,
-      sessionId: sessionData.id
+      maxTokens: 64000,
+      sessionId: sessionData.id,
+      useHistory: true  // 🔧 启用对话历史管理
     });
 
     return JSON.parse(response);
@@ -400,8 +412,9 @@ URL: ${url}
 `;
 
     const response = await this.callLLM(prompt, {
-              maxTokens: 64000,
-      sessionId: this.sessionData.id
+      maxTokens: 64000,
+      sessionId: this.sessionData.id,
+      useHistory: true  // 🔧 启用对话历史管理
     });
 
     return JSON.parse(response);
@@ -444,8 +457,9 @@ URL: ${url}
 `;
 
     const response = await this.callLLM(prompt, {
-              maxTokens: 64000,
-      sessionId: this.sessionData.id
+      maxTokens: 64000,
+      sessionId: this.sessionData.id,
+      useHistory: true  // 🔧 启用对话历史管理
     });
 
     return JSON.parse(response);

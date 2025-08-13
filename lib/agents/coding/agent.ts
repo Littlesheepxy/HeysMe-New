@@ -238,29 +238,29 @@ export class CodingAgent extends BaseAgent {
       // 🔧 使用BaseAgent的对话历史管理功能
       const sessionId = (sessionData as any)?.sessionId || `coding-${Date.now()}`;
       
-      // 🆕 使用callLLM方法以支持对话历史
+      // 🔧 使用BaseAgent的流式方法，支持对话历史
       const systemPrompt = '你是一个专业的全栈开发工程师，专门生成高质量的代码项目。请按照用户要求生成完整的项目代码，每个文件都要用markdown代码块格式包装，并标明文件名。';
       
-      // 🔧 使用流式AI模型生成，但保留对话历史结构
+      console.log('🔧 [对话历史] 使用BaseAgent流式历史管理');
       
-      // 🆕 构建包含历史的消息数组
-      const messages: Array<{ role: 'system' | 'user' | 'assistant', content: string }> = [
-        { role: 'system', content: systemPrompt },
-        { role: 'user', content: prompt }
-      ];
-      
-      console.log('🔧 [对话历史] 初始化对话历史管理');
-      
-      // 🆕 使用流式AI模型生成
-      const { generateStreamWithModel } = await import('@/lib/ai-models');
-      
-      // 流式调用AI模型 - 使用消息数组格式支持历史
-      for await (const chunk of generateStreamWithModel(
-        'claude',
-        'claude-sonnet-4-20250514',
-        messages,
-        { maxTokens: 64000 }
-      )) {
+      // 🔧 关键修复：将session历史同步到BaseAgent（如果存在）
+      const codingHistory = (sessionData?.metadata as any)?.codingHistory || [];
+      if (!this.conversationHistory.has(sessionData.id)) {
+        this.conversationHistory.set(sessionData.id, []);
+      }
+      const baseAgentHistory = this.conversationHistory.get(sessionData.id)!;
+      if (baseAgentHistory.length === 0 && codingHistory.length > 0) {
+        console.log(`🔄 [Coding历史同步] 从session恢复 ${codingHistory.length} 条历史到BaseAgent`);
+        baseAgentHistory.push(...codingHistory);
+      }
+
+      // 🆕 使用BaseAgent的callLLMStreaming方法
+      for await (const chunk of this.callLLMStreaming(prompt, {
+        system: systemPrompt,
+        maxTokens: 64000,
+        sessionId: sessionData.id,
+        useHistory: true
+      })) {
         chunkCount++;
         fullAccumulatedText += chunk;
         
@@ -540,40 +540,27 @@ export class CodingAgent extends BaseAgent {
       // 🔧 获取会话历史以保持对话连续性
       const sessionId = (sessionData as any)?.sessionId || `incremental-${Date.now()}`;
       
-      // 🆕 构建包含历史的消息数组
-      let messages: Array<{ role: 'system' | 'user' | 'assistant', content: string }> = [];
-      
-      // 🔧 从会话数据中获取对话历史
-      const conversationHistory = (sessionData?.metadata as any)?.codingHistory || [];
-      console.log(`🔧 [增量历史] 找到 ${conversationHistory.length} 条历史对话`);
-      
-      // 添加系统提示词
-      messages.push({ role: 'system', content: systemPrompt });
-      
-      // 🆕 添加历史对话（最近的5轮对话以保持上下文）
-      const recentHistory = conversationHistory.slice(-10); // 保留最近5轮对话（用户+助手=10条消息）
-      messages.push(...recentHistory);
-      
-      // 添加当前用户请求
-      messages.push({ role: 'user', content: incrementalPrompt });
-      
-      console.log(`💬 [增量对话] 构建消息数组，总消息数: ${messages.length}`);
-      messages.forEach((msg, index) => {
-        const roleIcon = msg.role === 'user' ? '👤' : msg.role === 'assistant' ? '🤖' : '📝';
-        console.log(`  ${roleIcon} [${index}] ${msg.content.substring(0, 100)}...`);
-      });
+      console.log(`💬 [增量对话] 使用BaseAgent流式历史管理`);
 
-      // 🆕 流式调用AI模型，支持工具定义和对话历史
-      for await (const chunk of generateStreamWithModel(
-        'claude',
-        'claude-sonnet-4-20250514',
-        messages,
-        { 
-          maxTokens: 8000,
-          // 🆕 添加工具定义支持
-          tools: INCREMENTAL_EDIT_TOOLS
-        }
-      )) {
+      // 🔧 关键修复：将session历史同步到BaseAgent（增量编辑也需要历史）
+      const codingHistory = (sessionData?.metadata as any)?.codingHistory || [];
+      if (!this.conversationHistory.has(sessionData.id)) {
+        this.conversationHistory.set(sessionData.id, []);
+      }
+      const baseAgentHistory = this.conversationHistory.get(sessionData.id)!;
+      if (baseAgentHistory.length === 0 && codingHistory.length > 0) {
+        console.log(`🔄 [增量历史同步] 从session恢复 ${codingHistory.length} 条历史到BaseAgent`);
+        baseAgentHistory.push(...codingHistory);
+      }
+
+      // 🆕 使用BaseAgent的callLLMStreaming方法，支持工具和历史
+      for await (const chunk of this.callLLMStreaming(incrementalPrompt, {
+        system: systemPrompt,
+        maxTokens: 8000,
+        sessionId: sessionData.id,
+        useHistory: true,
+        tools: INCREMENTAL_EDIT_TOOLS
+      })) {
         chunkCount++;
         accumulatedResponse += chunk;
         

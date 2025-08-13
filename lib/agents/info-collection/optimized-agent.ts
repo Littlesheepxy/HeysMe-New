@@ -375,6 +375,17 @@ export class OptimizedInfoCollectionAgent extends BaseAgent {
       const messageId = `info-collection-${Date.now()}`;
 
       try {
+        // 🔧 关键修复：将session历史同步到BaseAgent
+        const infoCollectionHistory = (sessionData?.metadata as any)?.infoCollectionHistory || [];
+        if (!this.conversationHistory.has(sessionData.id)) {
+          this.conversationHistory.set(sessionData.id, []);
+        }
+        const baseAgentHistory = this.conversationHistory.get(sessionData.id)!;
+        if (baseAgentHistory.length === 0 && infoCollectionHistory.length > 0) {
+          console.log(`🔄 [OptimizedInfo历史同步] 从session恢复 ${infoCollectionHistory.length} 条历史到BaseAgent`);
+          baseAgentHistory.push(...infoCollectionHistory);
+        }
+
         // 使用非流式方式获取完整响应以检查工具调用
         const response = await this.callLLM(userInput, {
           system: systemPrompt,
@@ -456,6 +467,16 @@ export class OptimizedInfoCollectionAgent extends BaseAgent {
       } catch (error) {
         console.error(`❌ [工具调用失败] 回退到普通模式:`, error);
         
+        // 🔧 回退模式也需要历史同步（如果前面没有同步）
+        const baseAgentHistory = this.conversationHistory.get(sessionData.id)!;
+        if (baseAgentHistory.length === 0) {
+          const infoCollectionHistory = (sessionData?.metadata as any)?.infoCollectionHistory || [];
+          if (infoCollectionHistory.length > 0) {
+            console.log(`🔄 [回退模式历史同步] 从session恢复 ${infoCollectionHistory.length} 条历史到BaseAgent`);
+            baseAgentHistory.push(...infoCollectionHistory);
+          }
+        }
+
         // 回退到普通模式
         const fallbackResponse = await this.callLLM(userInput, {
           system: systemPrompt,
