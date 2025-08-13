@@ -520,22 +520,7 @@ export class CodingAgent extends BaseAgent {
         console.log('📊 [响应] 工具执行中:', response.immediate_display.reply);
       };
 
-      // 初始化工具执行器
-      toolExecutor = new UnifiedToolExecutor({
-        mode: 'claude',
-        onTextUpdate: async (text: string, partial: boolean) => {
-          console.log(`📊 [工具执行器] 文本更新: ${text.substring(0, 100)}...`);
-        },
-        onToolExecute: async (toolName: string, params: Record<string, any>) => {
-          console.log(`🔧 [工具调用] 执行: ${toolName}`, params);
-          
-          // 执行实际的文件操作
-          return await this.executeIncrementalTool(toolName, params, existingFiles, modifiedFiles);
-        },
-        onToolResult: async (result: string) => {
-          console.log(`✅ [工具结果] ${result}`);
-        }
-      });
+
 
       // 🔧 获取会话历史以保持对话连续性
       const sessionId = (sessionData as any)?.sessionId || `incremental-${Date.now()}`;
@@ -553,6 +538,105 @@ export class CodingAgent extends BaseAgent {
         baseAgentHistory.push(...codingHistory);
       }
 
+      // 🆕 创建响应队列，用于存储在工具执行回调中生成的响应
+      const responseQueue: StreamableAgentResponse[] = [];
+      
+      // 🔧 重新配置工具执行器以支持响应队列
+      toolExecutor = new UnifiedToolExecutor({
+        mode: 'claude',
+        onTextUpdate: async (text: string, partial: boolean) => {
+          console.log(`📊 [工具执行器] 文本更新: ${text.substring(0, 100)}...`);
+          
+          // 🚨 关键修复：在增量模式下处理文本和代码分离
+          if (text && text.length > lastSentTextLength) {
+            const newText = text.slice(lastSentTextLength);
+            if (newText.trim()) {
+              // 🆕 使用文本-代码分离逻辑
+              const { text: cleanedText, codeFiles: extractedCodeFiles } = this.separateTextAndCode(newText);
+              
+              if (cleanedText.trim()) {
+                // 发送清理后的文本（隐藏代码块）
+                responseQueue.push(this.createResponse({
+                  immediate_display: {
+                    reply: cleanedText,
+                    agent_name: this.name,
+                    timestamp: new Date().toISOString()
+                  },
+                  system_state: {
+                    intent: 'incremental_text_update',
+                    done: false,
+                    metadata: {
+                      message_id: messageId,
+                      is_partial: partial,
+                      mode: 'incremental',
+                      hasCodeFiles: extractedCodeFiles.length > 0,
+                      codeFilesCount: extractedCodeFiles.length,
+                      streaming: true,
+                      stream_type: 'chunk'
+                    }
+                  }
+                }));
+              }
+              
+              // 如果有代码文件，添加到修改列表
+              if (extractedCodeFiles.length > 0) {
+                modifiedFiles.push(...extractedCodeFiles);
+                console.log(`📊 [代码提取] 从流式响应中提取了 ${extractedCodeFiles.length} 个代码文件`);
+              }
+              
+              lastSentTextLength = text.length;
+            }
+          }
+        },
+        onToolExecute: async (toolName: string, params: Record<string, any>) => {
+          console.log(`🔧 [工具调用] 执行: ${toolName}`, params);
+          
+          // 🚨 发送工具执行开始通知
+          responseQueue.push(this.createResponse({
+            immediate_display: {
+              reply: `🔧 正在执行: ${toolName}...`,
+              agent_name: this.name,
+              timestamp: new Date().toISOString()
+            },
+            system_state: {
+              intent: 'tool_executing',
+              done: false,
+              metadata: {
+                toolName,
+                toolParams: params,
+                mode: 'incremental'
+              }
+            }
+          }));
+          
+          // 执行实际的文件操作
+          const result = await this.executeIncrementalTool(toolName, params, existingFiles, modifiedFiles);
+          
+          // 🚨 发送工具执行完成通知
+          responseQueue.push(this.createResponse({
+            immediate_display: {
+              reply: `✅ ${toolName} 执行完成`,
+              agent_name: this.name,
+              timestamp: new Date().toISOString()
+            },
+            system_state: {
+              intent: 'tool_completed',
+              done: false,
+              metadata: {
+                toolName,
+                toolResult: result,
+                mode: 'incremental'
+              }
+            }
+          }));
+          
+          return result;
+        },
+        onToolResult: async (result: string) => {
+          console.log(`✅ [工具结果] ${result}`);
+        }
+      });
+      
       // 🆕 使用BaseAgent的callLLMStreaming方法，支持工具和历史
       for await (const chunk of this.callLLMStreaming(incrementalPrompt, {
         system: systemPrompt,
@@ -568,6 +652,14 @@ export class CodingAgent extends BaseAgent {
         
         // 🔧 关键修复：使用工具执行器处理工具调用
         await toolExecutor.processStreamChunk(accumulatedResponse);
+        
+        // 🆕 处理响应队列中的待发送响应
+        while (responseQueue.length > 0) {
+          const response = responseQueue.shift();
+          if (response) {
+            yield response;
+          }
+        }
       }
       
       console.log('📊 [增量AI调用] 流式修改完成，总块数:', chunkCount);
