@@ -266,15 +266,19 @@ export async function* generateStreamWithModel(
     }
     
     // 使用流式文本生成
+    console.log(`📡 [API调用] 准备调用 streamText...`);
     const result = await streamText(streamTextParams)
 
     console.log(`✅ [流式开始] 文本流式生成开始 (Provider: ${provider})`);
     
+    let chunkCount = 0;
     for await (const textPart of result.textStream) {
+      chunkCount++;
+      console.log(`📤 [流式块] 第${chunkCount}个，长度: ${textPart.length}`);
       yield textPart;
     }
     
-    console.log(`✅ [流式完成] 文本流式生成完成 (Provider: ${provider})`);
+    console.log(`✅ [流式完成] 文本流式生成完成 (Provider: ${provider})，总块数: ${chunkCount}`);
 
   } catch (error) {
     console.error(`❌ [流式失败] ${provider} model ${modelId} 错误:`, {

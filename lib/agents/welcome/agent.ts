@@ -142,37 +142,62 @@ export class ConversationalWelcomeAgent extends BaseAgent {
       const fullResponse = contentProcessor.getCurrentVisibleContent();
       console.log(`🔍 [完整AI响应] 内容:\n${fullResponse}`);
       
-      // 🔧 关键修复：完全依赖BaseAgent的历史管理
-      // BaseAgent在流式处理完成后会自动更新历史，我们只需要同步回session
+      // 🔧 关键修复：等待BaseAgent完成历史更新，然后同步回session
+      // 流式调用完成后，BaseAgent应该已经把AI回复添加到历史中了
       const baseAgentHistory = this.conversationHistory.get(sessionData.id);
-      if (baseAgentHistory) {
-        console.log(`🔄 [历史同步] 从BaseAgent同步历史回session，BaseAgent: ${baseAgentHistory.length}, Session: ${conversationHistory.length}`);
-        // 直接使用BaseAgent的历史（已包含最新的user和assistant消息）
-        metadata.welcomeHistory = [...baseAgentHistory];
-        console.log(`✅ [历史同步] 已同步BaseAgent历史到session，新长度: ${metadata.welcomeHistory.length}`);
+      
+      console.log(`🔍 [历史状态检查] BaseAgent历史: ${baseAgentHistory?.length || 0} 条, Session历史: ${conversationHistory.length} 条`);
+      
+      if (baseAgentHistory && baseAgentHistory.length > 0) {
+        // 🔧 调试：显示BaseAgent中的完整历史
+        console.log(`📚 [BaseAgent历史详情]:`);
+        baseAgentHistory.forEach((msg, index) => {
+          const roleIcon = msg.role === 'user' ? '👤' : msg.role === 'assistant' ? '🤖' : '📝';
+          const preview = msg.content.length > 50 ? msg.content.substring(0, 50) + '...' : msg.content;
+          console.log(`  [${index}] ${roleIcon} ${msg.role}: ${preview}`);
+        });
+        
+        // 同步BaseAgent的完整历史到session（排除system消息）
+        const nonSystemHistory = baseAgentHistory.filter(msg => msg.role !== 'system');
+        metadata.welcomeHistory = [...nonSystemHistory];
+        
+        console.log(`✅ [历史同步] 已同步BaseAgent历史到session，新长度: ${metadata.welcomeHistory.length} (排除system)`);
       } else {
-        console.log(`⚠️ [历史同步] BaseAgent历史不存在，保持原session历史`);
+        console.error(`❌ [历史同步失败] BaseAgent历史不存在或为空！`);
+        
+        // 🔧 应急处理：手动添加当前用户输入到历史
+        if (!metadata.welcomeHistory) {
+          metadata.welcomeHistory = [];
+        }
+        
+        // 添加当前用户输入（如果还没有）
+        const lastMessage = metadata.welcomeHistory[metadata.welcomeHistory.length - 1];
+        if (!lastMessage || lastMessage.content !== input.user_input) {
+          metadata.welcomeHistory.push({ role: 'user', content: input.user_input });
+          console.log(`🔧 [应急历史] 手动添加用户输入到session历史`);
+        }
       }
-      // 🔧 简化逻辑：只使用AI解析的信息，检查四个要素是否非空
+      // 🔧 关键修复：合并信息并严格验证四要素完整性
       const aiExtractedInfo = finalAiResponse?.collected_info || {};
       
-      // 直接使用AI解析的信息，与现有信息合并
-      metadata.collectedInfo = { 
+      // 合并当前信息和AI解析的信息
+      const mergedInfo = { 
         ...currentInfo, 
         ...aiExtractedInfo 
       };
       
-      // 🔍 调试：显示AI解析的四个要素状态
-      console.log(`🔍 [AI解析信息] user_role: ${aiExtractedInfo.user_role || 'null'}`);
-      console.log(`🔍 [AI解析信息] use_case: ${aiExtractedInfo.use_case || 'null'}`);
-      console.log(`🔍 [AI解析信息] style: ${aiExtractedInfo.style || 'null'}`);
-      console.log(`🔍 [AI解析信息] highlight_focus: ${aiExtractedInfo.highlight_focus || 'null'}`);
+      // 🔧 关键：更新到session metadata
+      metadata.collectedInfo = mergedInfo;
       
-      // 🔍 检查四个要素是否都有内容（非null、非undefined、非空字符串）
-      const hasValidUserRole = aiExtractedInfo.user_role && aiExtractedInfo.user_role.trim() !== '';
-      const hasValidUseCase = aiExtractedInfo.use_case && aiExtractedInfo.use_case.trim() !== '';
-      const hasValidStyle = aiExtractedInfo.style && aiExtractedInfo.style.trim() !== '';
-      const hasValidHighlightFocus = aiExtractedInfo.highlight_focus && aiExtractedInfo.highlight_focus.trim() !== '';
+      // 🔍 调试：显示AI解析的信息和合并后的完整信息
+      console.log(`🔍 [AI本轮解析] user_role: ${aiExtractedInfo.user_role || 'null'}, use_case: ${aiExtractedInfo.use_case || 'null'}, style: ${aiExtractedInfo.style || 'null'}, highlight_focus: ${aiExtractedInfo.highlight_focus || 'null'}`);
+      console.log(`🔍 [合并后总信息] user_role: ${mergedInfo.user_role || 'null'}, use_case: ${mergedInfo.use_case || 'null'}, style: ${mergedInfo.style || 'null'}, highlight_focus: ${mergedInfo.highlight_focus || 'null'}`);
+      
+      // 🔧 严格检查合并后的四个要素是否都有有效内容
+      const hasValidUserRole = mergedInfo.user_role && mergedInfo.user_role.trim() !== '' && mergedInfo.user_role !== '未知身份';
+      const hasValidUseCase = mergedInfo.use_case && mergedInfo.use_case.trim() !== '' && mergedInfo.use_case !== '个人展示';
+      const hasValidStyle = mergedInfo.style && mergedInfo.style.trim() !== '' && mergedInfo.style !== '简约现代';
+      const hasValidHighlightFocus = mergedInfo.highlight_focus && mergedInfo.highlight_focus.trim() !== '' && mergedInfo.highlight_focus !== '综合展示';
       
       const allFieldsComplete = hasValidUserRole && hasValidUseCase && hasValidStyle && hasValidHighlightFocus;
       console.log(`🎯 [四要素检查] 用户角色: ${hasValidUserRole}, 使用场景: ${hasValidUseCase}, 风格: ${hasValidStyle}, 重点: ${hasValidHighlightFocus}, 全部完整: ${allFieldsComplete}`);
@@ -200,19 +225,23 @@ export class ConversationalWelcomeAgent extends BaseAgent {
       const collectionProgress = calculateCollectionProgress(metadata.collectedInfo);
       const conversationRounds = Math.floor(conversationHistory.length / 2);
       
-      // 🔧 简化完成条件：基于AI解析的四个要素是否完整
-      // 1. AI解析的四个要素全部有内容 或者
-      // 2. 用户明确表示要进入下一步 或者
-      // 3. 对话轮次达到5轮以上（防止无限循环）
+      // 🔧 严格完成条件：必须满足以下条件之一才能推进
+      // 1. 四个要素全部收集完整（严格验证） 或者
+      // 2. 用户明确表示要跳过/下一步 或者
+      // 3. AI明确标记为completion_status=ready
       
-      const userWantsToAdvance = finalAiResponse?.reply?.includes('跳过') || 
-                               finalAiResponse?.reply?.includes('快进') ||
-                               finalAiResponse?.reply?.includes('下一步') ||
-                               input.user_input?.includes('跳过') ||
+      const userWantsToAdvance = input.user_input?.includes('跳过') ||
                                input.user_input?.includes('快进') ||
-                               input.user_input?.includes('下一步');
+                               input.user_input?.includes('下一步') ||
+                               input.user_input?.includes('用示例内容') ||
+                               finalAiResponse?.reply?.includes('跳过') || 
+                               finalAiResponse?.reply?.includes('快进') ||
+                               finalAiResponse?.reply?.includes('下一步');
       
-      const shouldComplete = allFieldsComplete || userWantsToAdvance || conversationRounds >= 5;
+      const aiMarkedReady = finalAiResponse?.completion_status === 'ready';
+      
+      // 🔧 关键修复：严格要求四要素完整，或用户明确跳过
+      const shouldComplete = allFieldsComplete || userWantsToAdvance;
       
       console.log(`🎯 [完成判断] 收集进度: ${collectionProgress}%, 对话轮次: ${conversationRounds}, 四要素完整: ${allFieldsComplete}, 用户要求进入下一步: ${userWantsToAdvance}, 是否完成: ${shouldComplete}`);
       
@@ -231,6 +260,12 @@ export class ConversationalWelcomeAgent extends BaseAgent {
         }
       } else {
         console.log(`🔄 [继续收集] 继续对话收集信息`);
+        
+        // 🔧 关键修复：在继续收集时，确保AI回复被添加到session历史
+        if (finalAiResponse?.reply && metadata.welcomeHistory) {
+          metadata.welcomeHistory.push({ role: 'assistant', content: finalAiResponse.reply });
+          console.log(`📝 [继续模式历史] 手动添加AI回复到session历史，当前长度: ${metadata.welcomeHistory.length}`);
+        }
         
         // 🔧 修复：只有在继续收集时才发送AI的回复内容
         yield this.createResponse({
@@ -305,6 +340,25 @@ export class ConversationalWelcomeAgent extends BaseAgent {
         sessionId: sessionData.id,
         useHistory: true
       });
+      
+      // 🔧 关键修复：调用完成后，同步BaseAgent的完整历史回session
+      console.log(`🔄 [历史同步] 开始同步BaseAgent历史回session...`);
+      
+      const updatedBaseAgentHistory = this.conversationHistory.get(sessionData.id);
+      if (updatedBaseAgentHistory) {
+        const metadata = sessionData.metadata as any;
+        metadata.welcomeHistory = [...updatedBaseAgentHistory];
+        console.log(`✅ [历史同步] 成功同步 ${updatedBaseAgentHistory.length} 条历史到session`);
+        
+        // 🔧 调试：显示同步后的session历史
+        metadata.welcomeHistory.forEach((msg: any, index: number) => {
+          const roleIcon = msg.role === 'user' ? '👤' : msg.role === 'assistant' ? '🤖' : '📝';
+          const preview = msg.content.length > 50 ? msg.content.substring(0, 50) + '...' : msg.content;
+          console.log(`  📦 [Session-${index}] ${roleIcon} ${msg.role}: ${preview}`);
+        });
+      } else {
+        console.warn(`⚠️ [历史同步失败] BaseAgent历史不存在`);
+      }
       
       // 🔧 调用完成后，更新本地轮次状态
       this.isFirstRound = false;

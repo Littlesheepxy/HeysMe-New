@@ -580,21 +580,54 @@ export abstract class BaseAgent {
         callOptions.tools = options.tools;
       }
       
-      for await (const chunk of generateStreamWithModel(
-        'claude',
-        'claude-sonnet-4-20250514',
-        messages as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
-        callOptions
-      )) {
-        accumulatedResponse += chunk;
-        yield chunk;
+      console.log(`🚀 [AI调用开始] 调用 generateStreamWithModel，参数:`, {
+        provider: 'claude',
+        model: 'claude-sonnet-4-20250514',
+        messagesCount: messages.length,
+        maxTokens: callOptions.maxTokens
+      });
+      
+      let chunkCount = 0;
+      try {
+        for await (const chunk of generateStreamWithModel(
+          'claude',
+          'claude-sonnet-4-20250514',
+          messages as Array<{ role: 'system' | 'user' | 'assistant'; content: string }>,
+          callOptions
+        )) {
+          chunkCount++;
+          console.log(`📥 [AI响应块] 第${chunkCount}个块，长度: ${chunk.length}`);
+          accumulatedResponse += chunk;
+          yield chunk;
+        }
+        console.log(`✅ [AI调用完成] 总共收到 ${chunkCount} 个响应块，累积长度: ${accumulatedResponse.length}`);
+      } catch (streamError) {
+        console.error(`❌ [AI流式调用错误]`, streamError);
+        // 重新抛出错误，让上层catch处理
+        throw streamError;
       }
       
       // 流式完成后，将AI响应添加到历史（如果使用历史）
-      if (useHistory && accumulatedResponse) {
-        const history = this.conversationHistory.get(sessionId)!;
-        history.push({ role: 'assistant', content: accumulatedResponse });
-        console.log(`✅ [历史更新] AI响应已添加到历史，总长度: ${history.length}`);
+      console.log(`🔍 [历史更新检查] useHistory: ${useHistory}, accumulatedResponse长度: ${accumulatedResponse.length}, 内容预览: "${accumulatedResponse.substring(0, 100)}"`);
+      
+      if (useHistory) {
+        if (accumulatedResponse && accumulatedResponse.trim().length > 0) {
+          const history = this.conversationHistory.get(sessionId)!;
+          console.log(`📝 [添加AI响应] 添加到历史，当前历史长度: ${history.length}`);
+          history.push({ role: 'assistant', content: accumulatedResponse });
+          console.log(`✅ [历史更新] AI响应已添加到历史，新长度: ${history.length}`);
+          
+          // 🔧 调试：显示完整的历史记录
+          history.forEach((msg, index) => {
+            const roleIcon = msg.role === 'user' ? '👤' : msg.role === 'assistant' ? '🤖' : '📝';
+            const preview = msg.content.length > 50 ? msg.content.substring(0, 50) + '...' : msg.content;
+            console.log(`  [${index}] ${roleIcon} ${msg.role}: ${preview}`);
+          });
+        } else {
+          console.warn(`⚠️ [历史更新失败] AI响应为空或无效，accumulatedResponse: "${accumulatedResponse}"`);
+        }
+      } else {
+        console.log(`🚫 [历史更新跳过] useHistory为false`);
       }
       
       // 🆕 完成AI调用日志记录

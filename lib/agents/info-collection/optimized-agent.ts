@@ -279,8 +279,18 @@ export class OptimizedInfoCollectionAgent extends BaseAgent {
       // 提取Welcome数据
       const welcomeData = this.extractWelcomeData(sessionData);
       
-      // 检查轮次限制
+      // 🆕 检查是否是第一次进入信息收集阶段
       const currentTurn = this.getTurnCount(sessionData);
+      const isFirstTime = (currentTurn === 0 && this.isFirstTimeInInfoCollection(sessionData)) || 
+                          (input.user_input === '' && this.isFirstTimeInInfoCollection(sessionData));
+      
+      if (isFirstTime) {
+        console.log(`🌟 [首次启动] 这是Info Collection阶段的第一次启动，发送引导消息`);
+        yield* this.createWelcomeToInfoCollectionFlow(welcomeData, sessionData);
+        return;
+      }
+      
+      // 检查轮次限制
       const maxTurns = this.getMaxTurns(sessionData);
       
       if (currentTurn >= maxTurns) {
@@ -387,12 +397,23 @@ export class OptimizedInfoCollectionAgent extends BaseAgent {
         }
 
         // 使用非流式方式获取完整响应以检查工具调用
-        const response = await this.callLLM(userInput, {
+        const responseData = await this.callLLM(userInput, {
           system: systemPrompt,
           maxTokens: 64000,
           sessionId: sessionData.id,
           useHistory: true
         });
+
+        // 🔧 关键修复：提取实际的文本内容进行工具调用检测
+        let response: string;
+        if (typeof responseData === 'object' && responseData?.text) {
+          response = responseData.text;
+        } else if (typeof responseData === 'string') {
+          response = responseData;
+        } else {
+          console.warn(`⚠️ [工具检测异常] 期望文本，实际收到:`, typeof responseData);
+          response = String(responseData);
+        }
 
         // 检查响应中是否包含工具调用标记
         const hasToolCallPattern = /\[Tool:(.*?)\]/g;
@@ -441,28 +462,43 @@ export class OptimizedInfoCollectionAgent extends BaseAgent {
             this.updateConversationHistory(sessionData, userInput, finalResponse);
           }
         } else {
-          // 没有工具调用，直接发送响应
-          yield this.createResponse({
-            immediate_display: {
-              reply: response,
-              agent_name: this.name,
-              timestamp: new Date().toISOString()
-            },
-            system_state: {
-              intent: 'collecting',
-              done: false,
-              progress: 80,
-              current_stage: '分析完成',
-              metadata: {
-                streaming: false,
-                message_id: messageId,
-                stream_type: 'complete'
-              }
-            }
-          });
+          // 🔧 关键修复：没有工具调用时，使用流式方式重新生成响应
+          console.log(`💬 [流式响应] 无工具调用，使用流式方式生成AI分析结果`);
           
-          // 更新对话历史
-          this.updateConversationHistory(sessionData, userInput, response);
+          let accumulatedResponse = '';
+          for await (const chunk of this.callLLMStreaming(userInput, {
+            system: systemPrompt,
+            maxTokens: 64000,
+            sessionId: sessionData.id,
+            useHistory: true
+          })) {
+            accumulatedResponse += chunk;
+            
+            // 发送流式响应块
+            yield this.createResponse({
+              immediate_display: {
+                reply: chunk,
+                agent_name: this.name,
+                timestamp: new Date().toISOString()
+              },
+              system_state: {
+                intent: 'collecting',
+                done: false,
+                progress: 80,
+                current_stage: '分析中',
+                metadata: {
+                  streaming: true,
+                  message_id: messageId,
+                  stream_type: 'chunk',
+                  has_tool_calls: false
+                }
+              }
+            });
+          }
+          
+          console.log(`✅ [流式分析完成] 流式分析响应生成完毕，总长度: ${accumulatedResponse.length}`);
+          
+          // 🔧 流式模式：历史已由BaseAgent自动管理，无需手动更新
         }
       } catch (error) {
         console.error(`❌ [工具调用失败] 回退到普通模式:`, error);
@@ -477,36 +513,43 @@ export class OptimizedInfoCollectionAgent extends BaseAgent {
           }
         }
 
-        // 回退到普通模式
-        const fallbackResponse = await this.callLLM(userInput, {
+        // 🔧 关键修复：回退到流式普通模式
+        console.log(`🌊 [流式回退] 使用流式方式生成回退响应...`);
+        
+        let accumulatedFallbackResponse = '';
+        for await (const chunk of this.callLLMStreaming(userInput, {
           system: systemPrompt,
           maxTokens: 64000,
           sessionId: sessionData.id,
           useHistory: true
-        });
-        
-        yield this.createResponse({
-          immediate_display: {
-            reply: fallbackResponse,
-            agent_name: this.name,
-            timestamp: new Date().toISOString()
-          },
-          system_state: {
-            intent: 'collecting',
-            done: false,
-            progress: 80,
-            current_stage: '分析完成',
-            metadata: {
-              streaming: false,
-              message_id: messageId,
-              stream_type: 'complete',
-              fallback_mode: true
+        })) {
+          accumulatedFallbackResponse += chunk;
+          
+          // 发送流式回退响应块
+          yield this.createResponse({
+            immediate_display: {
+              reply: chunk,
+              agent_name: this.name,
+              timestamp: new Date().toISOString()
+            },
+            system_state: {
+              intent: 'collecting',
+              done: false,
+              progress: 80,
+              current_stage: '分析中',
+              metadata: {
+                streaming: true,
+                message_id: messageId,
+                stream_type: 'chunk',
+                fallback_mode: true
+              }
             }
-          }
-        });
+          });
+        }
         
-        // 更新对话历史
-        this.updateConversationHistory(sessionData, userInput, fallbackResponse);
+        console.log(`✅ [流式回退完成] 流式回退响应生成完毕，总长度: ${accumulatedFallbackResponse.length}`);
+        
+        // 🔧 流式模式：历史已由BaseAgent自动管理，无需手动更新
       }
       
       // 检查是否应该推进到下一阶段
@@ -648,11 +691,22 @@ ${toolResultsText}
 
 请基于工具结果提供有价值的分析和建议。`;
 
-    const response = await this.callLLM(finalPrompt, {
+    const responseData = await this.callLLM(finalPrompt, {
       maxTokens: 4000,
       sessionId: sessionData.id,
       useHistory: false
     });
+
+    // 🔧 关键修复：提取实际的文本内容
+    let response: string;
+    if (typeof responseData === 'object' && responseData?.text) {
+      response = responseData.text;
+    } else if (typeof responseData === 'string') {
+      response = responseData;
+    } else {
+      console.warn(`⚠️ [工具结果响应格式异常] 期望文本，实际收到:`, typeof responseData);
+      response = "已基于您提供的信息进行分析，我会为您准备详细的展示方案。";
+    }
 
     return response;
   }
@@ -1059,6 +1113,117 @@ ${toolResultsText}
     return links.map((link, index) => 
       `链接${index + 1}: ${link}`
     ).join('\n');
+  }
+
+  /**
+   * 检查是否是第一次进入信息收集阶段
+   */
+  private isFirstTimeInInfoCollection(sessionData: SessionData): boolean {
+    const metadata = sessionData.metadata as any;
+    const infoCollectionHistory = metadata.infoCollectionHistory || [];
+    return infoCollectionHistory.length === 0;
+  }
+
+  /**
+   * 🌟 创建信息收集阶段的自然对话欢迎流程
+   */
+  private async* createWelcomeToInfoCollectionFlow(
+    welcomeData: any, 
+    sessionData: SessionData
+  ): AsyncGenerator<StreamableAgentResponse, void, unknown> {
+    
+    // 🔧 关键修复：使用AI生成自然的欢迎对话，而不是硬编码的系统提示
+    const commitmentLevel = welcomeData.commitment_level || '认真制作';
+    const userRole = welcomeData.user_role || '专业人士';
+    const useCase = welcomeData.use_case || '个人展示';
+    const style = welcomeData.style || '简约现代';
+    
+    // 构建引导prompt，让AI生成自然的对话
+    const welcomePrompt = `基于Welcome阶段收集的信息，用户是一位${userRole}，想要${useCase}，偏好${style}风格，意图程度为${commitmentLevel}。
+
+现在需要开始信息收集阶段，请用自然的对话方式引导用户提供更详细的信息。
+
+要求：
+1. 用自然对话的语气，不要使用系统提示的格式
+2. 基于用户的身份和需求给出个性化的引导
+3. 鼓励用户提供具体的资料或经历，比如文本、文档、链接等，不要让用户感到压力
+4. 语调要友好专业，符合用户的意图程度
+5、我们支持文档的解析和链接的爬取，比如领英/github/网站等，请用户提供链接，我们支持解析和爬取
+
+请直接回复，不需要任何特殊格式。`;
+
+    console.log(`🤖 [AI欢迎生成] 调用AI生成自然的欢迎对话`);
+    
+    try {
+      // 🔧 关键修复：使用流式AI生成自然的欢迎消息
+      console.log(`🌊 [流式欢迎] 开始流式生成欢迎消息...`);
+      
+      let accumulatedWelcome = '';
+      for await (const chunk of this.callLLMStreaming(welcomePrompt, {
+        maxTokens: 2000,
+        sessionId: sessionData.id,
+        useHistory: false // 不使用历史，这是独立的欢迎生成
+      })) {
+        accumulatedWelcome += chunk;
+        
+        // 发送流式欢迎响应块
+        yield this.createResponse({
+          immediate_display: {
+            reply: chunk,
+            agent_name: this.name,
+            timestamp: new Date().toISOString()
+          },
+          system_state: {
+            intent: 'welcome_to_info_collection',
+            done: false,
+            progress: 35,
+            current_stage: '信息收集阶段',
+            metadata: {
+              first_time_welcome: true,
+              user_commitment_level: commitmentLevel,
+              ai_generated_welcome: true,
+              streaming: true,
+              stream_type: 'chunk',
+              waiting_for_user_input: false
+            }
+          }
+        });
+      }
+
+      console.log(`✅ [流式欢迎完成] 流式欢迎消息生成完毕，总长度: ${accumulatedWelcome.length}`);
+
+      // 标记已经发送过欢迎消息
+      const metadata = sessionData.metadata as any;
+      metadata.infoCollectionWelcomeSent = true;
+      
+      console.log(`🌟 [AI欢迎完成] 已发送AI生成的自然欢迎消息 (${commitmentLevel}用户)`);
+      
+    } catch (error) {
+      console.error(`❌ [AI欢迎生成失败] 回退到预设消息:`, error);
+      
+      // 🔧 回退到简单的预设消息（如果AI调用失败）
+      const fallbackMessage = `很好！现在让我们更深入地了解您的背景。作为${userRole}，您可以分享一些具体的资料或经历，这样我能为您打造更加个性化的页面。`;
+      
+      yield this.createResponse({
+        immediate_display: {
+          reply: fallbackMessage,
+          agent_name: this.name,
+          timestamp: new Date().toISOString()
+        },
+        system_state: {
+          intent: 'welcome_to_info_collection',
+          done: false,
+          progress: 35,
+          current_stage: '信息收集阶段',
+          metadata: {
+            first_time_welcome: true,
+            user_commitment_level: commitmentLevel,
+            fallback_welcome: true,
+            waiting_for_user_input: true
+          }
+        }
+      });
+    }
   }
 
   /**

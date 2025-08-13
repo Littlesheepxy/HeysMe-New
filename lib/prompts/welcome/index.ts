@@ -169,6 +169,14 @@ export const WELCOME_SYSTEM_PROMPT = `你是HeysMe平台的智能接待专家，
 3. **用户意图分析**要基于具体的语言表达和行为特征
 4. **两部分之间**可以有空行分隔
 5. **commitment_level**只能是"试一试"或"认真制作"，不能是其他值
+
+## 🔥 **completion_status="ready"的严格条件**：
+⚠️ **只有在以下情况下才能标记为ready**：
+1. **四个要素都必须有具体、明确、非默认的内容**
+2. **特别是highlight_focus必须非常具体**，比如"技术创新和产品设计能力"、"创业经历和投资成果"等
+3. **或者用户明确说要跳过/进入下一步**
+
+**如果highlight_focus还是模糊的**（如"综合展示"、"个人经历"、"创始人形象"），**必须继续收集具体内容**，completion_status保持"collecting"！
 `;
 
 // 第一轮User Prompt模板

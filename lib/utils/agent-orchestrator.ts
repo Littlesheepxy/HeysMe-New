@@ -533,46 +533,16 @@ export class AgentOrchestrator {
 
     // 🆕 特殊处理：info_collection agent前添加引导词
     if (nextAgentName === 'info_collection') {
-      console.log(`🎯 [编排器] 进入信息收集阶段，发送引导词`);
+      console.log(`🎯 [编排器] 进入信息收集阶段，直接启动agent让其发送自然引导`);
       
-      // 发送引导词响应
-      const guideResponse: StreamableAgentResponse = {
-        immediate_display: {
-          reply: `我们现在正式进入信息收集阶段 🎯  
-你可以直接发送任何你觉得有用的素材，我会自动识别并提取重点：
-
-🔗 链接（作品集、社交媒体、GitHub、文章等）  
-📄 文档（简历、项目介绍、讲稿等）  
-✍️ 文本描述（项目经历、技能总结、个人介绍等）
-
-无论内容多少，我都会根据你的输入进行智能分析和对话探索，帮你提炼出最具价值的亮点。
-
-如果你希望快速预览一个页面草稿，也可以直接回复"跳过"或"快进" 👇`,
-          agent_name: 'system',
-          timestamp: new Date().toISOString()
-        },
-        system_state: {
-          intent: 'transition_guide',
-          done: false,
-          progress: session.metadata.progress.percentage,
-          current_stage: session.metadata.progress.currentStage,
-          metadata: {
-            transition_type: 'info_collection_guide',
-            waiting_for_user_input: true
-          }
-        }
-      };
+      // 直接启动info_collection agent，让它自己发送首次欢迎消息
+      const nextAgent = this.agents.get(nextAgentName);
+      if (!nextAgent) {
+        throw new Error(`Agent "${nextAgentName}" not found`);
+      }
       
-      console.log(`📤 [编排器] 发送信息收集引导词: {
-  hasReply: true,
-  replyLength: ${guideResponse.immediate_display?.reply?.length || 0},
-  intent: '${guideResponse.system_state?.intent}',
-  done: ${guideResponse.system_state?.done}
-}`);
-      
-      yield guideResponse;
-      
-      // 不立即启动agent，等待用户输入
+      // 🔑 传递空字符串作为初始输入，让agent识别这是首次启动
+      yield* this.executeAgentStreaming(nextAgent, nextAgentName, '', session, undefined);
       return;
     }
 
