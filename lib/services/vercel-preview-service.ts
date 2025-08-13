@@ -353,9 +353,27 @@ export class VercelPreviewService {
         attempts++;
 
       } catch (error) {
+        // 如果是Vercel部署错误（包含详细错误信息），直接抛出，不重试
+        if ((error as any).isVercelError) {
+          this.log(`❌ Vercel部署失败，立即停止重试`);
+          throw error;
+        }
+        
         this.log(`⚠️ 检查部署状态时出错: ${error}`);
-        attempts++;
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        
+        // 如果是网络错误，可以重试几次
+        if (attempts < 3) {
+          attempts++;
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          continue;
+        }
+        
+        // 超过重试次数后，抛出错误并停止重试
+        this.updateStatus('error');
+        const networkError = new Error(`检查部署状态失败，已重试${attempts}次: ${error instanceof Error ? error.message : String(error)}`);
+        (networkError as any).isNetworkError = true;
+        (networkError as any).originalError = error;
+        throw networkError;
       }
     }
 
