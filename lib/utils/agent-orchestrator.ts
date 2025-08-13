@@ -381,7 +381,26 @@ export class AgentOrchestrator {
     // 🔧 优先检查context中的强制Agent指定
     if (context?.forceAgent) {
       console.log(`🎯 [编排器] Context中强制使用Agent: ${context.forceAgent}`);
+      
+      // 🆕 如果强制使用coding Agent，同时更新会话阶段到code_generation
+      if (context.forceAgent === 'coding') {
+        console.log(`🔧 [编排器] 强制使用coding Agent，同时更新会话阶段到code_generation`);
+        session.metadata.progress.currentStage = 'code_generation';
+        session.metadata.progress.percentage = 90;
+        session.metadata.progress.completedStages = ['welcome', 'info_collection', 'page_design'];
+      }
+      
       return context.forceAgent;
+    }
+    
+    // 🆕 检查是否是专业模式coding（通过context判断）
+    if (context?.mode === 'coding' || context?.codingAgent || context?.currentStage === 'coding') {
+      console.log(`🎯 [编排器] 检测到专业模式coding，强制使用coding Agent`);
+      // 更新会话阶段
+      session.metadata.progress.currentStage = 'code_generation';
+      session.metadata.progress.percentage = 90;
+      session.metadata.progress.completedStages = ['welcome', 'info_collection', 'page_design'];
+      return 'coding';
     }
     
     // 检查是否有强制指定的Agent（保留兼容性）
