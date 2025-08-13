@@ -218,7 +218,7 @@ export async function* generateStreamWithModel(
   options?: {
     system?: string
     maxTokens?: number
-    tools?: Array<{
+    tools?: Record<string, any> | Array<{
       name: string;
       description: string;
       input_schema: {
@@ -256,13 +256,23 @@ export async function* generateStreamWithModel(
     };
     
     // 🆕 添加工具支持
-    if (options?.tools && options.tools.length > 0) {
-      console.log(`🔧 [工具支持] 添加 ${options.tools.length} 个工具到请求中`);
-      options.tools.forEach((tool, index) => {
-        console.log(`  🛠️ [工具${index + 1}] ${tool.name}: ${tool.description}`);
-      });
-      
-      streamTextParams.tools = options.tools;
+    if (options?.tools) {
+      if (Array.isArray(options.tools)) {
+        // 旧格式工具（数组格式）
+        console.log(`🔧 [工具支持] 添加 ${options.tools.length} 个工具到请求中`);
+        options.tools.forEach((tool, index) => {
+          console.log(`  🛠️ [工具${index + 1}] ${tool.name}: ${tool.description}`);
+        });
+        streamTextParams.tools = options.tools;
+      } else {
+        // 新格式工具（对象格式，ai-sdk标准）
+        const toolCount = Object.keys(options.tools).length;
+        console.log(`🔧 [工具支持] 添加 ${toolCount} 个ai-sdk标准工具到请求中`);
+        Object.entries(options.tools).forEach(([name, tool], index) => {
+          console.log(`  🛠️ [工具${index + 1}] ${name}: ${tool.description || '无描述'}`);
+        });
+        streamTextParams.tools = options.tools;
+      }
     }
     
     // 使用流式文本生成
@@ -272,13 +282,31 @@ export async function* generateStreamWithModel(
     console.log(`✅ [流式开始] 文本流式生成开始 (Provider: ${provider})`);
     
     let chunkCount = 0;
-    for await (const textPart of result.textStream) {
-      chunkCount++;
-      console.log(`📤 [流式块] 第${chunkCount}个，长度: ${textPart.length}`);
-      yield textPart;
+    let toolCallCount = 0;
+    
+    // 🆕 处理完整的流式响应（包括工具调用）
+    for await (const delta of result.fullStream) {
+      console.log(`🔍 [流式Delta类型] ${delta.type}`);
+      
+      if (delta.type === 'text-delta') {
+        chunkCount++;
+        console.log(`📤 [文本块] 第${chunkCount}个，长度: ${delta.textDelta.length}`);
+        yield delta.textDelta;
+      } else if (delta.type === 'tool-call-streaming-start') {
+        toolCallCount++;
+        console.log(`🛠️ [工具调用开始] 第${toolCallCount}个: ${delta.toolName}`);
+        const toolCallText = `[开始调用工具: ${delta.toolName}]`;
+        yield toolCallText;
+      } else if (delta.type === 'step-finish') {
+        console.log(`🔧 [步骤完成]`);
+        const toolResultText = `[步骤执行完成]`;
+        yield toolResultText;
+      } else {
+        console.log(`❓ [未知Delta类型] ${delta.type}:`, delta);
+      }
     }
     
-    console.log(`✅ [流式完成] 文本流式生成完成 (Provider: ${provider})，总块数: ${chunkCount}`);
+    console.log(`✅ [流式完成] 文本流式生成完成 (Provider: ${provider})，文本块数: ${chunkCount}，工具调用数: ${toolCallCount}`);
 
   } catch (error) {
     console.error(`❌ [流式失败] ${provider} model ${modelId} 错误:`, {

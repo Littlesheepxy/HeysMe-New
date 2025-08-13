@@ -105,10 +105,31 @@ export async function POST(request: NextRequest) {
     
     const errorMessage = error instanceof Error ? error.message : String(error);
     
+    // 🚨 检查是否为 Vercel 部署错误，提供详细信息
+    if ((error as any)?.isVercelError) {
+      const vercelError = error as any;
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Vercel deployment failed',
+          details: errorMessage,
+          errorInfo: {
+            deploymentId: vercelError.deploymentId,
+            deploymentState: vercelError.deploymentState,
+            errorDetails: vercelError.errorDetails,
+            deploymentUrl: vercelError.deploymentUrl,
+            timestamp: new Date().toISOString()
+          }
+        },
+        { status: 422 } // 部署失败用422状态码
+      );
+    }
+    
     // 根据错误类型返回不同的状态码
     if (errorMessage.includes('403') || errorMessage.includes('forbidden')) {
       return NextResponse.json(
         { 
+          success: false,
           error: 'Authentication failed', 
           details: 'Invalid or expired Vercel token' 
         },
@@ -119,6 +140,7 @@ export async function POST(request: NextRequest) {
     if (errorMessage.includes('400') || errorMessage.includes('bad request')) {
       return NextResponse.json(
         { 
+          success: false,
           error: 'Invalid deployment configuration', 
           details: errorMessage 
         },
@@ -128,6 +150,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json(
       { 
+        success: false,
         error: 'Deployment failed', 
         details: errorMessage 
       },

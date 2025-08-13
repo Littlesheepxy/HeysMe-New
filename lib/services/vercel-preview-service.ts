@@ -335,7 +335,16 @@ export class VercelPreviewService {
           const errorDetails = await this.getDeploymentErrorDetails(deploymentId);
           const errorMessage = `部署失败，状态: ${status.state}${errorDetails ? `\n详细错误: ${errorDetails}` : ''}`;
           this.log(`❌ ${errorMessage}`);
-          throw new Error(errorMessage);
+          
+          // 🚨 创建包含详细信息的错误对象，便于前端处理
+          const deploymentError = new Error(errorMessage);
+          (deploymentError as any).deploymentId = deploymentId;
+          (deploymentError as any).deploymentState = status.state;
+          (deploymentError as any).errorDetails = errorDetails;
+          (deploymentError as any).deploymentUrl = status.deploymentUrl;
+          (deploymentError as any).isVercelError = true;
+          
+          throw deploymentError;
         }
 
         // ✅ 继续等待 BUILDING, QUEUED 等中间状态

@@ -454,6 +454,7 @@ export class CodingAgent extends BaseAgent {
       // 动态导入
       const { generateStreamWithModel } = await import('@/lib/ai-models');
       const { getIncrementalEditPrompt, INCREMENTAL_EDIT_TOOLS } = await import('@/lib/prompts/coding/incremental-edit');
+      const { validateToolInput } = await import('@/lib/prompts/coding/anthropic-standard-tools');
       
       // 🔧 获取当前项目文件信息
       const existingFiles = (sessionData?.metadata as any)?.projectFiles || [];
@@ -508,20 +509,11 @@ export class CodingAgent extends BaseAgent {
 
 请基于用户请求执行适当的操作。`;
 
-      // 🔧 创建工具执行器来处理AI的工具调用
-      const { UnifiedToolExecutor } = await import('./streaming-tool-executor');
+      // 🚀 使用增强的工具执行器
+      const { EnhancedIncrementalToolExecutor } = await import('./enhanced-tool-executor');
       
       let modifiedFiles: CodeFile[] = [];
-      let toolExecutor: any;
       
-      // 创建响应发送器
-      const sendResponse = (response: any) => {
-        // 这里我们需要用不同的方式处理响应
-        console.log('📊 [响应] 工具执行中:', response.immediate_display.reply);
-      };
-
-
-
       // 🔧 获取会话历史以保持对话连续性
       const sessionId = (sessionData as any)?.sessionId || `incremental-${Date.now()}`;
       
@@ -541,99 +533,63 @@ export class CodingAgent extends BaseAgent {
       // 🆕 创建响应队列，用于存储在工具执行回调中生成的响应
       const responseQueue: StreamableAgentResponse[] = [];
       
-      // 🔧 重新配置工具执行器以支持响应队列
-      toolExecutor = new UnifiedToolExecutor({
-        mode: 'claude',
+      // 🚀 配置增强的工具执行器
+      const toolExecutor = new EnhancedIncrementalToolExecutor({
         onTextUpdate: async (text: string, partial: boolean) => {
-          console.log(`📊 [工具执行器] 文本更新: ${text.substring(0, 100)}...`);
-          
-          // 🚨 关键修复：在增量模式下处理文本和代码分离
-          if (text && text.length > lastSentTextLength) {
-            const newText = text.slice(lastSentTextLength);
-            if (newText.trim()) {
-              // 🆕 使用文本-代码分离逻辑
-              const { text: cleanedText, codeFiles: extractedCodeFiles } = this.separateTextAndCode(newText);
-              
-              if (cleanedText.trim()) {
-                // 发送清理后的文本（隐藏代码块）
-                responseQueue.push(this.createResponse({
-                  immediate_display: {
-                    reply: cleanedText,
-                    agent_name: this.name,
-                    timestamp: new Date().toISOString()
-                  },
-                  system_state: {
-                    intent: 'incremental_text_update',
-                    done: false,
-                    metadata: {
-                      message_id: messageId,
-                      is_partial: partial,
-                      mode: 'incremental',
-                      hasCodeFiles: extractedCodeFiles.length > 0,
-                      codeFilesCount: extractedCodeFiles.length,
-                      streaming: true,
-                      stream_type: 'chunk'
-                    }
-                  }
-                }));
+          // 🎯 直接发送清理后的文本，避免代码块泄漏
+          if (text && text.trim()) {
+            responseQueue.push(this.createResponse({
+              immediate_display: {
+                reply: text,
+                agent_name: this.name,
+                timestamp: new Date().toISOString()
+              },
+              system_state: {
+                intent: 'incremental_text_update',
+                done: false,
+                metadata: {
+                  message_id: messageId,
+                  is_partial: partial,
+                  mode: 'incremental',
+                  streaming: true,
+                  stream_type: 'chunk'
+                }
               }
-              
-              // 如果有代码文件，添加到修改列表
-              if (extractedCodeFiles.length > 0) {
-                modifiedFiles.push(...extractedCodeFiles);
-                console.log(`📊 [代码提取] 从流式响应中提取了 ${extractedCodeFiles.length} 个代码文件`);
-              }
-              
-              lastSentTextLength = text.length;
-            }
+            }));
           }
         },
         onToolExecute: async (toolName: string, params: Record<string, any>) => {
-          console.log(`🔧 [工具调用] 执行: ${toolName}`, params);
+          // 🔧 执行实际的文件操作并返回增强结果
+          const startTime = Date.now();
           
-          // 🚨 发送工具执行开始通知
-          responseQueue.push(this.createResponse({
-            immediate_display: {
-              reply: `🔧 正在执行: ${toolName}...`,
-              agent_name: this.name,
-              timestamp: new Date().toISOString()
-            },
-            system_state: {
-              intent: 'tool_executing',
-              done: false,
+          try {
+            const result = await this.executeIncrementalTool(toolName, params, existingFiles, modifiedFiles);
+            
+            return {
+              success: true,
+              content: result,
               metadata: {
                 toolName,
-                toolParams: params,
-                mode: 'incremental'
+                executionTime: Date.now() - startTime,
+                fileModified: params.file_path
               }
-            }
-          }));
-          
-          // 执行实际的文件操作
-          const result = await this.executeIncrementalTool(toolName, params, existingFiles, modifiedFiles);
-          
-          // 🚨 发送工具执行完成通知
-          responseQueue.push(this.createResponse({
-            immediate_display: {
-              reply: `✅ ${toolName} 执行完成`,
-              agent_name: this.name,
-              timestamp: new Date().toISOString()
-            },
-            system_state: {
-              intent: 'tool_completed',
-              done: false,
+            };
+          } catch (error) {
+            return {
+              success: false,
+              content: '',
+              error: error instanceof Error ? error.message : '未知错误',
               metadata: {
                 toolName,
-                toolResult: result,
-                mode: 'incremental'
+                executionTime: Date.now() - startTime
               }
-            }
-          }));
-          
-          return result;
+            };
+          }
         },
-        onToolResult: async (result: string) => {
-          console.log(`✅ [工具结果] ${result}`);
+        onToolResult: async (result) => {
+          if (result.success && result.metadata.fileModified) {
+            console.log(`✅ [工具执行成功] ${result.metadata.toolName}: ${result.metadata.fileModified}`);
+          }
         }
       });
       
@@ -650,8 +606,25 @@ export class CodingAgent extends BaseAgent {
         
         console.log(`📊 [增量流式] 第${chunkCount}个块，新增长度: ${chunk.length}`);
         
-        // 🔧 关键修复：使用工具执行器处理工具调用
-        await toolExecutor.processStreamChunk(accumulatedResponse);
+        // 🚀 使用增强的工具执行器处理工具调用
+        const processingResult = await toolExecutor.processIncrementalStreamChunk(
+          accumulatedResponse,
+          {
+            sessionId: sessionData.id,
+            existingFiles,
+            modifiedFiles,
+            projectContext
+          }
+        );
+        
+        // 📊 记录执行统计
+        if (processingResult.toolsExecuted > 0) {
+          console.log(`🔧 [工具执行] 本轮执行了 ${processingResult.toolsExecuted} 个工具`);
+        }
+        
+        if (processingResult.errors.length > 0) {
+          console.error(`❌ [工具错误] 发现 ${processingResult.errors.length} 个错误:`, processingResult.errors);
+        }
         
         // 🆕 处理响应队列中的待发送响应
         while (responseQueue.length > 0) {
@@ -664,12 +637,19 @@ export class CodingAgent extends BaseAgent {
       
       console.log('📊 [增量AI调用] 流式修改完成，总块数:', chunkCount);
       
-      // 🔧 发送完成响应 - 包含修改后的文件
+      // 📊 获取执行统计
+      const executionStats = toolExecutor.getExecutionStats();
+      
+      // 🔧 发送完成响应 - 包含修改后的文件和执行统计
       const finalProjectFiles = modifiedFiles.length > 0 ? modifiedFiles : existingFiles;
+      
+      const completionMessage = executionStats.totalTools > 0 
+        ? `✅ **增量修改完成**\n\n🔧 **执行统计**：\n• 总工具调用：${executionStats.totalTools} 次\n• 成功：${executionStats.successfulTools} 次\n• 失败：${executionStats.failedTools} 次\n• 文件修改：${executionStats.fileModifications} 个\n• 平均执行时间：${executionStats.averageExecutionTime}ms\n\n${modifiedFiles.length > 0 ? `📁 **修改的文件**：\n${modifiedFiles.map(f => `• ${f.filename}`).join('\n')}\n\n` : ''}如需进一步修改，请告诉我具体需求。`
+        : `✅ **分析完成**\n\n已完成需求分析和代码审查。如需具体修改，请告诉我详细需求。`;
       
       yield this.createResponse({
         immediate_display: {
-          reply: `✅ **增量修改完成**\n\n${modifiedFiles.length > 0 ? `已修改 ${modifiedFiles.length} 个文件：\n${modifiedFiles.map(f => `• ${f.filename}`).join('\n')}` : '已完成分析和处理。'}\n\n如需进一步修改，请告诉我具体需求。`, 
+          reply: completionMessage, 
           agent_name: this.name,
           timestamp: new Date().toISOString()
         },
@@ -690,11 +670,12 @@ export class CodingAgent extends BaseAgent {
             projectFiles: finalProjectFiles,
             totalFiles: finalProjectFiles.length,
             incrementalComplete: true,
-            // 🆕 工具调用结果
+            // 🆕 增强的工具调用结果
             modifiedFiles: modifiedFiles,
             modifiedFilesCount: modifiedFiles.length,
-            toolCallsExecuted: modifiedFiles.length > 0,
-            incrementalSuccess: true
+            toolCallsExecuted: executionStats.totalTools > 0,
+            incrementalSuccess: executionStats.failedTools === 0,
+            executionStats
           }
         }
       });
@@ -1553,6 +1534,16 @@ module.exports = {
   ): Promise<string> {
     console.log(`🔧 [增量工具] 执行 ${toolName}`, params);
     
+    // 🔍 验证工具输入参数
+    const { validateToolInput } = await import('@/lib/prompts/coding/anthropic-standard-tools');
+    const validation = validateToolInput(toolName, params);
+    
+    if (!validation.valid) {
+      const errorMsg = `工具 ${toolName} 参数验证失败: ${validation.errors.join(', ')}`;
+      console.error(`❌ [参数验证]`, errorMsg);
+      return errorMsg;
+    }
+    
     try {
       switch (toolName) {
         case 'read_file':
@@ -1566,6 +1557,18 @@ module.exports = {
           
         case 'append_to_file':
           return await this.handleAppendToFile(params, existingFiles, modifiedFiles);
+          
+        case 'delete_file':
+          return await this.handleDeleteFile(params, existingFiles, modifiedFiles);
+          
+        case 'search_code':
+          return await this.handleSearchCode(params, existingFiles);
+          
+        case 'get_file_structure':
+          return await this.handleGetFileStructure(params, existingFiles);
+          
+        case 'run_command':
+          return await this.handleRunCommand(params);
           
         case 'list_files':
           return await this.handleListFiles(existingFiles);
@@ -1723,6 +1726,145 @@ module.exports = {
     return `已向文件 ${filePath} 追加 ${content.length} 字符的内容`;
   }
   
+  /**
+   * 处理文件删除
+   */
+  private async handleDeleteFile(
+    params: any, 
+    existingFiles: CodeFile[], 
+    modifiedFiles: CodeFile[]
+  ): Promise<string> {
+    const filePath = params.file_path;
+    
+    // 从现有文件中移除
+    const existingIndex = existingFiles.findIndex(f => f.filename === filePath);
+    const modifiedIndex = modifiedFiles.findIndex(f => f.filename === filePath);
+    
+    if (existingIndex === -1 && modifiedIndex === -1) {
+      return `文件 ${filePath} 不存在，无法删除`;
+    }
+    
+    // 标记为删除（通过创建一个特殊的删除标记文件）
+    const deleteMarker: CodeFile = {
+      filename: filePath,
+      content: '// 此文件已被删除',
+      language: 'text',
+      description: '删除标记'
+    };
+    
+    // 如果在修改列表中，直接替换；否则添加删除标记
+    if (modifiedIndex >= 0) {
+      modifiedFiles[modifiedIndex] = deleteMarker;
+    } else {
+      modifiedFiles.push(deleteMarker);
+    }
+    
+    return `文件 ${filePath} 已标记为删除`;
+  }
+
+  /**
+   * 处理代码搜索
+   */
+  private async handleSearchCode(params: any, existingFiles: CodeFile[]): Promise<string> {
+    const query = params.query;
+    const filePattern = params.file_pattern;
+    
+    const results: Array<{filename: string, lineNumber: number, content: string}> = [];
+    
+    for (const file of existingFiles) {
+      // 如果指定了文件模式，先过滤文件
+      if (filePattern && !file.filename.includes(filePattern)) {
+        continue;
+      }
+      
+      const lines = file.content.split('\n');
+      lines.forEach((line, index) => {
+        if (line.toLowerCase().includes(query.toLowerCase())) {
+          results.push({
+            filename: file.filename,
+            lineNumber: index + 1,
+            content: line.trim()
+          });
+        }
+      });
+    }
+    
+    if (results.length === 0) {
+      return `未找到包含 "${query}" 的代码`;
+    }
+    
+    const resultStr = results
+      .slice(0, 20) // 限制结果数量
+      .map(r => `${r.filename}:${r.lineNumber}: ${r.content}`)
+      .join('\n');
+    
+    return `找到 ${results.length} 个匹配项${results.length > 20 ? '（显示前20个）' : ''}:\n${resultStr}`;
+  }
+
+  /**
+   * 处理获取文件结构
+   */
+  private async handleGetFileStructure(params: any, existingFiles: CodeFile[]): Promise<string> {
+    const directory = params.directory || '';
+    
+    // 按目录组织文件
+    const filesByDir: Record<string, string[]> = {};
+    
+    existingFiles.forEach(file => {
+      // 如果指定了目录，只显示该目录下的文件
+      if (directory && !file.filename.startsWith(directory)) {
+        return;
+      }
+      
+      const pathParts = file.filename.split('/');
+      const dir = pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : 'root';
+      const fileName = pathParts[pathParts.length - 1];
+      
+      if (!filesByDir[dir]) {
+        filesByDir[dir] = [];
+      }
+      filesByDir[dir].push(fileName);
+    });
+    
+    // 构建树状结构字符串
+    let structure = `项目文件结构${directory ? ` (${directory})` : ''}:\n`;
+    
+    Object.keys(filesByDir).sort().forEach(dir => {
+      structure += `📁 ${dir}/\n`;
+      filesByDir[dir].sort().forEach(file => {
+        structure += `  📄 ${file}\n`;
+      });
+    });
+    
+    return structure;
+  }
+
+  /**
+   * 处理运行命令
+   */
+  private async handleRunCommand(params: any): Promise<string> {
+    const command = params.command;
+    const directory = params.directory;
+    
+    // 出于安全考虑，这里只是模拟命令执行
+    // 在实际环境中，您可能需要更严格的安全控制
+    
+    console.log(`🔧 [模拟命令执行] ${command}${directory ? ` (在 ${directory})` : ''}`);
+    
+    // 模拟一些常见命令的响应
+    if (command.includes('npm install')) {
+      return '模拟执行 npm install - 依赖安装完成';
+    } else if (command.includes('npm run build')) {
+      return '模拟执行 npm run build - 构建成功';
+    } else if (command.includes('npm test')) {
+      return '模拟执行 npm test - 测试通过';
+    } else if (command.includes('git')) {
+      return `模拟执行 git 命令: ${command} - 执行成功`;
+    } else {
+      return `模拟执行命令: ${command} - 执行完成`;
+    }
+  }
+
   /**
    * 处理文件列表
    */

@@ -22,10 +22,11 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { cn } from '@/lib/utils';
-import { useVercelDeployment, type DeploymentResult } from '@/hooks/use-vercel-deployment';
+import { useVercelDeployment, type DeploymentResult, type VercelErrorInfo } from '@/hooks/use-vercel-deployment';
 import { type CodeFile } from '@/lib/agents/coding/types';
 import { StagewiseToolbar } from './StagewiseToolbar';
 import { useTheme } from '@/contexts/theme-context';
+import { VercelErrorDialog } from '@/components/dialogs/vercel-error-dialog';
 
 type DeviceType = 'desktop' | 'mobile';
 type EditMode = 'none' | 'text' | 'ai';
@@ -73,6 +74,8 @@ export default function VercelPreview({
   const [deploymentStatus, setDeploymentStatus] = useState<string>('ready');
   const [deployLogs, setDeployLogs] = useState<string[]>([]);
   const [showLogs, setShowLogs] = useState(false);
+  const [vercelErrorInfo, setVercelErrorInfo] = useState<VercelErrorInfo | null>(null);
+  const [showErrorDialog, setShowErrorDialog] = useState(false);
 
   // 使用新的 Vercel 部署 Hook
   const {
@@ -93,6 +96,10 @@ export default function VercelPreview({
     },
     onDeploymentReady: (deployment) => {
       onPreviewReady(deployment.url);
+    },
+    onVercelError: (errorInfo) => {
+      setVercelErrorInfo(errorInfo);
+      setShowErrorDialog(true);
     }
   });
 
@@ -491,6 +498,25 @@ export default function VercelPreview({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Vercel 错误弹窗 */}
+      {vercelErrorInfo && (
+        <VercelErrorDialog
+          open={showErrorDialog}
+          onOpenChange={setShowErrorDialog}
+          errorInfo={vercelErrorInfo}
+          onRetry={() => {
+            setShowErrorDialog(false);
+            setVercelErrorInfo(null);
+            // 重新部署
+            handleDeploy();
+          }}
+          onCopyError={() => {
+            // 可以添加额外的错误复制逻辑
+            console.log('错误信息已复制到剪贴板');
+          }}
+        />
+      )}
     </div>
   );
 }
