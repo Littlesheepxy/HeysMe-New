@@ -7,7 +7,7 @@
 import { ConversationalWelcomeAgent } from '@/lib/agents/welcome';
 import { OptimizedInfoCollectionAgent } from '@/lib/agents/info-collection';
 import { PromptOutputAgent } from '@/lib/agents/prompt-output-agent';
-import { CodingAgent } from '@/lib/agents/coding-agent';
+import { CodingAgent } from '@/lib/agents/coding';
 import { BaseAgent } from '@/lib/agents/base-agent';
 import { SessionData } from '@/lib/types/session';
 import { StreamableAgentResponse } from '@/lib/types/streaming';
