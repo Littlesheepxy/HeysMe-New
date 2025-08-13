@@ -125,17 +125,18 @@ export function CodeModeView({
       {/* 主要内容区域 */}
       <div className="flex-1 flex h-full">
         {/* 左侧对话区域 */}
-        <div className="w-1/3 flex flex-col border-r h-full">
+        <div className="w-1/3 flex flex-col border-r h-full min-w-0">
           {/* 消息列表 */}
           <div className="flex-1 overflow-hidden min-h-0">
             <ScrollArea className="h-full">
-              <div className="py-4">
+              <div className="py-4 px-2">
                 {currentSession?.conversationHistory?.map((message: any, index: number) => (
                   <MessageBubble
                     key={message.id}
                     message={message}
                     isLast={index === (currentSession?.conversationHistory?.length || 0) - 1}
                     isGenerating={isGenerating}
+                    isCompactMode={true}
                   />
                 ))}
                 

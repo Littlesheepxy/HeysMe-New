@@ -546,8 +546,28 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
         fullMessage = `${message}\n\n${fileInfos}`;
       }
 
+      // 🔧 修复：在专业模式下发送消息时传递正确的选项
+      let sendOptions: any = {};
+      
+      if (chatMode === 'professional') {
+        sendOptions = {
+          forceAgent: 'coding',
+          context: {
+            expertMode: true,
+            forceExpertMode: true,
+            withDocuments: true // 标记包含文档
+          }
+        };
+        // 自动切换到代码模式
+        if (!isCodeMode) {
+          setIsCodeMode(true);
+          setGeneratedCode([]);
+        }
+        console.log('🎯 [专业模式+文档] 消息:', fullMessage, '选项:', sendOptions);
+      }
+      
       // 发送消息
-      sendMessage(fullMessage);
+      sendMessage(fullMessage, sendOptions);
 
       // 显示成功提示
       toast({
@@ -652,51 +672,7 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
     return assets
   }
 
-  // 启动专业模式测试 - 直接进入专业模式体验
-  const generateTestCode = async () => {
-    try {
-      console.log('🎯 [专业模式测试] 启动专业模式...');
-      
-      // 设置为代码模式
-      setIsCodeMode(true)
-      setHasStartedChat(true)
-      setGeneratedCode([]) // 清空之前的代码
 
-      // 创建或获取会话
-      let session = currentSession
-      if (!session) {
-        console.log('🎯 [专业模式测试] 创建新会话...');
-        session = await createNewSession()
-      }
-
-      console.log('🎯 [专业模式测试] 会话ID:', session?.id);
-
-      // 显示专业模式提示
-      const expertModePrompt = `🎯 **专业模式已启动！** 请告诉我你想创建什么类型的Web项目？`
-
-      // 手动添加一个系统提示消息到会话历史
-      if (session) {
-        const expertModeMessage = {
-          id: `msg-${Date.now()}-expertmode`,
-          timestamp: new Date(),
-          type: 'agent_response' as const,
-          agent: 'system',
-          content: expertModePrompt,
-          metadata: {
-            expertMode: true,
-            awaitingUserInput: true
-          }
-        }
-        
-        session.conversationHistory.push(expertModeMessage)
-      }
-
-      console.log('🎯 [专业模式测试] 专业模式准备完成，等待用户输入...');
-
-    } catch (error) {
-      console.error('❌ [专业模式测试] 启动失败:', error)
-    }
-  }
 
   // 返回对话模式
   const handleBackToChat = () => {
@@ -919,7 +895,6 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
         isCodeMode={isCodeMode}
         onNewChat={handleNewChat}
         onSelectSession={selectSession}
-        onGenerateExpertMode={generateTestCode}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={handleToggleSidebar}
         onDeleteSession={handleDeleteSession}

@@ -19,6 +19,7 @@ interface MessageBubbleProps {
   onSendMessage?: (message: string, option?: any) => void;
   sessionId?: string;
   isStreaming?: boolean;
+  isCompactMode?: boolean; // 紧凑模式，用于coding模式的左侧对话框
 }
 
 /**
@@ -43,7 +44,8 @@ export const MessageBubble = React.memo(function MessageBubble({
   isGenerating, 
   onSendMessage, 
   sessionId,
-  isStreaming = false 
+  isStreaming = false,
+  isCompactMode = false 
 }: MessageBubbleProps) {
   const { theme } = useTheme();
   
@@ -324,25 +326,31 @@ export const MessageBubble = React.memo(function MessageBubble({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`flex gap-4 max-w-4xl mx-auto px-6 py-4 ${
-        actualIsUser ? "flex-row-reverse" : ""
-      }`}
+      className={`flex gap-2 ${
+        isCompactMode 
+          ? "px-2 py-1" // 紧凑模式：更小的内边距，确保头像不超出边界
+          : "max-w-4xl mx-auto px-6 py-4" // 普通模式：原有样式
+      } ${actualIsUser && !isCompactMode ? "flex-row-reverse" : ""}`}
     >
       {/* 头像 */}
       <div className="flex-shrink-0 pt-1">
-        <Avatar className="w-8 h-8">
+        <Avatar className={isCompactMode ? "w-6 h-6" : "w-8 h-8"}>
           <AvatarFallback className={actualIsUser ? "bg-gray-700 dark:bg-gray-600 text-white" : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"}>
-            {actualIsUser ? <User className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+            {actualIsUser ? <User className={isCompactMode ? "w-3 h-3" : "w-4 h-4"} /> : <Sparkles className={isCompactMode ? "w-3 h-3" : "w-4 h-4"} />}
           </AvatarFallback>
         </Avatar>
       </div>
 
       {/* 消息内容 */}
-      <div className={`flex-1 ${actualIsUser ? "text-right" : ""}`}>
-        <div className={`inline-block max-w-full ${actualIsUser ? "text-gray-800 dark:text-gray-200" : "text-gray-800 dark:text-gray-200"}`}>
+      <div className={`flex-1 min-w-0 ${actualIsUser && !isCompactMode ? "flex justify-end" : ""}`}>
+        <div className={`inline-block ${isCompactMode ? "w-full" : "max-w-full"} text-left ${
+          isCompactMode && actualIsUser 
+            ? "bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2 border-l-2 border-blue-200 dark:border-blue-700" 
+            : ""
+        } ${actualIsUser ? "text-gray-800 dark:text-gray-200" : "text-gray-800 dark:text-gray-200"}`} style={isCompactMode ? { maxWidth: '100%' } : {}}>
           
           {/* 🎯 消息文本内容渲染 - MessageBubble核心职责 */}
-          <div className="whitespace-pre-wrap break-words">
+          <div className={`whitespace-pre-wrap break-words ${isCompactMode ? "text-sm" : ""} overflow-hidden`}>
             {(() => {
               const cleanedContent = cleanTextContent(message.content || '');
               
@@ -370,7 +378,7 @@ export const MessageBubble = React.memo(function MessageBubble({
           </div>
 
           {/* 🎯 代码文件展示面板 - MessageBubble负责消息内的文件展示 */}
-          {!actualIsUser && codeFilesInfo.hasCodeFiles && codeFilesInfo.codeFilesCount > 0 && (
+          {!actualIsUser && codeFilesInfo.hasCodeFiles && codeFilesInfo.codeFilesCount > 0 && !isCompactMode && (
             <FileCreationPanel 
               codeFiles={codeFilesInfo.codeFiles}
               fileCreationStatus={fileCreationStatus}
@@ -383,7 +391,8 @@ export const MessageBubble = React.memo(function MessageBubble({
            (contentComplete || showInteraction) && 
            !(message.metadata?.system_state?.done === true) &&
            !(message.metadata?.system_state?.intent === 'advance_to_next_agent') &&
-           !(message.metadata?.system_state?.intent === 'complete') && (
+           !(message.metadata?.system_state?.intent === 'complete') && 
+           !isCompactMode && (
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}
