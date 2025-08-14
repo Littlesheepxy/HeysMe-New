@@ -438,8 +438,34 @@ export class AgentOrchestrator {
     const agentStartTime = new Date();
     console.log(`⏰ [编排器] ${agentName} 开始处理 (${agentStartTime.toISOString()})`);
     
+    // 🆕 为CodingAgent准备特殊的输入参数
+    let agentInput = { user_input: userInput };
+    
+    if (agentName === 'coding') {
+      // 🎯 CodingAgent模式判断逻辑
+      const currentStage = session.metadata.progress.currentStage;
+      const hasProjectFiles = session.metadata && 
+                             (session.metadata as any).projectFiles && 
+                             (session.metadata as any).projectFiles.length > 0;
+      
+      // 如果当前在code_generation阶段且已有项目文件，使用增量模式
+      if (currentStage === 'code_generation' && hasProjectFiles) {
+        agentInput = {
+          user_input: userInput,
+          mode: 'incremental'
+        } as any;
+        console.log(`🔧 [编排器] CodingAgent使用增量模式 (有${(session.metadata as any).projectFiles.length}个项目文件)`);
+      } else {
+        agentInput = {
+          user_input: userInput,
+          mode: 'initial'
+        } as any;
+        console.log(`🔧 [编排器] CodingAgent使用初始模式`);
+      }
+    }
+    
     let responseCount = 0;
-    for await (const response of agent.process({ user_input: userInput }, session, context)) {
+    for await (const response of agent.process(agentInput, session, context)) {
       responseCount++;
       console.log(`📤 [编排器] ${agentName} 第${responseCount}个响应:`, {
         hasReply: !!response.immediate_display?.reply,
