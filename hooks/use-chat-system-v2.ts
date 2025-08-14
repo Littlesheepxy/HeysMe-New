@@ -613,6 +613,16 @@ export function useChatSystemV2() {
           if (option?.context) {
             requestBody.context = option.context;
           }
+          
+          // 🔍 调试：显示发送的参数
+          if (option?.forceAgent || option?.testMode || option?.context) {
+            console.log('🔍 [前端发送] API参数:', {
+              forceAgent: option?.forceAgent,
+              testMode: option?.testMode,
+              context: option?.context,
+              fullRequestBody: requestBody
+            });
+          }
 
           const response = await fetch('/api/chat/stream', {
             method: 'POST',
