@@ -37,12 +37,18 @@ export default function TestCodingAgentPage() {
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
+            sessionId,
             mode: 'coding',
-            currentStage: 'code_generation',
             metadata: {
               agent_name: 'CodingAgent',
               mode: 'coding',
-              testMode: true
+              testMode: true,
+              progress: {
+                currentStage: 'code_generation',
+                completedStages: ['welcome', 'info_collection', 'page_design'],
+                totalStages: 4,
+                percentage: 90
+              }
             }
           })
         });
@@ -76,11 +82,16 @@ export default function TestCodingAgentPage() {
         body: JSON.stringify({
           sessionId: newSessionId,
           mode: 'coding',
-          currentStage: 'code_generation',
           metadata: {
             agent_name: 'CodingAgent',
             mode: 'coding',
-            testMode: true
+            testMode: true,
+            progress: {
+              currentStage: 'code_generation',
+              completedStages: ['welcome', 'info_collection', 'page_design'],
+              totalStages: 4,
+              percentage: 90
+            }
           }
         })
       });

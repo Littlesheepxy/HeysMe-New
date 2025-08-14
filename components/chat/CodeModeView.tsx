@@ -11,6 +11,7 @@ import { MessageBubble } from './MessageBubble';
 import { CodePreviewToggle } from '@/components/editor/CodePreviewToggle';
 import { ShareDialog } from '@/components/dialogs/share-dialog';
 import { EnhancedInputBox } from '@/components/ui/enhanced-input-box';
+import { FloatingStageIndicator } from '@/components/ui/stage-indicator';
 
 interface CodeModeViewProps {
   currentSession: any;
@@ -24,6 +25,10 @@ interface CodeModeViewProps {
   getReactPreviewData: () => any;
   onFileUpload?: (file: File) => void;
   deploymentUrl?: string;
+  // 🆕 阶段指示器相关props
+  currentStage?: string;
+  progress?: number;
+  sessionMode?: string;
 }
 
 export function CodeModeView({
@@ -37,7 +42,10 @@ export function CodeModeView({
   onEditCode,
   getReactPreviewData,
   onFileUpload,
-  deploymentUrl
+  deploymentUrl,
+  currentStage,
+  progress,
+  sessionMode
 }: CodeModeViewProps) {
   const { theme } = useTheme();
   
@@ -120,12 +128,15 @@ export function CodeModeView({
     }
   };
 
+
+
   return (
     <div className="flex-1 flex flex-col h-full">
+      
       {/* 主要内容区域 */}
       <div className="flex-1 flex h-full">
         {/* 左侧对话区域 */}
-        <div className="w-1/3 flex flex-col border-r h-full min-w-0">
+        <div className="w-1/3 flex flex-col border-r h-full min-w-0">          
           {/* 消息列表 */}
           <div className="flex-1 overflow-hidden min-h-0">
             <ScrollArea className="h-full">

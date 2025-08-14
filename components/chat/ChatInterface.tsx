@@ -48,6 +48,7 @@ import {
   CodeFile,
   CodingAgentMessage
 } from '@/lib/agents/coding/types';
+import { FloatingStageIndicator } from '@/components/ui/stage-indicator';
 
 interface ChatInterfaceProps {
   sessionId?: string;
@@ -626,7 +627,13 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
           message: enhancedMessage,
           sessionId,
           mode: 'incremental',
-          currentStage: sessionStatus?.currentStage
+          currentStage: sessionStatus?.currentStage,
+          // 🔧 修复：添加context来指示coding模式
+          context: {
+            mode: 'coding',
+            codingAgent: true,
+            forceAgent: 'coding'
+          }
         };
         
         setCodingContext(prev => ({
@@ -940,13 +947,13 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
               {/* 🎯 Coding模式状态指示器 */}
               {CodingStatusIndicator}
               
-              {/* 原有的会话状态 */}
-              {sessionStatus && !isCodingMode && (
-                <div className="flex items-center gap-2 text-sm">
-                  <Activity className="w-4 h-4" />
-                  <span className="text-gray-600">{sessionStatus.currentStage}</span>
-                  <span className="text-blue-600 font-medium">{sessionStatus.overallProgress}%</span>
-                </div>
+              {/* 🎯 新的悬浮阶段指示器 */}
+              {sessionStatus && (
+                <FloatingStageIndicator
+                  currentStage={sessionStatus.currentStage}
+                  percentage={sessionStatus.overallProgress || 0}
+                  mode={isCodingMode ? 'coding' : 'chat'}
+                />
               )}
             </div>
           </CardTitle>
@@ -964,7 +971,7 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
           )}
           
           {/* 进度条 */}
-          {sessionStatus && !isCodingMode && (
+          {sessionStatus && (
             <ProgressBar 
               progress={sessionStatus.overallProgress} 
               stage={sessionStatus.currentStage}
