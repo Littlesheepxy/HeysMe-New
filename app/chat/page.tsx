@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useChatSystemV2 } from "@/hooks/use-chat-system-v2"
 import { useTheme } from "@/contexts/theme-context"
 import { generateMockResumeCode } from "@/lib/utils/mockCodeGenerator"
@@ -330,6 +330,7 @@ export default function ChatPage() {
   let messageToSend = messageContent
   let sendOptions: any = {}
 
+  // 🎯 重新组织条件逻辑（注意：CodeModeView现在使用专门的handleCodingModeSendMessage）
   if (isInExpertMode) {
     // 🎯 专业模式测试：通过context参数传递模式信息
     messageToSend = messageContent
@@ -342,19 +343,6 @@ export default function ChatPage() {
       }
     }
     console.log('🎯 [专业模式测试发送] 消息:', messageToSend, '选项:', sendOptions)
-  } else if (isCodeMode) {
-    // 🎯 修复：Coding模式强制传递context
-    messageToSend = messageContent
-    sendOptions = {
-      forceAgent: 'coding',
-      context: {
-        mode: 'coding',
-        codingAgent: true,
-        forceAgent: 'coding',
-        currentStage: 'code_generation'
-      }
-    }
-    console.log('🎯 [Coding模式发送] 消息:', messageToSend, '选项:', sendOptions)
   } else if (chatMode === 'professional') {
     // 专业模式：通过context参数传递模式信息
     messageToSend = messageContent
@@ -375,6 +363,14 @@ export default function ChatPage() {
     // 普通模式：直接使用用户输入
     messageToSend = messageContent
     sendOptions = undefined
+    console.log('🎯 [普通模式发送] 当前状态:', {
+      isInExpertMode,
+      isCodeMode,
+      chatMode,
+      messageContent,
+      hasSession: !!currentSession,
+      sessionId: currentSession?.id
+    });
   }
 
     // 🆕 更新coding上下文
@@ -846,6 +842,29 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
     }
   }
 
+  // 🎯 新增：专门用于CodeModeView的消息发送函数
+  const handleCodingModeSendMessage = useCallback(async (content: string, option?: any) => {
+    console.log('🎯 [CodeModeView发送] 强制使用coding agent:', content);
+    
+    // 🎯 强制使用coding agent，无论当前状态如何
+    const codingOptions = {
+      forceAgent: 'coding',
+      context: {
+        mode: 'coding',
+        codingAgent: true,
+        forceAgent: 'coding',
+        currentStage: 'code_generation',
+        fromCodeModeView: true // 标记来源
+      },
+      ...option // 保留其他可能的选项
+    };
+    
+    console.log('🎯 [CodeModeView发送] 使用选项:', codingOptions);
+    
+    // 调用原始sendMessage
+    await sendMessage(content, codingOptions);
+  }, [sendMessage]);
+
   // 🔧 将切换函数暴露到全局，供ChatModeView使用
   useEffect(() => {
     (window as any).switchToCodeMode = handleSwitchToCodeMode;
@@ -1036,7 +1055,7 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
               generatedCode={generatedCode}
               isGenerating={isGenerating}
               onBack={handleBackToChat}
-              onSendChatMessage={sendMessage}
+              onSendChatMessage={handleCodingModeSendMessage}
               onDownload={handleCodeDownload}
               onDeploy={handleDeploy}
               onEditCode={handleEditCode}

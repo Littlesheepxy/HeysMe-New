@@ -119,26 +119,49 @@ export const MessageBubble = React.memo(function MessageBubble({
     message.content
   ]);
 
-  // 🎯 文件创建状态更新
+  // 🎯 真实文件创建状态监听
   useEffect(() => {
-    if (codeFilesInfo.hasCodeFiles && codeFilesInfo.fileCreationProgress.length > 0) {
-      const newStatus: Record<string, { status: any }> = {};
+    if (!codeFilesInfo.hasCodeFiles || codeFilesInfo.codeFiles.length === 0) return;
+    
+    // 🎯 根据消息的流式状态和文件内容判断创建状态
+    const isStreamingMessage = message.metadata?.streaming === true;
+    const messageContent = message.content || '';
+    
+    console.log('🎯 [MessageBubble] 监听文件状态:', {
+      messageId: message.id,
+      streaming: isStreamingMessage,
+      filesCount: codeFilesInfo.codeFiles.length,
+      hasContent: !!messageContent
+    });
+    
+    const newStatus: Record<string, { status: 'pending' | 'streaming' | 'completed' | 'error' }> = {};
+    
+    codeFilesInfo.codeFiles.forEach((file: any) => {
+      const filename = file.filename;
       
-      codeFilesInfo.fileCreationProgress.forEach((fileProgress: any) => {
-        newStatus[fileProgress.filename] = {
-          status: fileProgress.status || 'streaming'
-        };
-      });
-      
-      setFileCreationStatus(prev => {
-        const hasChanged = Object.keys(newStatus).some(key => 
-          !prev[key] || prev[key].status !== newStatus[key].status
-        );
-        
-        return hasChanged ? newStatus : prev;
-      });
-    }
-  }, [codeFilesInfo.hasCodeFiles, codeFilesInfo.fileCreationProgress]);
+      if (isStreamingMessage) {
+        // 🔄 检查文件是否在当前消息内容中被提及
+        if (messageContent.includes(filename)) {
+          newStatus[filename] = { status: 'streaming' };
+          console.log(`🔧 [MessageBubble] 文件正在生成: ${filename}`);
+        } else {
+          newStatus[filename] = { status: 'pending' };
+        }
+      } else {
+        // ✅ 流式结束，标记为完成
+        newStatus[filename] = { status: 'completed' };
+        console.log(`✅ [MessageBubble] 文件生成完成: ${filename}`);
+      }
+    });
+    
+    setFileCreationStatus(newStatus);
+  }, [
+    codeFilesInfo.hasCodeFiles, 
+    codeFilesInfo.codeFiles.length,
+    message.metadata?.streaming,
+    message.content,
+    message.id
+  ]);
 
   // 🎯 文件创建完成回调
   const handleFileCreated = useCallback((filename: string) => {
@@ -378,11 +401,15 @@ export const MessageBubble = React.memo(function MessageBubble({
           </div>
 
           {/* 🎯 代码文件展示面板 - MessageBubble负责消息内的文件展示 */}
-          {!actualIsUser && codeFilesInfo.hasCodeFiles && codeFilesInfo.codeFilesCount > 0 && !isCompactMode && (
-            <FileCreationPanel 
-              codeFiles={codeFilesInfo.codeFiles}
-              fileCreationStatus={fileCreationStatus}
-            />
+          {!actualIsUser && codeFilesInfo.hasCodeFiles && codeFilesInfo.codeFilesCount > 0 && (
+            <div className={isCompactMode ? "px-1 py-2" : ""}>
+              <FileCreationPanel 
+                codeFiles={codeFilesInfo.codeFiles}
+                fileCreationStatus={fileCreationStatus}
+                version={`V${Date.now().toString().slice(-3)}`} // 简单版本号
+                isActive={true}
+              />
+            </div>
           )}
 
           {/* 🎯 消息内交互表单 - MessageBubble核心职责 */}

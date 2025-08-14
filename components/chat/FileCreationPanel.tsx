@@ -13,11 +13,19 @@ interface FileCreationPanelProps {
   fileCreationStatus: Record<string, {
     status: 'pending' | 'streaming' | 'completed' | 'error';
   }>;
+  version?: string;
+  onVersionClick?: (version: string) => void;
+  onFileClick?: (file: any, index: number) => void;
+  isActive?: boolean;
 }
 
 export const FileCreationPanel = React.memo(function FileCreationPanel({
   codeFiles,
-  fileCreationStatus
+  fileCreationStatus,
+  version = "V1.0",
+  onVersionClick,
+  onFileClick,
+  isActive = false
 }: FileCreationPanelProps) {
   const completedCount = Object.values(fileCreationStatus).filter(s => s.status === 'completed').length;
   const hasActiveCreation = Object.values(fileCreationStatus).some(s => s.status === 'pending' || s.status === 'streaming');
@@ -26,10 +34,29 @@ export const FileCreationPanel = React.memo(function FileCreationPanel({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="mt-4 p-4 bg-white/60 dark:bg-gray-800/60 backdrop-blur-sm rounded-xl border border-gray-200/60 dark:border-gray-700/60 shadow-sm"
+      className={`mt-4 p-4 backdrop-blur-sm rounded-xl border shadow-sm cursor-pointer transition-all duration-200 hover:shadow-md relative ${
+        isActive 
+          ? "bg-blue-50/80 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700"
+          : "bg-white/60 dark:bg-gray-800/60 border-gray-200/60 dark:border-gray-700/60"
+      }`}
+      onClick={() => onVersionClick?.(version)}
     >
+      {/* 🆕 右上角版本标识 */}
+      <div className="absolute top-3 right-3">
+        <motion.div
+          whileHover={{ scale: 1.05 }}
+          className={`px-2 py-1 rounded-lg text-xs font-medium transition-all ${
+            isActive
+              ? "bg-blue-100 dark:bg-blue-800 text-blue-700 dark:text-blue-200"
+              : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"
+          }`}
+        >
+          {version}
+        </motion.div>
+      </div>
+
       {/* 标题栏 - 简约设计 */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex items-center justify-between mb-4 pr-16">
         <div className="flex items-center gap-2">
           <motion.div
             animate={{ rotate: [0, 10, -10, 0] }}
@@ -69,6 +96,7 @@ export const FileCreationPanel = React.memo(function FileCreationPanel({
               file={file}
               status={currentStatus}
               index={index}
+              onClick={() => onFileClick?.(file, index)}
             />
           );
         })}
@@ -81,11 +109,13 @@ export const FileCreationPanel = React.memo(function FileCreationPanel({
 const FileCreationItem = React.memo(function FileCreationItem({
   file,
   status,
-  index
+  index,
+  onClick
 }: {
   file: { filename: string; content: string; language?: string };
   status: 'pending' | 'streaming' | 'completed' | 'error';
   index: number;
+  onClick?: () => void;
 }) {
   const getStatusIcon = () => {
     switch (status) {
@@ -140,7 +170,11 @@ const FileCreationItem = React.memo(function FileCreationItem({
       initial={{ opacity: 0, x: -10 }}
       animate={{ opacity: 1, x: 0 }}
       transition={{ delay: index * 0.1 }}
-      className="group relative rounded-lg px-3 py-1 bg-white/80 dark:bg-gray-700/80 border border-gray-200/60 dark:border-gray-600/60 hover:shadow-sm transition-all duration-200"
+      className="group relative rounded-lg px-3 py-1 bg-white/80 dark:bg-gray-700/80 border border-gray-200/60 dark:border-gray-600/60 hover:shadow-sm transition-all duration-200 cursor-pointer hover:bg-white dark:hover:bg-gray-700"
+      onClick={(e) => {
+        e.stopPropagation(); // 防止触发父级的点击事件
+        onClick?.();
+      }}
     >
       <div className="flex items-center justify-between gap-3">
         {/* 左侧：图标和文件名 */}
