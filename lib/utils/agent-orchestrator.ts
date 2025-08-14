@@ -378,6 +378,13 @@ export class AgentOrchestrator {
    * 确定当前应该使用的Agent
    */
   private determineCurrentAgent(session: SessionData, userInput: string, context?: Record<string, any>): string {
+    console.log(`🔍 [编排器] determineCurrentAgent 被调用:`, {
+      sessionId: session.id,
+      currentStage: session.metadata.progress.currentStage,
+      context: context,
+      userInputLength: userInput.length
+    });
+    
     // 🔧 优先检查context中的强制Agent指定
     if (context?.forceAgent) {
       console.log(`🎯 [编排器] Context中强制使用Agent: ${context.forceAgent}`);
