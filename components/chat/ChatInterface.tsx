@@ -1,3 +1,10 @@
+// 这个文件是ChatInterface.tsx，负责处理聊天界面的核心逻辑，包括消息发送、流式数据处理、系统级loading状态等。
+// 它不负责单个消息的内容渲染，也不负责消息内的交互表单，也不负责消息级别的loading状态。
+// 它只负责全局状态管理、流式数据接收和分发、系统级loading状态、工具执行状态管理、错误处理和重试逻辑、输入框和发送逻辑。
+
+//暂时废弃不用
+
+
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
@@ -894,7 +901,7 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
     }
   };
 
-  const renderMessage = (message: ConversationEntry) => {
+  const renderMessage = (message: ConversationEntry, index: number) => {
     const isUser = message.type === 'user_message';
     const isLast = messages[messages.length - 1]?.id === message.id;
     
@@ -914,6 +921,7 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
         isStreaming={isLast && isStreaming && !isUser}
         onSendMessage={sendMessage}
         sessionId={sessionId || undefined}
+        messageIndex={index} // 传递消息索引用于版本号计算
       />
     );
   };
@@ -982,7 +990,7 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
       <CardContent className="flex-1 flex flex-col overflow-hidden">
         {/* 消息列表 */}
         <div className="flex-1 overflow-y-auto space-y-4 mb-4">
-          {messages.map(renderMessage)}
+          {messages.map((message, index) => renderMessage(message, index))}
           
           {/* 🎯 系统级Loading状态 - ChatInterface负责 */}
           {systemLoadingState?.visible && (

@@ -156,6 +156,7 @@ export function CodeModeView({
                     isLast={index === (currentSession?.conversationHistory?.length || 0) - 1}
                     isGenerating={isGenerating}
                     isCompactMode={true}
+                    messageIndex={index} // 传递消息索引用于版本号计算
                   />
                 ))}
                 

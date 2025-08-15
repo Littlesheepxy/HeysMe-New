@@ -152,6 +152,7 @@ export const ChatModeView = memo(function ChatModeView({
                     isGenerating={isGenerating && index === currentMessages.length - 1}
                     onSendMessage={onSendMessage}
                     sessionId={sessionId}
+                    messageIndex={index} // 传递消息索引用于版本号计算
                   />
                 ))}
                 

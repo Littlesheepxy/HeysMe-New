@@ -20,6 +20,7 @@ interface MessageBubbleProps {
   sessionId?: string;
   isStreaming?: boolean;
   isCompactMode?: boolean; // 紧凑模式，用于coding模式的左侧对话框
+  messageIndex?: number; // 消息在会话中的索引，用于计算版本号
 }
 
 /**
@@ -42,10 +43,11 @@ export const MessageBubble = React.memo(function MessageBubble({
   message, 
   isLast, 
   isGenerating, 
-  onSendMessage, 
+  onSendMessage,
   sessionId,
   isStreaming = false,
-  isCompactMode = false 
+  isCompactMode = false,
+  messageIndex = 0
 }: MessageBubbleProps) {
   const { theme } = useTheme();
   
@@ -59,6 +61,36 @@ export const MessageBubble = React.memo(function MessageBubble({
   const [fileCreationStatus, setFileCreationStatus] = useState<Record<string, {
     status: 'pending' | 'streaming' | 'completed' | 'error';
   }>>({});
+
+  // ===== 版本号计算 =====
+  const codeVersion = useMemo(() => {
+    // 如果消息有明确的版本号，使用它
+    if (message.metadata?.codeVersion) {
+      return `V${message.metadata.codeVersion}`;
+    }
+    
+    // 方案1: 基于消息索引生成递增版本号（推荐）
+    if (messageIndex > 0) {
+      // 只为包含代码文件的消息计算版本号
+      const codeMessageCount = Math.floor((messageIndex + 1) / 2); // 假设每两条消息有一条包含代码
+      return `V${Math.max(1, codeMessageCount)}`;
+    }
+    
+    // 方案2: 从消息ID中提取时间戳并转换为简单序号
+    const messageId = message.id || '';
+    const idMatch = messageId.match(/msg-(\d+)/);
+    if (idMatch) {
+      const timestamp = parseInt(idMatch[1]);
+      // 将时间戳转换为更小的递增数字
+      const baseTime = 1700000000000; // 2023年的基准时间戳
+      const relativeTime = Math.max(0, timestamp - baseTime);
+      const version = Math.floor(relativeTime / 10000) % 100 + 1; // 转换为1-100的范围
+      return `V${version}`;
+    }
+    
+    // 方案3: 默认从V1开始
+    return "V1";
+  }, [message.id, message.metadata?.codeVersion, messageIndex]);
   
   // 🎯 用户消息判断
   const { isUser, isSystemMessage, actualIsUser } = useMemo(() => {
@@ -406,7 +438,7 @@ export const MessageBubble = React.memo(function MessageBubble({
               <FileCreationPanel 
                 codeFiles={codeFilesInfo.codeFiles}
                 fileCreationStatus={fileCreationStatus}
-                version={`V${Date.now().toString().slice(-3)}`} // 简单版本号
+                version={codeVersion} // 使用计算出的正确版本号
                 isActive={true}
               />
             </div>

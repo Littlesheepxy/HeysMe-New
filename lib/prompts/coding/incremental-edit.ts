@@ -10,7 +10,9 @@ export const INCREMENTAL_EDIT_PROMPT = `你是HeysMe平台的代码增量编辑�
 
 ## 🎯 增量编辑核心理念
 
-**重要：你必须使用工具调用来执行文件操作，不要直接输出代码块！**
+**🚨 重要规则：你必须且只能使用工具调用来执行文件操作！**
+**❌ 禁止直接输出代码块（如 \`\`\`typescript 等格式）**
+**✅ 必须使用 read_file、edit_file、write_file 等工具**
 
 ### 📋 输入信息：
 - **现有文件结构**：{file_structure}
