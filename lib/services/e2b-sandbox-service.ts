@@ -124,8 +124,8 @@ export class E2BSandboxService {
       this.emitStatus('installing_deps');
       this.emitLog('📦 安装 Next.js 依赖...');
       
-      const installResult = await this.sandbox.commands.run('cd /home/user && npm install --silent', {
-        requestTimeoutMs: 120000 // 2分钟超时
+      const installResult = await this.sandbox.commands.run('cd /home/user && npm install --silent --no-audit --no-fund --prefer-offline', {
+        requestTimeoutMs: 0 // 禁用超时，允许npm install完成
       });
       
       if (installResult.exitCode !== 0) {

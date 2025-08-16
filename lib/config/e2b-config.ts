@@ -93,20 +93,9 @@ export function getDefaultNextjsFiles() {
         lint: 'next lint',
       },
       dependencies: {
-        next: '15.2.4',
-        react: '^19',
-        'react-dom': '^19',
-      },
-      devDependencies: {
-        '@types/node': '^22',
-        '@types/react': '^19',
-        '@types/react-dom': '^19',
-        typescript: '^5',
-        eslint: '^9',
-        'eslint-config-next': '^15',
-        autoprefixer: '^10',
-        postcss: '^8',
-        tailwindcss: '^3',
+        next: '^14.0.0',
+        react: '^18.0.0', 
+        'react-dom': '^18.0.0',
       },
     },
     
