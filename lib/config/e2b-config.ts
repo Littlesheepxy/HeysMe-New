@@ -97,6 +97,15 @@ export function getDefaultNextjsFiles() {
         react: '^18.0.0', 
         'react-dom': '^18.0.0',
       },
+      devDependencies: {
+        '@types/node': '^20',
+        '@types/react': '^18',
+        '@types/react-dom': '^18',
+        typescript: '^5',
+        tailwindcss: '^3.4.0',
+        autoprefixer: '^10.4.0',
+        postcss: '^8.4.0',
+      },
     },
     
     'next.config.mjs': `/** @type {import('next').NextConfig} */
