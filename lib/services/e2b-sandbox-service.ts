@@ -125,10 +125,10 @@ export class E2BSandboxService {
       this.emitLog('📦 安装 Next.js 依赖...');
       
       const installResult = await this.sandbox.commands.run('cd /home/user && npm install --silent', {
-        request_timeout: 120.0 // 2分钟超时
+        requestTimeoutMs: 120000 // 2分钟超时
       });
       
-      if (installResult.exit_code !== 0) {
+      if (installResult.exitCode !== 0) {
         this.emitLog(`⚠️ npm install 警告: ${installResult.stderr}`);
       }
 
@@ -341,14 +341,13 @@ echo "依赖安装完成"
     try {
       // 停止现有的服务器（如果有的话）
       await this.sandbox.commands.run('cd /home/user && pkill -f "next dev" || true', {
-        request_timeout: 10.0
+        requestTimeoutMs: 10000
       });
       this.emitLog('🛑 已停止现有的 Next.js 服务器');
 
       // 启动新的开发服务器（后台运行）
       const serverHandle = await this.sandbox.commands.run('cd /home/user && npm run dev', {
         background: true,
-        request_timeout: 0,
         onStdout: (data) => this.emitLog(`[Next.js] ${data}`),
         onStderr: (data) => this.emitLog(`[Next.js Error] ${data}`)
       });
@@ -380,7 +379,7 @@ echo "依赖安装完成"
 
     try {
       // 检查沙盒是否还活跃
-      await this.sandbox.commands.run('echo "ping"', { request_timeout: 5.0 });
+      await this.sandbox.commands.run('echo "ping"', { requestTimeoutMs: 5000 });
       
       return {
         success: true,
@@ -408,7 +407,7 @@ echo "依赖安装完成"
     }
 
     try {
-      await this.sandbox.close();
+      await this.sandbox.kill();
       this.sandbox = undefined;
       this.currentSandbox = null;
       
