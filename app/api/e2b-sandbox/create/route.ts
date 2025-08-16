@@ -79,8 +79,14 @@ export async function POST(request: NextRequest) {
     const sandboxInfo = await sandboxService.createNextjsSandbox();
 
     // 存储沙盒服务实例
+    console.log('💾 [E2B Create] 准备存储沙盒服务，用户ID:', userId);
+    console.log('💾 [E2B Create] sandboxService 实例:', sandboxService ? '存在' : '不存在');
+    console.log('💾 [E2B Create] 存储前 userSandboxes size:', userSandboxes.size);
+    
     userSandboxes.set(userId, sandboxService);
-
+    
+    console.log('💾 [E2B Create] 存储后 userSandboxes size:', userSandboxes.size);
+    console.log('💾 [E2B Create] userSandboxes keys:', Array.from(userSandboxes.keys()));
     console.log('✅ [E2B Create] 沙盒创建成功:', sandboxInfo.id);
 
     return NextResponse.json({
@@ -142,12 +148,13 @@ export async function GET(request: NextRequest) {
     const currentSandbox = sandboxService.getCurrentSandbox();
     
     if (!currentSandbox) {
-      userSandboxes.delete(userId);
+      console.log('⚠️ [E2B Status] 沙盒实例存在但currentSandbox为空，可能正在初始化中');
       return NextResponse.json({
         success: true,
-        message: '没有活跃的沙盒',
+        message: '沙盒正在初始化中...',
         sandboxInfo: null,
-        isActive: false
+        isActive: false,
+        status: 'initializing'
       });
     }
 
@@ -155,15 +162,13 @@ export async function GET(request: NextRequest) {
     const statusResult = await sandboxService.getSandboxStatus();
     
     if (!statusResult.success) {
-      // 沙盒已失效，清理
-      await sandboxService.destroySandbox();
-      userSandboxes.delete(userId);
-      
+      console.log('⚠️ [E2B Status] 沙盒状态检查失败，但保留实例:', statusResult.error);
       return NextResponse.json({
         success: true,
-        message: '沙盒已失效',
+        message: '沙盒状态检查失败，请重试',
         sandboxInfo: null,
         isActive: false,
+        status: 'error',
         error: statusResult.error
       });
     }
