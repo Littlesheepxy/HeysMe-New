@@ -22,6 +22,7 @@ interface FileCreationPanelProps {
   onFileClick?: (file: any, index: number) => void;
   isActive?: boolean;
   streamingFile?: string; // 新增：当前正在流式生成的文件
+  isCompactMode?: boolean; // 新增：紧凑模式
 }
 
 export const FileCreationPanel = React.memo(function FileCreationPanel({
@@ -31,7 +32,8 @@ export const FileCreationPanel = React.memo(function FileCreationPanel({
   onVersionClick,
   onFileClick,
   isActive = false,
-  streamingFile
+  streamingFile,
+  isCompactMode = false
 }: FileCreationPanelProps) {
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
   const [showStreamPreview, setShowStreamPreview] = useState(true);
@@ -110,7 +112,7 @@ export const FileCreationPanel = React.memo(function FileCreationPanel({
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`mt-4 backdrop-blur-sm rounded-xl border shadow-sm transition-all duration-200 relative ${
+      className={`${isCompactMode ? "mt-2" : "mt-4"} backdrop-blur-sm rounded-xl border shadow-sm transition-all duration-200 relative max-w-full overflow-hidden ${
         isActive 
           ? "bg-blue-50/80 dark:bg-blue-900/20 border-blue-200 dark:border-blue-700"
           : "bg-white/60 dark:bg-gray-800/60 border-gray-200/60 dark:border-gray-700/60"
@@ -119,7 +121,7 @@ export const FileCreationPanel = React.memo(function FileCreationPanel({
 
       {/* 头部 - 可点击的版本切换 */}
       <div 
-        className="p-4 cursor-pointer hover:bg-white/20 dark:hover:bg-gray-700/20 rounded-t-xl transition-colors"
+        className={`${isCompactMode ? "p-2" : "p-4"} cursor-pointer hover:bg-white/20 dark:hover:bg-gray-700/20 rounded-t-xl transition-colors`}
         onClick={() => onVersionClick?.(version)}
       >
         <div className="flex items-center justify-between">
@@ -257,8 +259,8 @@ export const FileCreationPanel = React.memo(function FileCreationPanel({
       )}
       
       {/* 文件列表 - 依次显示版 */}
-      <div className="px-4 pb-4">
-        <div className="space-y-2 max-h-80 overflow-y-auto custom-scrollbar">
+      <div className={`${isCompactMode ? "px-2 pb-2" : "px-4 pb-4"}`}>
+        <div className={`space-y-2 ${isCompactMode ? "max-h-60" : "max-h-80"} overflow-y-auto custom-scrollbar`}>
           {/* 🎯 只显示当前应该可见的文件 */}
           {visibleFilesToShow.map((file, index) => {
             const status = fileCreationStatus[file.filename];

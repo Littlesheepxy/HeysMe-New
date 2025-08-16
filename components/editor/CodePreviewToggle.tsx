@@ -38,6 +38,7 @@ import VercelDeploy from './VercelDeploy';
 import { CodeEditorPanel } from './CodeEditorPanel';
 import { Separator } from '@/components/ui/separator';
 import { ShareDialog } from '@/components/dialogs/share-dialog';
+import { E2BSandboxPreview } from './E2BSandboxPreview';
 
 // 代码文件接口
 interface CodeFile {
@@ -69,10 +70,14 @@ interface CodePreviewToggleProps {
   isProjectComplete?: boolean;
   onAutoDeployStatusChange?: (enabled: boolean) => void;
   deploymentUrl?: string;
+  // 🆕 预览模式选择
+  previewMode?: PreviewMode;
+  onPreviewModeChange?: (mode: PreviewMode) => void;
 }
 
 type ViewMode = 'code' | 'preview' | 'deploy';
 type EditMode = 'none' | 'text' | 'ai';
+type PreviewMode = 'vercel' | 'e2b';
 
 // 语法高亮函数
 const highlightCode = (code: string, language: string) => {
@@ -323,7 +328,9 @@ export function CodePreviewToggle({
   autoDeployEnabled = false,
   isProjectComplete = false,
   onAutoDeployStatusChange,
-  deploymentUrl
+  deploymentUrl,
+  previewMode = 'e2b', // 🆕 默认使用E2B模式
+  onPreviewModeChange
 }: CodePreviewToggleProps) {
   const { theme } = useTheme();
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
@@ -507,9 +514,48 @@ export function CodePreviewToggle({
           </motion.div>
         </div>
 
-        {/* 右侧：编辑模式和设备切换 - 只在预览模式显示 */}
+        {/* 右侧：预览模式、编辑模式和设备切换 - 只在预览模式显示 */}
         {viewMode === 'preview' && (
           <div className="flex items-center gap-3">
+            {/* 🆕 预览模式切换 */}
+            <div className={`flex p-1 rounded-xl ${theme === 'light' ? 'bg-gray-100' : 'bg-gray-800'}`}>
+              <motion.button
+                onClick={() => onPreviewModeChange?.('vercel')}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200",
+                  previewMode === 'vercel'
+                    ? theme === 'light'
+                      ? "bg-white text-blue-700 shadow-sm"
+                      : "bg-gray-700 text-blue-400 shadow-sm"
+                    : theme === 'light'
+                      ? "text-gray-600 hover:text-gray-900"
+                      : "text-gray-400 hover:text-gray-200"
+                )}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <Sparkles className="w-3 h-3" />
+                Vercel
+              </motion.button>
+              
+              <motion.button
+                onClick={() => onPreviewModeChange?.('e2b')}
+                className={cn(
+                  "flex items-center gap-2 px-3 py-1 rounded-lg text-xs font-medium transition-all duration-200",
+                  previewMode === 'e2b'
+                    ? "bg-gradient-to-r from-emerald-500 to-teal-500 text-white shadow-sm"
+                    : theme === 'light'
+                      ? "text-gray-600 hover:text-gray-900"
+                      : "text-gray-400 hover:text-gray-200"
+                )}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <Zap className="w-3 h-3" />
+                E2B
+              </motion.button>
+            </div>
+            
             {/* 编辑模式切换 */}
             <div className={`flex p-1 rounded-xl ${theme === 'light' ? 'bg-gray-100' : 'bg-gray-800'}`}>
               <motion.button
@@ -670,29 +716,56 @@ export function CodePreviewToggle({
               transition={{ duration: 0.3 }}
               className="h-full"
             >
-              <VercelPreview
-                files={files}
-                projectName={previewData?.projectName || '项目预览'}
-                description={previewData?.description}
-                isLoading={false}
-                previewUrl={deploymentUrl || previewUrl}
-                enableVercelDeploy={true}
-                onPreviewReady={handlePreviewReady}
-                onLoadingChange={(loading: boolean) => console.log('Loading:', loading)}
-                isEditMode={editMode === 'ai'}
-                onContentChange={handleContentChange}
-                onRefresh={async () => {
-                  console.log('🔄 [CodePreviewToggle] 刷新请求，重新部署...');
-                  if (onDeploy) {
-                    try {
-                      await onDeploy();
-                      console.log('✅ [CodePreviewToggle] 重新部署完成');
-                    } catch (error) {
-                      console.error('❌ [CodePreviewToggle] 重新部署失败:', error);
+              {/* 🆕 根据预览模式显示不同的预览组件 */}
+              {previewMode === 'e2b' ? (
+                <E2BSandboxPreview
+                  files={files}
+                  projectName={previewData?.projectName || '项目预览'}
+                  description={previewData?.description}
+                  isLoading={false}
+                  previewUrl={deploymentUrl || previewUrl}
+                  enableAutoRefresh={true}
+                  onPreviewReady={handlePreviewReady}
+                  onLoadingChange={(loading: boolean) => console.log('Loading:', loading)}
+                  isEditMode={editMode === 'ai'}
+                  onContentChange={handleContentChange}
+                  onRefresh={async () => {
+                    console.log('🔄 [CodePreviewToggle] E2B刷新请求，重新部署...');
+                    if (onDeploy) {
+                      try {
+                        await onDeploy();
+                        console.log('✅ [CodePreviewToggle] E2B重新部署完成');
+                      } catch (error) {
+                        console.error('❌ [CodePreviewToggle] E2B重新部署失败:', error);
+                      }
                     }
-                  }
-                }}
-              />
+                  }}
+                />
+              ) : (
+                <VercelPreview
+                  files={files}
+                  projectName={previewData?.projectName || '项目预览'}
+                  description={previewData?.description}
+                  isLoading={false}
+                  previewUrl={deploymentUrl || previewUrl}
+                  enableVercelDeploy={true}
+                  onPreviewReady={handlePreviewReady}
+                  onLoadingChange={(loading: boolean) => console.log('Loading:', loading)}
+                  isEditMode={editMode === 'ai'}
+                  onContentChange={handleContentChange}
+                  onRefresh={async () => {
+                    console.log('🔄 [CodePreviewToggle] Vercel刷新请求，重新部署...');
+                    if (onDeploy) {
+                      try {
+                        await onDeploy();
+                        console.log('✅ [CodePreviewToggle] Vercel重新部署完成');
+                      } catch (error) {
+                        console.error('❌ [CodePreviewToggle] Vercel重新部署失败:', error);
+                      }
+                    }
+                  }}
+                />
+              )}
             </motion.div>
           ) : viewMode === 'deploy' ? (
             <motion.div
@@ -773,15 +846,31 @@ export function CodePreviewToggle({
           {/* 环境状态指示器 */}
           <Badge className={`rounded-full ${
             viewMode === 'preview' 
-              ? "bg-emerald-100 text-emerald-700 border-emerald-200" 
+              ? previewMode === 'e2b' 
+                ? "bg-emerald-100 text-emerald-700 border-emerald-200"
+                : "bg-blue-100 text-blue-700 border-blue-200"
               : viewMode === 'deploy'
                 ? "bg-blue-100 text-blue-700 border-blue-200"
                 : "bg-gray-100 text-gray-700 border-gray-200"
           }`}>
-            {viewMode === 'preview' && <Eye className="w-3 h-3 mr-1" />}
-            {viewMode === 'deploy' && <Sparkles className="w-3 h-3 mr-1" />}
-            {viewMode === 'code' && <Code2 className="w-3 h-3 mr-1" />}
-            {viewMode === 'preview' ? '预览环境' : viewMode === 'deploy' ? '生产环境' : '代码编辑'}
+            {viewMode === 'preview' && (
+              <>
+                {previewMode === 'e2b' ? <Zap className="w-3 h-3 mr-1" /> : <Sparkles className="w-3 h-3 mr-1" />}
+                {previewMode === 'e2b' ? 'E2B预览' : 'Vercel预览'}
+              </>
+            )}
+            {viewMode === 'deploy' && (
+              <>
+                <Sparkles className="w-3 h-3 mr-1" />
+                生产环境
+              </>
+            )}
+            {viewMode === 'code' && (
+              <>
+                <Code2 className="w-3 h-3 mr-1" />
+                代码编辑
+              </>
+            )}
           </Badge>
           
           {/* 编辑模式状态指示器 - 仅在预览模式显示 */}

@@ -397,15 +397,15 @@ export const MessageBubble = React.memo(function MessageBubble({
       </div>
 
       {/* 消息内容 */}
-      <div className={`flex-1 min-w-0 ${actualIsUser && !isCompactMode ? "flex justify-end" : ""}`}>
-        <div className={`inline-block ${isCompactMode ? "w-full" : "max-w-full"} text-left ${
+      <div className={`flex-1 min-w-0 overflow-hidden ${actualIsUser && !isCompactMode ? "flex justify-end" : ""}`}>
+        <div className={`${isCompactMode ? "w-full max-w-full" : "inline-block max-w-full"} text-left overflow-hidden ${
           isCompactMode && actualIsUser 
             ? "bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2 border-l-2 border-blue-200 dark:border-blue-700" 
             : ""
-        } ${actualIsUser ? "text-gray-800 dark:text-gray-200" : "text-gray-800 dark:text-gray-200"}`} style={isCompactMode ? { maxWidth: '100%' } : {}}>
+        } ${actualIsUser ? "text-gray-800 dark:text-gray-200" : "text-gray-800 dark:text-gray-200"}`}>
           
           {/* 🎯 消息文本内容渲染 - MessageBubble核心职责 */}
-          <div className={`whitespace-pre-wrap break-words ${isCompactMode ? "text-sm" : ""} overflow-hidden`}>
+          <div className={`whitespace-pre-wrap break-words ${isCompactMode ? "text-sm" : ""} overflow-hidden ${isCompactMode ? "max-w-full" : ""}`}>
             {(() => {
               const cleanedContent = cleanTextContent(message.content || '');
               
@@ -434,13 +434,16 @@ export const MessageBubble = React.memo(function MessageBubble({
 
           {/* 🎯 代码文件展示面板 - MessageBubble负责消息内的文件展示 */}
           {!actualIsUser && codeFilesInfo.hasCodeFiles && codeFilesInfo.codeFilesCount > 0 && (
-            <div className={isCompactMode ? "px-1 py-2" : ""}>
-              <FileCreationPanel 
-                codeFiles={codeFilesInfo.codeFiles}
-                fileCreationStatus={fileCreationStatus}
-                version={codeVersion} // 使用计算出的正确版本号
-                isActive={true}
-              />
+            <div className={`${isCompactMode ? "px-0 py-2 max-w-full overflow-hidden" : ""}`}>
+              <div className={isCompactMode ? "max-w-full overflow-hidden" : ""}>
+                <FileCreationPanel 
+                  codeFiles={codeFilesInfo.codeFiles}
+                  fileCreationStatus={fileCreationStatus}
+                  version={codeVersion} // 使用计算出的正确版本号
+                  isActive={true}
+                  isCompactMode={isCompactMode} // 传递紧凑模式参数
+                />
+              </div>
             </div>
           )}
 
