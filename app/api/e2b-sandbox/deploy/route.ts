@@ -46,16 +46,28 @@ export async function POST(request: NextRequest) {
     console.log('📄 [E2B Deploy] 文件列表:', Object.keys(files).join(', '));
 
     // 获取用户的沙盒服务
+    console.log('🔍 [E2B Deploy] 查找用户沙盒服务，用户ID:', userId);
+    console.log('🔍 [E2B Deploy] userSandboxes size:', userSandboxes.size);
+    console.log('🔍 [E2B Deploy] userSandboxes keys:', Array.from(userSandboxes.keys()));
+    
     const sandboxService = userSandboxes.get(userId);
     
     if (!sandboxService) {
+      console.log('❌ [E2B Deploy] 沙盒服务未找到');
       return NextResponse.json({
         success: false,
         error: 'NO_SANDBOX',
         message: '沙盒不存在，请先创建沙盒',
-        suggestion: '请先调用 POST /api/e2b-sandbox/create 创建沙盒'
+        suggestion: '请先调用 POST /api/e2b-sandbox/create 创建沙盒',
+        debug: {
+          userId,
+          sandboxesCount: userSandboxes.size,
+          availableUsers: Array.from(userSandboxes.keys())
+        }
       }, { status: 400 });
     }
+    
+    console.log('✅ [E2B Deploy] 找到沙盒服务');
 
     const currentSandbox = sandboxService.getCurrentSandbox();
     if (!currentSandbox) {

@@ -120,22 +120,17 @@ export class E2BSandboxService {
       // 2. 创建基础的 app 目录结构
       await this.createBasicAppStructure();
 
-      // 3. 先安装pnpm，然后安装依赖
+      // 3. 使用npx pnpm安装依赖（无需全局安装pnpm）
       this.emitStatus('installing_deps');
-      this.emitLog('📦 安装 pnpm...');
-      
-      await this.sandbox.commands.run('npm install -g pnpm', {
-        requestTimeoutMs: 30000 // 30秒安装pnpm
-      });
-      
       this.emitLog('📦 使用 pnpm 安装 Next.js 依赖...');
       
-      const installResult = await this.sandbox.commands.run('cd /home/user && pnpm install --frozen-lockfile=false --no-audit --silent', {
+      const installResult = await this.sandbox.commands.run('cd /home/user && npx pnpm@latest install --no-frozen-lockfile --silent', {
         requestTimeoutMs: 0 // 禁用超时，允许pnpm install完成
       });
       
       if (installResult.exitCode !== 0) {
-        this.emitLog(`⚠️ npm install 警告: ${installResult.stderr}`);
+        this.emitLog(`⚠️ pnpm install 警告: ${installResult.stderr}`);
+        this.emitLog(`⚠️ pnpm install stdout: ${installResult.stdout}`);
       }
 
       this.emitLog('✅ Next.js 环境初始化完成');
@@ -352,7 +347,7 @@ echo "依赖安装完成"
       this.emitLog('🛑 已停止现有的 Next.js 服务器');
 
       // 启动新的开发服务器（后台运行）
-      const serverHandle = await this.sandbox.commands.run('cd /home/user && pnpm dev', {
+      const serverHandle = await this.sandbox.commands.run('cd /home/user && npx pnpm dev', {
         background: true,
         onStdout: (data) => this.emitLog(`[Next.js] ${data}`),
         onStderr: (data) => this.emitLog(`[Next.js Error] ${data}`)

@@ -15,10 +15,13 @@ export async function GET(request: NextRequest) {
     }
 
     console.log('📊 [Sandbox Status] 检查沙盒状态，用户ID:', userId);
+    console.log('📊 [Sandbox Status] userSandboxes size:', userSandboxes.size);
+    console.log('📊 [Sandbox Status] userSandboxes keys:', Array.from(userSandboxes.keys()));
 
     const sandboxService = userSandboxes.get(userId);
     
     if (!sandboxService) {
+      console.log('❌ [Sandbox Status] 沙盒服务未找到');
       return NextResponse.json({
         success: true,
         status: 'no_sandbox',
@@ -26,10 +29,17 @@ export async function GET(request: NextRequest) {
         data: {
           isActive: false,
           sandboxInfo: null,
-          healthStatus: 'inactive'
+          healthStatus: 'inactive',
+          debug: {
+            userId,
+            sandboxesCount: userSandboxes.size,
+            availableUsers: Array.from(userSandboxes.keys())
+          }
         }
       });
     }
+    
+    console.log('✅ [Sandbox Status] 找到沙盒服务');
 
     const currentSandbox = sandboxService.getCurrentSandbox();
     
