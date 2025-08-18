@@ -418,11 +418,11 @@ export default function VercelPreview({
 
         {/* 错误状态 */}
         {deploymentError && !isGeneratingCode && (
-          <div className="absolute inset-0 flex items-center justify-center z-10">
+          <div className="absolute inset-0 flex items-center justify-center z-10 bg-black/20 dark:bg-black/40 backdrop-blur-sm">
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-white dark:bg-gray-800 rounded-xl p-8 max-w-md mx-4 text-center shadow-xl border border-red-200 dark:border-red-800"
+              className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl p-8 max-w-md mx-4 text-center shadow-2xl border border-red-200 dark:border-red-800"
             >
               {/* 错误图标 */}
               <motion.div
@@ -570,29 +570,32 @@ export default function VercelPreview({
 
         {/* 空状态 */}
         {!previewUrl && !deploymentUrl && !isLoading && !isDeploying && !isGeneratingCode && !deploymentError && (
-          <div className="h-full flex items-center justify-center">
-            <div className="text-center max-w-md">
+          <div className="h-full flex items-center justify-center p-8">
+            <div className="text-center max-w-md mx-auto">
               <motion.div
                 animate={{ y: [0, -10, 0] }}
                 transition={{ duration: 2, repeat: Infinity }}
+                className="mb-6"
               >
                 <Code className="w-16 h-16 text-gray-400 mx-auto mb-4" />
               </motion.div>
-              <h3 className="text-lg font-semibold mb-2">准备就绪</h3>
-              <p className="text-gray-600 dark:text-gray-400 mb-6">
+              <h3 className="text-lg font-semibold mb-2 text-gray-900 dark:text-gray-100">准备就绪</h3>
+              <p className="text-gray-600 dark:text-gray-400 mb-8 leading-relaxed">
                 等待代码生成完成后将自动部署预览
               </p>
               
-              {/* 添加一个自动部署的按钮 */}
+              {/* 立即部署按钮 - 改进居中和样式 */}
               {files.length > 0 && enableVercelDeploy && (
-                <Button
-                  onClick={handleDeploy}
-                  disabled={isDeploying}
-                  className="flex items-center gap-2"
-                >
-                  <Play className="w-4 h-4" />
-                  立即部署预览
-                </Button>
+                <div className="flex justify-center">
+                  <Button
+                    onClick={handleDeploy}
+                    disabled={isDeploying}
+                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-105"
+                  >
+                    <Play className="w-5 h-5" />
+                    立即部署预览
+                  </Button>
+                </div>
               )}
             </div>
           </div>

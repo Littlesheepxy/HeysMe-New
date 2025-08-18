@@ -127,11 +127,17 @@ export function validateVercelToken(token: string): boolean {
     return false;
   }
   
-  // Vercel Token 通常以特定前缀开头
+  // Vercel Token 通常以特定前缀开头，但也接受其他格式
   const validPrefixes = ['vercel_', 'vt_', 'vtoken_'];
   const hasValidPrefix = validPrefixes.some(prefix => token.startsWith(prefix));
   
-  if (!hasValidPrefix) {
+  // 如果没有标准前缀，但Token长度合理，仍然认为有效（可能是旧版本或其他格式）
+  if (!hasValidPrefix && token.length >= 40) {
+    // 静默处理，不打印警告日志，因为可能是正常的Token格式
+    return true;
+  }
+  
+  if (!hasValidPrefix && token.length < 40) {
     console.warn('⚠️ Vercel Token 格式可能不正确，建议检查 Token 是否有效');
   }
   

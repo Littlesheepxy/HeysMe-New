@@ -108,18 +108,81 @@ export async function POST(request: NextRequest) {
     // 🚨 检查是否为 Vercel 部署错误，提供详细信息
     if ((error as any)?.isVercelError) {
       const vercelError = error as any;
+      
+      // 🔍 使用增强的错误分析功能
+      let troubleshootingTips: string[] = [];
+      let detailedAnalysis: any = null;
+      
+      // 尝试获取详细的部署分析
+      try {
+        // 🔧 重新获取配置，因为config变量在这个作用域不可用
+        const deployConfig = getVercelConfig();
+        if (deployConfig.enabled && deployConfig.bearerToken) {
+          const vercelService = createVercelService(deployConfig);
+          if (vercelError.deploymentId) {
+            console.log(`🔍 获取部署 ${vercelError.deploymentId} 的详细分析...`);
+            detailedAnalysis = await vercelService.getDeploymentAnalysis(vercelError.deploymentId);
+            troubleshootingTips = detailedAnalysis.suggestions || [];
+          }
+        }
+      } catch (analysisError) {
+        console.error('⚠️ 获取详细分析失败:', analysisError);
+      }
+      
+      // 如果没有详细分析，使用原有的基本分析
+      if (troubleshootingTips.length === 0) {
+        const errorDetails = vercelError.errorDetails || '';
+        
+        if (errorDetails.toLowerCase().includes('build failed') || errorDetails.toLowerCase().includes('build error')) {
+          troubleshootingTips.push('构建失败：检查package.json中的build脚本是否正确');
+          troubleshootingTips.push('确保所有依赖项都已正确安装');
+          troubleshootingTips.push('检查代码中是否有TypeScript错误或语法错误');
+        }
+        
+        if (errorDetails.toLowerCase().includes('timeout')) {
+          troubleshootingTips.push('构建超时：尝试优化构建脚本或减少文件大小');
+        }
+        
+        if (errorDetails.toLowerCase().includes('memory') || errorDetails.toLowerCase().includes('out of memory')) {
+          troubleshootingTips.push('内存不足：考虑优化代码或升级Vercel计划');
+        }
+        
+        if (!errorDetails || errorDetails.trim() === '') {
+          troubleshootingTips.push('无详细错误信息，建议检查Vercel控制台获取更多信息');
+          troubleshootingTips.push('检查项目配置和环境变量是否正确');
+        }
+      }
+      
       return NextResponse.json(
         {
           success: false,
           error: 'Vercel deployment failed',
           details: errorMessage,
+          troubleshooting: troubleshootingTips,
           errorInfo: {
             deploymentId: vercelError.deploymentId,
             deploymentState: vercelError.deploymentState,
             errorDetails: vercelError.errorDetails,
             deploymentUrl: vercelError.deploymentUrl,
-            timestamp: new Date().toISOString()
-          }
+            timestamp: new Date().toISOString(),
+            vercelDashboardUrl: `https://vercel.com/dashboard/deployments/${vercelError.deploymentId}`,
+            // 🆕 增强的调试信息
+            debugUrls: {
+              detailedAnalysis: `/api/vercel-deploy/debug?deploymentId=${vercelError.deploymentId}`,
+              onlineLogs: vercelError.deploymentUrl ? `${vercelError.deploymentUrl}/_logs` : null,
+              cliCommand: `vc logs ${vercelError.deploymentId}`
+            }
+          },
+          // 🆕 包含详细分析结果（如果可用）
+          ...(detailedAnalysis && {
+            analysis: {
+              errorSummary: detailedAnalysis.errorSummary,
+              buildLogsCount: detailedAnalysis.buildLogs?.length || 0,
+              errorEventsCount: detailedAnalysis.events?.filter((e: any) => e.type === 'error').length || 0,
+              warningEventsCount: detailedAnalysis.events?.filter((e: any) => e.type === 'warning').length || 0,
+              hasDetailedLogs: true
+            }
+          })
         },
         { status: 422 } // 部署失败用422状态码
       );
