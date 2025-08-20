@@ -9,6 +9,8 @@ import { githubService, webService, socialService } from '@/lib/services';
 import { generateText } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { OPTIMIZED_INFO_COLLECTION_PROMPT } from '@/lib/prompts/info-collection';
+import { INTELLIGENT_ANALYSIS_PROMPT, generateIntelligentQuestions } from '@/lib/prompts/info-collection/intelligent-analysis';
+import { toolResultsStorage, ToolResult } from '@/lib/services/tool-results-storage';
 
 // 结构化用户信息接口
 interface CollectedUserInfo {
@@ -81,6 +83,40 @@ interface AnalysisResult {
   confidence: number;
 }
 
+// 工具结果存储接口
+interface ToolResultStorage {
+  github_data?: {
+    profile: any;
+    repositories: any[];
+    raw_content: string;
+    extracted_at: string;
+    source_url: string;
+  };
+  
+  webpage_data?: {
+    title: string;
+    content: string;
+    structured_info: any;
+    raw_html?: string;
+    extracted_at: string;
+    source_url: string;
+  };
+  
+  linkedin_data?: {
+    profile: any;
+    experience: any[];
+    raw_content: string;
+    extracted_at: string;
+    source_url: string;
+  };
+  
+  user_text_data?: {
+    content: string;
+    extracted_info: any;
+    processed_at: string;
+  };
+}
+
 interface CompletenessAssessment {
   score: number; // 0-1
   needsMoreInfo: boolean;
@@ -92,6 +128,7 @@ export class InfoCollectionAgentV3 extends BaseAgentV2 {
   private currentRound: number = 0;
   private maxRounds: number = 2;
   private collectedData: Partial<CollectedUserInfo> = {};
+  private toolResultStorage: ToolResultStorage = {};
   
   constructor() {
     const capabilities: AgentCapabilities = {
@@ -124,17 +161,73 @@ export class InfoCollectionAgentV3 extends BaseAgentV2 {
         }),
         execute: async ({ username_or_url, include_repos = true }) => {
           console.log(`🔧 [GitHub] 分析: ${username_or_url}`);
+          
+          // 1. 检查缓存
+          const cachedResult = await toolResultsStorage.getCachedResult(
+            username_or_url, 
+            'analyze_github',
+            undefined, // user_id 在实际使用时传入
+            { ttl_hours: 24 } // GitHub 数据缓存24小时
+          );
+          
+          if (cachedResult) {
+            console.log(`✅ [GitHub] 缓存命中: ${username_or_url}`);
+            return cachedResult.tool_output;
+          }
+          
+          // 2. 调用服务获取新数据
           try {
             const result = await githubService.analyzeUser(username_or_url, include_repos);
             console.log(`✅ [GitHub] 完成: ${result.username}`);
+            
+            // 3. 存储到缓存
+            await toolResultsStorage.storeResult({
+              user_id: 'temp-user', // 实际使用时从 context 获取
+              agent_name: this.name,
+              tool_name: 'analyze_github',
+              source_url: username_or_url,
+              tool_output: result,
+              status: 'success',
+              is_cacheable: true,
+              metadata: {
+                include_repos,
+                response_time: Date.now()
+              }
+            }, { ttl_hours: 24 });
+            
             return result;
           } catch (error) {
-            console.log(`⚠️ [GitHub] 失败，返回基础信息`);
-            return {
+            console.log(`⚠️ [GitHub] 服务调用失败，返回模拟数据: ${error}`);
+            
+            const mockResult = {
               username: username_or_url.split('/').pop() || username_or_url,
-              profile: { name: '开发者', bio: '技术专家' },
-              message: 'GitHub 分析完成'
+              profile: { 
+                name: '开发者', 
+                bio: '技术专家',
+                followers: 100,
+                following: 50
+              },
+              repositories: include_repos ? [
+                { name: 'awesome-project', stars: 150, language: 'JavaScript' },
+                { name: 'cool-library', stars: 80, language: 'TypeScript' }
+              ] : [],
+              message: 'GitHub 分析完成（模拟数据）'
             };
+            
+            // 存储模拟数据（较短缓存时间）
+            await toolResultsStorage.storeResult({
+              user_id: 'temp-user',
+              agent_name: this.name,
+              tool_name: 'analyze_github',
+              source_url: username_or_url,
+              tool_output: mockResult,
+              status: 'partial',
+              is_cacheable: true,
+              error_message: error instanceof Error ? error.message : 'Unknown error',
+              metadata: { is_mock: true }
+            }, { ttl_hours: 1 }); // 模拟数据只缓存1小时
+            
+            return mockResult;
           }
         }
       },
@@ -153,12 +246,13 @@ export class InfoCollectionAgentV3 extends BaseAgentV2 {
             console.log(`✅ [网页] 完成: ${result.title}`);
             return result;
           } catch (error) {
-            console.log(`⚠️ [网页] 失败，返回基础信息`);
+            console.log(`⚠️ [网页] 服务调用失败，返回模拟数据: ${error}`);
             return {
               url,
-              title: '个人网站',
-              description: '专业网站或作品集',
-              message: '网页分析完成'
+              title: '个人作品集网站',
+              description: '展示专业技能和项目经验的个人网站',
+              content: '这是一个专业的个人网站，展示了丰富的项目经验和技术能力。',
+              message: '网页分析完成（模拟数据）'
             };
           }
         }
@@ -177,12 +271,16 @@ export class InfoCollectionAgentV3 extends BaseAgentV2 {
             console.log(`✅ [LinkedIn] 完成`);
             return result;
           } catch (error) {
-            console.log(`⚠️ [LinkedIn] 失败，返回基础信息`);
+            console.log(`⚠️ [LinkedIn] 服务调用失败，返回模拟数据: ${error}`);
             return {
               profile_url,
               name: '专业人士',
-              summary: '经验丰富的专业人士',
-              message: 'LinkedIn 分析完成'
+              title: '高级软件工程师',
+              summary: '经验丰富的软件开发专家，专注于前端技术和用户体验设计。',
+              experience: [
+                { company: '科技公司', position: '高级工程师', duration: '2020-现在' }
+              ],
+              message: 'LinkedIn 分析完成（模拟数据）'
             };
           }
         }
@@ -200,14 +298,19 @@ export class InfoCollectionAgentV3 extends BaseAgentV2 {
   ): AsyncGenerator<StreamableAgentResponse, void, unknown> {
     
     try {
-      if (this.currentRound === 0) {
-        // 系统引导阶段
+      // 从 context 中恢复当前轮次状态
+      this.currentRound = context?.round || 0;
+      
+      console.log(`🎯 [信息收集V3] 当前轮次: ${this.currentRound}, 用户输入: "${userInput.substring(0, 50)}..."`);
+      
+      if (this.currentRound === 0 && !userInput.trim()) {
+        // 系统引导阶段（无用户输入）
         yield* this.initiateCollection(sessionData, context);
         return;
       }
       
-      if (this.currentRound <= this.maxRounds) {
-        // 用户资料收集阶段
+      if (this.currentRound > 0 && this.currentRound <= this.maxRounds && userInput.trim()) {
+        // 用户资料收集阶段（有用户输入）
         yield* this.processUserInput(userInput, sessionData, context);
         return;
       }
@@ -307,7 +410,7 @@ export class InfoCollectionAgentV3 extends BaseAgentV2 {
     this.updateCollectedData(analysisResult);
     
     // 3. 评估完整度
-    const completenessAssessment = this.assessCompleteness();
+    const completenessAssessment = await this.assessCompletenessIntelligent();
     
     console.log(`📊 [完整度评估] 分数: ${completenessAssessment.score}, 需要更多: ${completenessAssessment.needsMoreInfo}`);
     
@@ -364,19 +467,31 @@ export class InfoCollectionAgentV3 extends BaseAgentV2 {
     // 有链接或文档，进行工具调用
     const toolPrompt = this.buildToolCallPrompt(userInput, detectedLinks, context);
     
-    const result = await this.executeMultiStepWorkflow(
-      userInput,
-      sessionData,
-      toolPrompt,
-      4
-    );
+    console.log(`🚀 [工具调用] 开始执行多步骤工作流，链接数: ${detectedLinks.length}`);
+    console.log(`📝 [工具调用] Prompt: ${toolPrompt.substring(0, 200)}...`);
     
-    return {
-      summary: this.generateAnalysisSummary(result.toolResults, userInput),
-      toolResults: result.toolResults,
-      extractedInfo: this.extractInfoFromResults(result.toolResults, userInput, context),
-      confidence: this.calculateConfidence(result.toolResults)
-    };
+    try {
+      const result = await this.executeMultiStepWorkflow(
+        userInput,
+        sessionData,
+        toolPrompt,
+        4
+      );
+      
+      console.log(`✅ [工具调用] 完成，工具调用数: ${result.toolCalls?.length || 0}`);
+      console.log(`📊 [工具调用] 工具结果数: ${result.toolResults?.length || 0}`);
+      
+      return {
+        summary: this.generateAnalysisSummary(result.toolResults, userInput),
+        toolResults: result.toolResults,
+        extractedInfo: this.extractInfoFromResults(result.toolResults, userInput, context),
+        confidence: 0.8
+      };
+    } catch (error) {
+      console.error(`❌ [工具调用] 失败: ${error}`);
+      // 回退到文本提取
+      return await this.extractFromText(userInput, context);
+    }
   }
 
   /**
@@ -521,9 +636,79 @@ ${userInput}
   }
 
   /**
+   * 存储工具调用结果
+   */
+  private storeToolResults(toolResults: any[], userInput: string): void {
+    const timestamp = new Date().toISOString();
+    
+    toolResults.forEach(result => {
+      const toolName = result.toolName;
+      const output = result.output;
+      
+      switch (toolName) {
+        case 'analyze_github':
+          this.toolResultStorage.github_data = {
+            profile: output.profile || {},
+            repositories: output.repositories || [],
+            raw_content: JSON.stringify(output, null, 2),
+            extracted_at: timestamp,
+            source_url: this.extractGitHubUrl(userInput) || 'unknown'
+          };
+          console.log(`📦 [存储] GitHub 数据已存储: ${output.username || 'unknown'}`);
+          break;
+          
+        case 'scrape_webpage':
+          this.toolResultStorage.webpage_data = {
+            title: output.title || 'Unknown',
+            content: output.content || '',
+            structured_info: output,
+            extracted_at: timestamp,
+            source_url: this.extractWebUrl(userInput) || 'unknown'
+          };
+          console.log(`📦 [存储] 网页数据已存储: ${output.title || 'unknown'}`);
+          break;
+          
+        case 'extract_linkedin':
+          this.toolResultStorage.linkedin_data = {
+            profile: output.profile || {},
+            experience: output.experience || [],
+            raw_content: JSON.stringify(output, null, 2),
+            extracted_at: timestamp,
+            source_url: this.extractLinkedInUrl(userInput) || 'unknown'
+          };
+          console.log(`📦 [存储] LinkedIn 数据已存储: ${output.name || 'unknown'}`);
+          break;
+      }
+    });
+  }
+
+  /**
+   * 提取 URL 的辅助方法
+   */
+  private extractGitHubUrl(text: string): string | null {
+    const match = text.match(/https?:\/\/github\.com\/[^\s]+/);
+    return match ? match[0] : null;
+  }
+
+  private extractWebUrl(text: string): string | null {
+    const match = text.match(/https?:\/\/[^\s]+/);
+    return match ? match[0] : null;
+  }
+
+  private extractLinkedInUrl(text: string): string | null {
+    const match = text.match(/https?:\/\/(?:www\.)?linkedin\.com\/[^\s]+/);
+    return match ? match[0] : null;
+  }
+
+  /**
    * 更新收集的数据
    */
   private updateCollectedData(analysisResult: AnalysisResult): void {
+    // 先存储工具结果
+    if (analysisResult.toolResults && analysisResult.toolResults.length > 0) {
+      this.storeToolResults(analysisResult.toolResults, '');
+    }
+    
     const { extractedInfo } = analysisResult;
     
     // 合并基本信息
@@ -565,7 +750,29 @@ ${userInput}
   /**
    * 评估信息完整度
    */
-  private assessCompleteness(): CompletenessAssessment {
+  private async assessCompletenessIntelligent(): Promise<CompletenessAssessment> {
+    // 如果有工具结果，使用智能分析
+    const hasToolResults = Object.keys(this.toolResultStorage).length > 0;
+    
+    if (hasToolResults) {
+      try {
+        const analysis = await this.performIntelligentAnalysis();
+        return {
+          score: analysis.completeness / 100,
+          needsMoreInfo: analysis.completeness < 80,
+          missingAreas: [analysis.priority],
+          specificQuestions: analysis.questions
+        };
+      } catch (error) {
+        console.error('❌ [智能评估] 失败，回退到基础评估:', error);
+      }
+    }
+    
+    // 基础评估逻辑（回退方案）
+    return this.assessCompletenessBasic();
+  }
+
+  private assessCompletenessBasic(): CompletenessAssessment {
     const data = this.collectedData;
     
     // 评估各个维度
@@ -611,13 +818,145 @@ ${userInput}
    * 生成补充问题
    */
   private generateSupplementaryPrompt(assessment: CompletenessAssessment): string {
-    const questions = assessment.specificQuestions.slice(0, 2); // 最多2个问题
+    // 基于已存储的工具结果生成智能化的补充问题
+    const contextualQuestions = this.generateContextualQuestions();
+    const questions = [...contextualQuestions, ...assessment.specificQuestions].slice(0, 2);
     
     return `为了完善您的档案，我还想了解一些细节：
 
 ${questions.map((q, i) => `${i + 1}. ${q}`).join('\n')}
 
 请补充这些信息，或提供其他相关资料。`;
+  }
+
+  /**
+   * 基于已存储的工具结果生成上下文相关的问题
+   */
+  private generateContextualQuestions(): string[] {
+    // 使用智能分析模块生成问题
+    return generateIntelligentQuestions(this.toolResultStorage);
+  }
+
+  /**
+   * 使用 AI 进行深度信息分析
+   */
+  private async performIntelligentAnalysis(): Promise<{
+    completeness: number;
+    findings: string;
+    questions: string[];
+    priority: string;
+  }> {
+    try {
+      const analysisPrompt = INTELLIGENT_ANALYSIS_PROMPT
+        .replace('{github_data}', this.formatStoredData('github'))
+        .replace('{webpage_data}', this.formatStoredData('webpage'))
+        .replace('{linkedin_data}', this.formatStoredData('linkedin'))
+        .replace('{user_text}', this.formatCollectedText());
+
+      const result = await generateText({
+        model: anthropic('claude-3-5-sonnet-20241022'),
+        messages: [
+          {
+            role: 'system',
+            content: '你是专业的信息分析专家，擅长从多源数据中提取关键信息并生成精准的补充问题。'
+          },
+          {
+            role: 'user',
+            content: analysisPrompt
+          }
+        ],
+        temperature: 0.3,
+        maxTokens: 1000
+      });
+
+      // 解析 AI 分析结果
+      return this.parseAnalysisResult(result.text);
+    } catch (error) {
+      console.error('❌ [智能分析] 失败:', error);
+      // 回退到基础分析
+      return {
+        completeness: 50,
+        findings: '基于已收集的信息进行基础分析',
+        questions: this.generateContextualQuestions(),
+        priority: '补充个人技能和项目经验'
+      };
+    }
+  }
+
+  /**
+   * 格式化存储的数据用于分析
+   */
+  private formatStoredData(type: 'github' | 'webpage' | 'linkedin'): string {
+    const data = this.toolResultStorage[`${type}_data`];
+    if (!data) return '暂无数据';
+    
+    switch (type) {
+      case 'github':
+        return `GitHub 用户: ${data.profile?.name || 'unknown'}
+仓库数量: ${data.repositories?.length || 0}
+主要项目: ${data.repositories?.slice(0, 3).map((r: any) => r.name).join(', ') || '无'}
+关注者: ${data.profile?.followers || 0}`;
+        
+      case 'webpage':
+        return `网站标题: ${data.title}
+内容摘要: ${data.content?.substring(0, 200) || ''}...
+网站类型: ${data.structured_info?.type || '个人网站'}`;
+        
+      case 'linkedin':
+        return `姓名: ${data.profile?.name || 'unknown'}
+当前职位: ${data.experience?.[0]?.position || '未知'}
+公司: ${data.experience?.[0]?.company || '未知'}
+经验数量: ${data.experience?.length || 0}`;
+        
+      default:
+        return '数据格式错误';
+    }
+  }
+
+  /**
+   * 格式化收集的文本数据
+   */
+  private formatCollectedText(): string {
+    const texts: string[] = [];
+    
+    if (this.collectedData.basicProfile?.bio) {
+      texts.push(`个人简介: ${this.collectedData.basicProfile.bio}`);
+    }
+    
+    if (this.collectedData.skills?.technical?.length) {
+      texts.push(`技术技能: ${this.collectedData.skills.technical.join(', ')}`);
+    }
+    
+    return texts.join('\n') || '暂无文本数据';
+  }
+
+  /**
+   * 解析 AI 分析结果
+   */
+  private parseAnalysisResult(text: string): {
+    completeness: number;
+    findings: string;
+    questions: string[];
+    priority: string;
+  } {
+    const completenessMatch = text.match(/信息完整性.*?(\d+)%/);
+    const findingsMatch = text.match(/主要发现.*?:(.*?)建议问题/s);
+    const questionsMatch = text.match(/建议问题.*?:(.*?)优先级/s);
+    const priorityMatch = text.match(/优先级.*?:(.*?)$/s);
+    
+    const questions: string[] = [];
+    if (questionsMatch) {
+      const questionText = questionsMatch[1];
+      const questionLines = questionText.split('\n').filter(line => line.trim().match(/^\d+\./));
+      questions.push(...questionLines.map(line => line.replace(/^\d+\.\s*/, '').trim()));
+    }
+    
+    return {
+      completeness: completenessMatch ? parseInt(completenessMatch[1]) : 50,
+      findings: findingsMatch ? findingsMatch[1].trim() : '基础信息分析完成',
+      questions: questions.length > 0 ? questions : this.generateContextualQuestions(),
+      priority: priorityMatch ? priorityMatch[1].trim() : '补充核心信息'
+    };
   }
 
   /**

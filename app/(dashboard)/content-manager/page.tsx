@@ -1,6 +1,8 @@
 'use client'
 
 import { Suspense, useState, useEffect, useRef } from 'react'
+import ToolResultCard from '@/components/content-manager/tool-results/ToolResultCard'
+import ToolResultDetailPanel from '@/components/content-manager/tool-results/ToolResultDetailPanel'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
@@ -51,7 +53,7 @@ import { useTheme } from '@/contexts/theme-context'
 // 内容类型定义
 interface ContentItem {
   id: string
-  type: 'personal' | 'professional' | 'project' | 'education' | 'experience' | 'media'
+  type: 'personal' | 'professional' | 'project' | 'education' | 'experience' | 'media' | 'tool_result'
   category: string
   title: string
   content: any
@@ -59,7 +61,34 @@ interface ContentItem {
   usedInPages: string[]
   lastModified: Date
   syncStatus: 'synced' | 'pending' | 'failed'
-  source: 'manual' | 'imported' | 'ai_generated'
+  source: 'manual' | 'imported' | 'ai_generated' | 'tool_extracted'
+}
+
+// 工具结果数据类型
+interface ToolResultData {
+  id: string
+  tool_name: 'analyze_github' | 'scrape_webpage' | 'extract_linkedin'
+  source_url: string
+  extracted_data: any
+  cache_info: {
+    created_at: string
+    expires_at: string
+    hit_count: number
+    status: 'fresh' | 'cached' | 'expired'
+    last_accessed: string
+  }
+  usage_stats: {
+    used_in_pages: string[]
+    sync_count: number
+    last_sync: string
+    page_details: Array<{
+      page_id: string
+      page_title: string
+      last_sync: string
+      sync_status: 'success' | 'failed' | 'pending'
+    }>
+  }
+  tags: string[]
 }
 
 // 同步任务定义
@@ -85,6 +114,17 @@ const contentCategories = [
     label: '全部内容',
     icon: Folder,
     count: 0
+  },
+  {
+    id: 'tool_results',
+    label: '工具提取内容',
+    icon: Zap,
+    subcategories: [
+      { id: 'github_analysis', label: 'GitHub 分析', icon: Code },
+      { id: 'webpage_scraping', label: '网页抓取', icon: Link2 },
+      { id: 'linkedin_extraction', label: 'LinkedIn 提取', icon: User },
+      { id: 'cached_results', label: '缓存结果', icon: Clock }
+    ]
   },
   {
     id: 'personal',
@@ -581,9 +621,13 @@ export default function ContentManagerPage() {
   const [selectedCategory, setSelectedCategory] = useState('all')
   const [searchTerm, setSearchTerm] = useState('')
   const [contentItems, setContentItems] = useState<ContentItem[]>(mockContentItems)
+  const [toolResults, setToolResults] = useState<ToolResultData[]>([])
   const [loading, setLoading] = useState(false)
+  const [toolResultsLoading, setToolResultsLoading] = useState(false)
   const [editingItem, setEditingItem] = useState<ContentItem | null>(null)
   const [showEditDialog, setShowEditDialog] = useState(false)
+  const [selectedToolResult, setSelectedToolResult] = useState<ToolResultData | null>(null)
+  const [showToolResultDetail, setShowToolResultDetail] = useState(false)
   const [activeSyncTasks, setActiveSyncTasks] = useState<SyncTask[]>([])
 
   // 获取内容数据
@@ -605,8 +649,28 @@ export default function ContentManagerPage() {
     }
   }
 
+  // 获取工具结果数据
+  const fetchToolResults = async () => {
+    setToolResultsLoading(true)
+    try {
+      const response = await fetch('/api/content/tool-results')
+      const data = await response.json()
+      
+      if (data.success) {
+        setToolResults(data.data.results)
+      } else {
+        console.error('获取工具结果失败:', data.error)
+      }
+    } catch (error) {
+      console.error('获取工具结果失败:', error)
+    } finally {
+      setToolResultsLoading(false)
+    }
+  }
+
   useEffect(() => {
     fetchContentData()
+    fetchToolResults()
   }, [])
 
   // 筛选内容
@@ -619,6 +683,30 @@ export default function ContentManagerPage() {
                          item.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
     return matchesCategory && matchesSearch
   })
+
+  // 筛选工具结果
+  const filteredToolResults = toolResults.filter(item => {
+    // 工具结果分类筛选
+    const matchesCategory = selectedCategory === 'all' || 
+                           selectedCategory === 'tool_results' ||
+                           (selectedCategory === 'github_analysis' && item.tool_name === 'analyze_github') ||
+                           (selectedCategory === 'webpage_scraping' && item.tool_name === 'scrape_webpage') ||
+                           (selectedCategory === 'linkedin_extraction' && item.tool_name === 'extract_linkedin') ||
+                           (selectedCategory === 'cached_results' && item.cache_info.status !== 'fresh')
+    
+    const matchesSearch = searchTerm === '' ||
+                         item.source_url.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                         item.tags.some(tag => tag.toLowerCase().includes(searchTerm.toLowerCase()))
+    return matchesCategory && matchesSearch
+  })
+
+  // 判断是否显示工具结果
+  const shouldShowToolResults = selectedCategory === 'all' || 
+                               selectedCategory === 'tool_results' ||
+                               selectedCategory === 'github_analysis' ||
+                               selectedCategory === 'webpage_scraping' ||
+                               selectedCategory === 'linkedin_extraction' ||
+                               selectedCategory === 'cached_results'
 
   // 处理编辑
   const handleEdit = (item: ContentItem) => {
@@ -712,6 +800,80 @@ export default function ContentManagerPage() {
   const handleDelete = async (item: ContentItem) => {
     if (confirm('确定要删除这个内容吗？这可能会影响相关页面的显示。')) {
       setContentItems(prev => prev.filter(i => i.id !== item.id))
+    }
+  }
+
+  // 工具结果处理函数
+  const handleToolResultEdit = (data: ToolResultData) => {
+    setSelectedToolResult(data)
+    setShowToolResultDetail(true)
+  }
+
+  const handleToolResultRefresh = async (data: ToolResultData) => {
+    try {
+      const response = await fetch(`/api/content/tool-results/${data.id}/refresh`, {
+        method: 'POST'
+      })
+      const result = await response.json()
+      
+      if (result.success) {
+        // 更新本地状态
+        setToolResults(prev => 
+          prev.map(item => item.id === data.id ? result.data : item)
+        )
+        console.log('缓存刷新成功')
+      } else {
+        console.error('刷新失败:', result.error)
+      }
+    } catch (error) {
+      console.error('刷新工具结果失败:', error)
+    }
+  }
+
+  const handleToolResultSync = async (data: ToolResultData) => {
+    if (data.usage_stats.used_in_pages.length === 0) {
+      console.log('该工具结果未被任何页面使用')
+      return
+    }
+
+    // 创建同步任务
+    const syncTask: SyncTask = {
+      id: `sync-tool-${Date.now()}`,
+      contentId: data.id,
+      affectedPages: data.usage_stats.used_in_pages.map(id => ({ id, title: `页面 ${id}` })),
+      status: 'pending',
+      progress: 0,
+      startTime: new Date(),
+      results: []
+    }
+
+    setActiveSyncTasks(prev => [...prev, syncTask])
+    simulateSyncProcess(syncTask)
+  }
+
+  const handleToolResultDelete = async (data: ToolResultData) => {
+    if (data.usage_stats.used_in_pages.length > 0) {
+      if (!confirm(`该工具结果正在被 ${data.usage_stats.used_in_pages.length} 个页面使用，确定要删除吗？`)) {
+        return
+      }
+    }
+
+    try {
+      const response = await fetch(`/api/content/tool-results/${data.id}`, {
+        method: 'DELETE'
+      })
+      const result = await response.json()
+      
+      if (result.success) {
+        setToolResults(prev => prev.filter(item => item.id !== data.id))
+        setShowToolResultDetail(false)
+        setSelectedToolResult(null)
+        console.log('工具结果已删除')
+      } else {
+        console.error('删除失败:', result.error)
+      }
+    } catch (error) {
+      console.error('删除工具结果失败:', error)
     }
   }
 
@@ -899,7 +1061,12 @@ export default function ContentManagerPage() {
                   <div className={`text-sm ${
                     theme === "light" ? "text-gray-600" : "text-gray-400"
                   }`}>
-                    共 {filteredItems.length} 项内容
+                    共 {shouldShowToolResults ? filteredItems.length + filteredToolResults.length : filteredItems.length} 项内容
+                    {shouldShowToolResults && filteredToolResults.length > 0 && (
+                      <span className="ml-2 text-purple-600">
+                        (含 {filteredToolResults.length} 个工具结果)
+                      </span>
+                    )}
                   </div>
                 </div>
               </CardContent>
@@ -907,7 +1074,7 @@ export default function ContentManagerPage() {
 
             {/* 内容网格 */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {loading ? (
+              {(loading || toolResultsLoading) ? (
                 // 加载骨架
                 Array.from({ length: 6 }).map((_, i) => (
                   <Card key={i} className={`${
@@ -932,37 +1099,55 @@ export default function ContentManagerPage() {
                     </CardContent>
                   </Card>
                 ))
-              ) : filteredItems.length > 0 ? (
-                filteredItems.map((item) => (
-                  <ContentCard
-                    key={item.id}
-                    item={item}
-                    onEdit={handleEdit}
-                    onSync={handleSync}
-                    onDelete={handleDelete}
-                  />
-                ))
               ) : (
-                <div className="col-span-2 text-center py-12">
-                  <div className={`text-6xl mb-4 opacity-20 ${
-                    theme === "light" ? "text-gray-400" : "text-gray-600"
-                  }`}>
-                    📁
-                  </div>
-                  <p className={`text-lg font-medium mb-2 ${
-                    theme === "light" ? "text-gray-700" : "text-gray-300"
-                  }`}>
-                    暂无内容
-                  </p>
-                  <p className={`text-sm ${
-                    theme === "light" ? "text-gray-500" : "text-gray-400"
-                  }`}>
-                    {selectedCategory === 'all' 
-                      ? '还没有任何内容，开始创建您的第一个内容吧！'
-                      : '当前分类下暂无内容，试试其他分类或创建新内容。'
-                    }
-                  </p>
-                </div>
+                <>
+                  {/* 工具结果卡片 */}
+                  {shouldShowToolResults && filteredToolResults.map((toolResult) => (
+                    <ToolResultCard
+                      key={toolResult.id}
+                      data={toolResult}
+                      onEdit={handleToolResultEdit}
+                      onRefresh={handleToolResultRefresh}
+                      onSync={handleToolResultSync}
+                      onDelete={handleToolResultDelete}
+                    />
+                  ))}
+                  
+                  {/* 常规内容卡片 */}
+                  {filteredItems.map((item) => (
+                    <ContentCard
+                      key={item.id}
+                      item={item}
+                      onEdit={handleEdit}
+                      onSync={handleSync}
+                      onDelete={handleDelete}
+                    />
+                  ))}
+                  
+                  {/* 空状态 */}
+                  {filteredItems.length === 0 && filteredToolResults.length === 0 && (
+                    <div className="col-span-2 text-center py-12">
+                      <div className={`text-6xl mb-4 opacity-20 ${
+                        theme === "light" ? "text-gray-400" : "text-gray-600"
+                      }`}>
+                        📁
+                      </div>
+                      <p className={`text-lg font-medium mb-2 ${
+                        theme === "light" ? "text-gray-700" : "text-gray-300"
+                      }`}>
+                        暂无内容
+                      </p>
+                      <p className={`text-sm ${
+                        theme === "light" ? "text-gray-500" : "text-gray-400"
+                      }`}>
+                        {selectedCategory === 'all' 
+                          ? '还没有任何内容，开始创建您的第一个内容吧！'
+                          : '当前分类下暂无内容，试试其他分类或创建新内容。'
+                        }
+                      </p>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -978,6 +1163,20 @@ export default function ContentManagerPage() {
           setEditingItem(null)
         }}
         onSave={handleSave}
+      />
+
+      {/* 工具结果详情面板 */}
+      <ToolResultDetailPanel
+        data={selectedToolResult}
+        isOpen={showToolResultDetail}
+        onClose={() => {
+          setShowToolResultDetail(false)
+          setSelectedToolResult(null)
+        }}
+        onEdit={handleToolResultEdit}
+        onRefresh={handleToolResultRefresh}
+        onSync={handleToolResultSync}
+        onDelete={handleToolResultDelete}
       />
 
       {/* 同步状态监控器 */}
