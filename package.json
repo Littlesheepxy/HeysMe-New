@@ -10,7 +10,7 @@
   },
   "dependencies": {
     "@ai-sdk/amazon-bedrock": "^3.0.8",
-    "@ai-sdk/anthropic": "latest",
+    "@ai-sdk/anthropic": "^2.0.5",
     "@ai-sdk/openai": "latest",
     "@aws-sdk/client-bedrock-runtime": "^3.864.0",
     "@aws-sdk/client-s3": "^3.839.0",
@@ -56,7 +56,7 @@
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/react-virtualized": "^9.22.2",
     "@vercel/sdk": "latest",
-    "ai": "latest",
+    "ai": "^5.0.18",
     "bad-words": "^3.0.4",
     "cheerio": "^1.1.0",
     "class-variance-authority": "^0.7.1",

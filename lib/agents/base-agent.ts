@@ -539,7 +539,8 @@ export abstract class BaseAgent {
         console.log(`💬 [消息数组] 构建完成，总消息数: ${messages.length}`);
         messages.forEach((msg, index) => {
           const roleIcon = msg.role === 'user' ? '👤' : msg.role === 'assistant' ? '🤖' : '📝';
-          const preview = msg.content.length > 100 ? msg.content.substring(0, 100) + '...' : msg.content;
+          const content = msg.content || '[empty content]';
+          const preview = content.length > 100 ? content.substring(0, 100) + '...' : content;
           console.log(`  ${roleIcon} [${index}] ${preview}`);
         });
       } else {
