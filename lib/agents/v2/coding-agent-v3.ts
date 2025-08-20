@@ -8,6 +8,7 @@ import { z } from 'zod';
 import { generateText } from 'ai';
 import { anthropic } from '@ai-sdk/anthropic';
 import { INCREMENTAL_EDIT_PROMPT } from '@/lib/prompts/coding/incremental-edit';
+import { CODING_EXPERT_MODE_PROMPT, getCodingPrompt } from '@/lib/prompts/coding';
 import fs from 'fs/promises';
 import path from 'path';
 import { exec } from 'child_process';
@@ -609,29 +610,43 @@ export class CodingAgentV3 extends BaseAgentV2 {
    * 构建初始项目生成 prompt
    */
   private buildInitialProjectPrompt(userInput: string, context?: Record<string, any>): string {
-    return `你是一个专业的全栈开发专家。用户需要创建一个新项目：
+    // 使用现有的专业编程 prompt，并添加工具调用指导
+    const basePrompt = CODING_EXPERT_MODE_PROMPT;
+    
+    const toolGuidance = `
 
-用户需求：
-${userInput}
+## 🛠️ 工具调用指导
 
-项目上下文：
+**🚨 重要：你必须使用工具调用来创建项目文件！**
+
+请按照以下步骤使用工具：
+
+### 第一步：分析项目结构
+1. 使用 \`get_file_structure\` 了解当前目录状态
+2. 使用 \`list_files\` 查看现有文件
+
+### 第二步：创建项目文件
+1. 使用 \`write_file\` 创建 package.json（包含所有必要依赖）
+2. 使用 \`write_file\` 创建配置文件（next.config.js, tailwind.config.js 等）
+3. 使用 \`write_file\` 创建核心组件和页面文件
+4. 使用 \`write_file\` 创建样式文件
+
+### 第三步：项目初始化
+1. 使用 \`run_command\` 安装依赖（如 npm install）
+2. 使用 \`run_command\` 运行构建测试（如 npm run build）
+
+## 📋 当前项目需求
+
+**用户需求：** ${userInput}
+
+**项目配置：**
 - 框架偏好：${context?.framework || 'Next.js'}
 - 技术栈：${context?.tech_stack || 'React + TypeScript'}
 - 项目类型：${context?.project_type || 'Web应用'}
 
-请使用以下工具来创建完整的项目结构：
-1. 使用 get_file_structure 了解当前目录
-2. 使用 write_file 创建必要的文件
-3. 使用 run_command 安装依赖和初始化项目
-4. 确保项目结构清晰、代码质量高
+请严格按照 V0 标准和工具调用流程来创建完整的项目结构。用中文回复，详细说明每个步骤。`;
 
-请按照最佳实践创建项目，包括：
-- 合理的目录结构
-- 必要的配置文件
-- 基础的组件和页面
-- 适当的样式和布局
-
-用中文回复，详细说明每个步骤。`;
+    return basePrompt + toolGuidance;
   }
 
   /**
@@ -658,24 +673,64 @@ ${userInput}
    * 构建代码分析 prompt
    */
   private buildAnalysisPrompt(userInput: string, context?: Record<string, any>): string {
-    return `你是一个专业的代码分析专家。用户需要分析代码：
+    return `你是HeysMe平台的专业代码分析专家，专门进行深度代码审查和架构分析。
 
-分析请求：
-${userInput}
+## 🔍 代码分析任务
 
-请使用以下工具来分析代码：
-1. 使用 get_file_structure 了解项目结构
-2. 使用 read_file 读取相关文件
-3. 使用 search_code 搜索特定代码模式
-4. 使用 list_files 获取文件清单
+**分析请求：** ${userInput}
 
-请提供详细的分析报告，包括：
-- 代码结构分析
-- 潜在问题识别
-- 改进建议
-- 最佳实践建议
+**分析上下文：**
+- 项目类型：${context?.project_type || '待分析'}
+- 技术栈：${context?.tech_stack || '待识别'}
+- 关注重点：${context?.focus_areas || '全面分析'}
 
-用中文回复。`;
+## 🛠️ 分析工具使用流程
+
+### 第一阶段：项目概览
+1. 使用 \`get_file_structure\` 获取完整项目结构
+2. 使用 \`list_files\` 列出所有文件清单
+3. 使用 \`read_file\` 读取 package.json 了解依赖
+
+### 第二阶段：核心代码分析
+1. 使用 \`read_file\` 读取关键文件（入口文件、主要组件等）
+2. 使用 \`search_code\` 搜索特定模式和潜在问题
+3. 使用 \`read_file\` 深入分析重要模块
+
+### 第三阶段：质量评估
+1. 检查代码规范和最佳实践
+2. 识别性能瓶颈和安全问题
+3. 评估架构设计和可维护性
+
+## 📊 分析报告要求
+
+请提供结构化的分析报告，包括：
+
+### 🏗️ 架构分析
+- 项目结构合理性
+- 模块化程度评估
+- 依赖关系分析
+
+### 🔧 代码质量
+- 编码规范遵循情况
+- 类型安全性检查
+- 错误处理机制
+
+### 🚀 性能评估
+- 潜在性能问题
+- 优化建议
+- 最佳实践推荐
+
+### 🛡️ 安全性检查
+- 安全漏洞识别
+- 数据验证检查
+- 权限控制评估
+
+### 📈 改进建议
+- 具体优化方案
+- 重构建议
+- 技术升级建议
+
+用中文提供详细的专业分析报告。`;
   }
 
   /**
