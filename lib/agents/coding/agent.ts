@@ -1,20 +1,21 @@
 import { BaseAgent } from '../base-agent';
-import { BaseAgentV2 } from '../v2/base-agent';
 import { 
   StreamableAgentResponse, 
   AgentCapabilities
 } from '@/lib/types/streaming';
 import { SessionData } from '@/lib/types/session';
 import { CodeFile } from './types';
+import { anthropic } from '@ai-sdk/anthropic';
+import { generateText, tool, stepCountIs } from 'ai';
+import { z } from 'zod';
+import fs from 'fs/promises';
+import path from 'path';
 
 
 /**
  * Coding Agent - AI驱动的代码生成
- * 🆕 升级版：结合 BaseAgent 和 BaseAgentV2 的优势
  */
 export class CodingAgent extends BaseAgent {
-  // 🆕 V2 功能适配器
-  private v2Adapter: BaseAgentV2;
   constructor() {
     const capabilities: AgentCapabilities = {
       canStream: true,
@@ -25,639 +26,204 @@ export class CodingAgent extends BaseAgent {
     };
     
     super('CodingAgent', capabilities);
-    
-    // 🆕 初始化 V2 适配器
-    const v2Capabilities = {
-      canStream: true,
-      canUseTools: true,
-      canAnalyzeCode: true,
-      canGenerateCode: true,
-      canAccessFiles: true,
-      canAccessInternet: false,
-      canRememberContext: true,
-      maxContextLength: 200000,
-      supportedLanguages: ['zh', 'en'],
-      specializedFor: ['code_generation', 'file_operations', 'project_development']
+  }
+
+  /**
+   * 🆕 Vercel AI SDK 工具定义 - 用于增量编辑
+   */
+  private getVercelAITools() {
+    return {
+      create_file: tool({
+        description: 'Create a new file with specified content. Use this for creating new files in the project.',
+        inputSchema: z.object({
+          file_path: z.string().describe('Relative path for the new file (e.g., "src/components/Button.tsx")'),
+          content: z.string().describe('Complete file content to write'),
+          description: z.string().optional().describe('Brief description of what this file does')
+        }),
+        execute: async ({ file_path, content, description }) => {
+          console.log(`🔧 [创建文件] ${file_path}`);
+          try {
+            // 确保目录存在
+            const dir = path.dirname(file_path);
+            await fs.mkdir(dir, { recursive: true });
+            
+            // 写入文件
+            await fs.writeFile(file_path, content, 'utf8');
+            
+            const stats = await fs.stat(file_path);
+            console.log(`✅ [文件创建成功] ${file_path} (${stats.size} bytes)`);
+            
+            return {
+              success: true,
+              file_path,
+              size: stats.size,
+              description: description || '新创建的文件',
+              action: 'created'
+            };
+          } catch (error) {
+            console.error(`❌ [文件创建失败] ${file_path}:`, error);
+            throw error;
+          }
+        }
+      }),
+
+      edit_file: tool({
+        description: 'Edit an existing file by replacing specific content or adding new content.',
+        inputSchema: z.object({
+          file_path: z.string().describe('Path to the file to edit'),
+          old_content: z.string().optional().describe('Content to replace (if doing replacement)'),
+          new_content: z.string().describe('New content to add or replace with'),
+          operation: z.enum(['replace', 'append', 'prepend']).describe('Type of edit operation'),
+          description: z.string().optional().describe('Brief description of the changes')
+        }),
+        execute: async ({ file_path, old_content, new_content, operation, description }) => {
+          console.log(`🔧 [编辑文件] ${file_path} - ${operation}`);
+          try {
+            let currentContent = '';
+            try {
+              currentContent = await fs.readFile(file_path, 'utf8');
+            } catch (error) {
+              if (operation === 'replace' && old_content) {
+                throw new Error(`文件不存在: ${file_path}`);
+              }
+              // 对于 append/prepend，如果文件不存在就创建
+              currentContent = '';
+            }
+
+            let updatedContent = '';
+            switch (operation) {
+              case 'replace':
+                if (old_content) {
+                  if (!currentContent.includes(old_content)) {
+                    throw new Error(`未找到要替换的内容`);
+                  }
+                  updatedContent = currentContent.replace(old_content, new_content);
+                } else {
+                  updatedContent = new_content;
+                }
+                break;
+              case 'append':
+                updatedContent = currentContent + new_content;
+                break;
+              case 'prepend':
+                updatedContent = new_content + currentContent;
+                break;
+            }
+
+            // 确保目录存在
+            const dir = path.dirname(file_path);
+            await fs.mkdir(dir, { recursive: true });
+            
+            await fs.writeFile(file_path, updatedContent, 'utf8');
+            const stats = await fs.stat(file_path);
+            
+            console.log(`✅ [文件编辑成功] ${file_path} (${stats.size} bytes)`);
+            
+            return {
+              success: true,
+              file_path,
+              operation,
+              size: stats.size,
+              description: description || `执行了 ${operation} 操作`,
+              action: 'modified'
+            };
+          } catch (error) {
+            console.error(`❌ [文件编辑失败] ${file_path}:`, error);
+            throw error;
+          }
+        }
+      }),
+
+      read_file: tool({
+        description: 'Read the content of an existing file to understand its current state.',
+        inputSchema: z.object({
+          file_path: z.string().describe('Path to the file to read'),
+          encoding: z.enum(['utf8', 'base64']).optional().default('utf8').describe('File encoding')
+        }),
+        execute: async ({ file_path, encoding = 'utf8' }) => {
+          console.log(`🔧 [读取文件] ${file_path}`);
+          try {
+            const content = await fs.readFile(file_path, encoding);
+            const stats = await fs.stat(file_path);
+            
+            console.log(`✅ [文件读取成功] ${file_path} (${stats.size} bytes)`);
+            
+            return {
+              success: true,
+              file_path,
+              content,
+              size: stats.size,
+              modified: stats.mtime.toISOString(),
+              action: 'read'
+            };
+          } catch (error) {
+            console.error(`❌ [文件读取失败] ${file_path}:`, error);
+            throw error;
+          }
+        }
+      }),
+
+      list_files: tool({
+        description: 'List files and directories in a specified path to understand project structure.',
+        inputSchema: z.object({
+          directory_path: z.string().describe('Directory path to list (e.g., "src", ".", "components")'),
+          include_hidden: z.boolean().optional().default(false).describe('Whether to include hidden files'),
+          max_depth: z.number().optional().default(2).describe('Maximum depth to traverse')
+        }),
+        execute: async ({ directory_path, include_hidden = false, max_depth = 2 }) => {
+          console.log(`🔧 [列出文件] ${directory_path}`);
+          try {
+            const listDirectory = async (dir: string, currentDepth: number = 0): Promise<any[]> => {
+              if (currentDepth >= max_depth) return [];
+              
+              const items = await fs.readdir(dir);
+              const result = [];
+              
+              for (const item of items) {
+                if (!include_hidden && item.startsWith('.')) continue;
+                
+                const itemPath = path.join(dir, item);
+                const stats = await fs.stat(itemPath);
+                
+                const itemInfo: any = {
+                  name: item,
+                  path: itemPath,
+                  type: stats.isDirectory() ? 'directory' : 'file',
+                  size: stats.size,
+                  modified: stats.mtime.toISOString()
+                };
+                
+                if (stats.isDirectory() && currentDepth < max_depth - 1) {
+                  try {
+                    itemInfo.children = await listDirectory(itemPath, currentDepth + 1);
+                  } catch (error) {
+                    // 忽略无法访问的目录
+                  }
+                }
+                
+                result.push(itemInfo);
+              }
+              
+              return result;
+            };
+
+            const files = await listDirectory(directory_path);
+            console.log(`✅ [文件列表成功] ${directory_path} (${files.length} items)`);
+            
+            return {
+              success: true,
+              directory_path,
+              files,
+              total_items: files.length,
+              action: 'listed'
+            };
+          } catch (error) {
+            console.error(`❌ [文件列表失败] ${directory_path}:`, error);
+            throw error;
+          }
+        }
+      })
     };
-    
-    this.v2Adapter = new (class CodingAgentV3Enhanced extends BaseAgentV2 {
-      private workingDirectory: string = process.cwd();
-      
-      constructor() {
-        super('CodingAgent-V3-Enhanced', 'coding-v3', v2Capabilities);
-      }
-      
-      // 🛠️ 完整的 V3 工具集
-      getTools() {
-        const fs = require('fs/promises');
-        const path = require('path');
-        const { exec } = require('child_process');
-        const { promisify } = require('util');
-        const execAsync = promisify(exec);
-        const { z } = require('zod');
-        
-        return {
-          read_file: {
-            name: 'read_file',
-            description: '读取项目文件内容进行分析',
-            inputSchema: z.object({
-              file_path: z.string().describe('要读取的文件路径'),
-              start_line: z.number().optional().describe('起始行号（可选）'),
-              end_line: z.number().optional().describe('结束行号（可选）')
-            }),
-            execute: async ({ file_path, start_line, end_line }: any) => {
-              console.log(`🔧 [V3工具-读取文件] ${file_path}`);
-              try {
-                const fullPath = path.resolve(this.workingDirectory, file_path);
-                const content = await fs.readFile(fullPath, 'utf-8');
-                
-                if (start_line && end_line) {
-                  const lines = content.split('\n');
-                  const selectedLines = lines.slice(start_line - 1, end_line);
-                  return {
-                    success: true,
-                    content: selectedLines.join('\n'),
-                    totalLines: lines.length,
-                    selectedRange: `${start_line}-${end_line}`
-                  };
-                }
-                
-                return {
-                  success: true,
-                  content,
-                  size: content.length,
-                  lines: content.split('\n').length
-                };
-              } catch (error: any) {
-                console.log(`⚠️ [V3工具-读取文件] 失败: ${error}`);
-                return {
-                  success: false,
-                  error: `无法读取文件: ${error.message || '未知错误'}`
-                };
-              }
-            }
-          },
-
-          write_file: {
-            name: 'write_file',
-            description: '创建新文件或完全重写现有文件',
-            inputSchema: z.object({
-              file_path: z.string().describe('要写入的文件路径'),
-              content: z.string().describe('要写入的完整文件内容')
-            }),
-            execute: async ({ file_path, content }: any) => {
-              console.log(`🔧 [V3工具-写入文件] ${file_path}`);
-              try {
-                const fullPath = path.resolve(this.workingDirectory, file_path);
-                const dir = path.dirname(fullPath);
-                
-                // 确保目录存在
-                await fs.mkdir(dir, { recursive: true });
-                
-                // 写入文件
-                await fs.writeFile(fullPath, content, 'utf-8');
-                
-                return {
-                  success: true,
-                  file_path,
-                  size: content.length,
-                  lines: content.split('\n').length,
-                  message: `成功写入文件 ${file_path}`
-                };
-              } catch (error: any) {
-                console.log(`⚠️ [V3工具-写入文件] 失败: ${error}`);
-                return {
-                  success: false,
-                  error: `无法写入文件: ${error.message || '未知错误'}`
-                };
-              }
-            }
-          },
-
-          edit_file: {
-            name: 'edit_file',
-            description: '对现有文件进行精确的部分修改',
-            inputSchema: z.object({
-              file_path: z.string().describe('要编辑的文件路径'),
-              old_content: z.string().describe('需要替换的原内容'),
-              new_content: z.string().describe('新内容'),
-              line_number: z.number().optional().describe('行号（可选）')
-            }),
-            execute: async ({ file_path, old_content, new_content }: any) => {
-              console.log(`🔧 [V3工具-编辑文件] ${file_path}`);
-              try {
-                const fullPath = path.resolve(this.workingDirectory, file_path);
-                const content = await fs.readFile(fullPath, 'utf-8');
-                
-                // 执行替换
-                const updatedContent = content.replace(old_content, new_content);
-                
-                if (updatedContent === content) {
-                  return {
-                    success: false,
-                    error: '未找到要替换的内容'
-                  };
-                }
-                
-                // 写回文件
-                await fs.writeFile(fullPath, updatedContent, 'utf-8');
-                
-                return {
-                  success: true,
-                  file_path,
-                  changes_made: 1,
-                  old_length: content.length,
-                  new_length: updatedContent.length,
-                  message: `成功编辑文件 ${file_path}`
-                };
-              } catch (error: any) {
-                console.log(`⚠️ [V3工具-编辑文件] 失败: ${error}`);
-                return {
-                  success: false,
-                  error: `无法编辑文件: ${error.message || '未知错误'}`
-                };
-              }
-            }
-          },
-
-          append_to_file: {
-            name: 'append_to_file',
-            description: '在现有文件末尾添加新内容',
-            inputSchema: z.object({
-              file_path: z.string().describe('要追加内容的文件路径'),
-              content: z.string().describe('要追加的内容')
-            }),
-            execute: async ({ file_path, content }: any) => {
-              console.log(`🔧 [V3工具-追加文件] ${file_path}`);
-              try {
-                const fullPath = path.resolve(this.workingDirectory, file_path);
-                await fs.appendFile(fullPath, content, 'utf-8');
-                
-                return {
-                  success: true,
-                  file_path,
-                  appended_length: content.length,
-                  message: `成功向文件 ${file_path} 追加内容`
-                };
-              } catch (error: any) {
-                console.log(`⚠️ [V3工具-追加文件] 失败: ${error}`);
-                return {
-                  success: false,
-                  error: `无法追加文件: ${error.message || '未知错误'}`
-                };
-              }
-            }
-          },
-
-          delete_file: {
-            name: 'delete_file',
-            description: '安全删除不再需要的文件',
-            inputSchema: z.object({
-              file_path: z.string().describe('要删除的文件路径')
-            }),
-            execute: async ({ file_path }: any) => {
-              console.log(`🔧 [V3工具-删除文件] ${file_path}`);
-              try {
-                const fullPath = path.resolve(this.workingDirectory, file_path);
-                await fs.unlink(fullPath);
-                
-                return {
-                  success: true,
-                  file_path,
-                  message: `成功删除文件 ${file_path}`
-                };
-              } catch (error: any) {
-                console.log(`⚠️ [V3工具-删除文件] 失败: ${error}`);
-                return {
-                  success: false,
-                  error: `无法删除文件: ${error.message || '未知错误'}`
-                };
-              }
-            }
-          },
-
-          run_command: {
-            name: 'run_command',
-            description: '执行项目构建、测试或开发相关的shell命令',
-            inputSchema: z.object({
-              command: z.string().describe('要执行的命令'),
-              directory: z.string().optional().describe('执行目录（可选）')
-            }),
-            execute: async ({ command, directory }: any) => {
-              console.log(`🔧 [V3工具-执行命令] "${command}"`);
-              try {
-                const execDir = directory ? path.resolve(this.workingDirectory, directory) : this.workingDirectory;
-                const { stdout, stderr } = await execAsync(command, { cwd: execDir });
-                
-                return {
-                  success: true,
-                  command,
-                  directory: directory || '.',
-                  stdout,
-                  stderr,
-                  message: `命令执行完成: ${command}`
-                };
-              } catch (error: any) {
-                console.log(`⚠️ [V3工具-执行命令] 失败: ${error}`);
-                return {
-                  success: false,
-                  command,
-                  error: error.message,
-                  stdout: error.stdout || '',
-                  stderr: error.stderr || ''
-                };
-              }
-            }
-          },
-
-          get_file_structure: {
-            name: 'get_file_structure',
-            description: '获取项目的文件和目录结构',
-            inputSchema: z.object({
-              directory: z.string().optional().describe('目录路径（可选，默认为根目录）')
-            }),
-            execute: async ({ directory }: any) => {
-              console.log(`🔧 [V3工具-获取结构] ${directory || '根目录'}`);
-              try {
-                const targetDir = directory ? path.resolve(this.workingDirectory, directory) : this.workingDirectory;
-                const structure = await this.getDirectoryStructure(targetDir);
-                
-                return {
-                  success: true,
-                  directory: directory || '.',
-                  structure,
-                  message: '成功获取文件结构'
-                };
-              } catch (error: any) {
-                console.log(`⚠️ [V3工具-获取结构] 失败: ${error}`);
-                return {
-                  success: false,
-                  error: `无法获取文件结构: ${error.message || '未知错误'}`
-                };
-              }
-            }
-          },
-
-          list_files: {
-            name: 'list_files',
-            description: '列出项目中所有文件的简洁清单',
-            inputSchema: z.object({
-              directory: z.string().optional().describe('目录路径（可选）')
-            }),
-            execute: async ({ directory }: any) => {
-              console.log(`🔧 [V3工具-列出文件] ${directory || '根目录'}`);
-              try {
-                const targetDir = directory ? path.resolve(this.workingDirectory, directory) : this.workingDirectory;
-                const files = await this.listFiles(targetDir);
-                
-                return {
-                  success: true,
-                  directory: directory || '.',
-                  files,
-                  total_files: files.length,
-                  message: `找到 ${files.length} 个文件`
-                };
-              } catch (error: any) {
-                console.log(`⚠️ [V3工具-列出文件] 失败: ${error}`);
-                return {
-                  success: false,
-                  error: `无法列出文件: ${error.message || '未知错误'}`
-                };
-              }
-            }
-          }
-        };
-      }
-      
-      async* processRequest(userInput: string, sessionData: any, context?: Record<string, any>) {
-        const messageId = `coding-v3-enhanced-${Date.now()}`;
-        
-        try {
-          console.log(`📨 [V3增强] 开始处理: ${userInput.substring(0, 100)}...`);
-
-          // 确定处理模式
-          const mode = context?.mode || this.determineMode(userInput, context);
-          console.log(`🎯 [V3增强] 处理模式: ${mode}`);
-
-          // 发送开始处理的响应
-          yield {
-            immediate_display: {
-              reply: `🔍 正在分析您的${mode === 'initial' ? '项目需求' : '修改需求'}...`,
-              agent_name: 'CodingAgent-V3-Enhanced',
-              timestamp: new Date().toISOString()
-            },
-            system_state: {
-              intent: 'processing',
-              done: false,
-              progress: 10,
-              current_stage: '分析需求',
-              metadata: {
-                message_id: messageId,
-                mode: mode
-              }
-            }
-          };
-
-          if (mode === 'initial') {
-            yield* this.handleInitialProjectGeneration(userInput, sessionData, context);
-          } else if (mode === 'incremental') {
-            yield* this.handleIncrementalModification(userInput, sessionData, context);
-          } else {
-            yield* this.handleCodeAnalysis(userInput, sessionData, context);
-          }
-
-        } catch (error: any) {
-          console.error('❌ [V3增强] 处理失败:', error);
-          
-          yield {
-            immediate_display: {
-              reply: '抱歉，处理您的编程请求时遇到了问题。请稍后重试或提供更多详细信息。',
-              agent_name: 'CodingAgent-V3-Enhanced',
-              timestamp: new Date().toISOString()
-            },
-            system_state: {
-              intent: 'error',
-              done: true,
-              progress: 0,
-              current_stage: '处理失败',
-              metadata: {
-                message_id: messageId,
-                error: error.message || '未知错误'
-              }
-            }
-          };
-        }
-      }
-      
-      // 🚀 处理初始项目生成
-      private async* handleInitialProjectGeneration(userInput: string, sessionData: any, context?: Record<string, any>) {
-        yield {
-          immediate_display: {
-            reply: '🚀 正在生成完整项目结构...',
-            agent_name: 'CodingAgent-V3-Enhanced',
-            timestamp: new Date().toISOString()
-          },
-          system_state: {
-            intent: 'generating',
-            done: false,
-            progress: 20,
-            current_stage: '项目生成中'
-          }
-        };
-
-        // 使用 V3 的多步骤工具调用来生成项目
-        const systemPrompt = this.buildInitialProjectPrompt(userInput, context);
-        const result = await this.executeMultiStepWorkflow(userInput, sessionData, systemPrompt, 8);
-
-        yield {
-          immediate_display: {
-            reply: result.text || `✅ 项目生成完成！\n\n基于您的需求"${userInput}"，我已经使用V3增强工具集生成了完整的项目结构。\n\n🛠️ **使用的工具**\n${result.toolCalls?.map((tc: any) => `- ${tc.toolName}: ${tc.result?.message || '执行成功'}`).join('\n') || '- 项目结构生成\n- 文件创建\n- 依赖配置'}\n\n🎯 **生成结果**\n- 文件创建: ${result.filesCreated?.length || 0} 个\n- 命令执行: ${result.commandsExecuted?.length || 0} 个\n\n项目已准备就绪，您可以开始开发了！`,
-            agent_name: 'CodingAgent-V3-Enhanced',
-            timestamp: new Date().toISOString()
-          },
-          system_state: {
-            intent: 'project_generation_complete',
-            done: true,
-            progress: 100,
-            current_stage: '项目生成完成',
-            metadata: {
-              mode: 'initial',
-              tools_used: result.toolCalls?.map((tc: any) => tc.toolName) || [],
-              files_created: result.filesCreated || [],
-              commands_executed: result.commandsExecuted || []
-            }
-          }
-        };
-      }
-      
-      // 🔧 处理增量修改
-      private async* handleIncrementalModification(userInput: string, sessionData: any, context?: Record<string, any>) {
-        yield {
-          immediate_display: {
-            reply: '🔧 正在分析现有代码并准备修改...',
-            agent_name: 'CodingAgent-V3-Enhanced',
-            timestamp: new Date().toISOString()
-          },
-          system_state: {
-            intent: 'analyzing',
-            done: false,
-            progress: 30,
-            current_stage: '代码分析中'
-          }
-        };
-
-        // 使用 V3 的增量编辑工具
-        const systemPrompt = this.buildIncrementalEditPrompt(userInput, context);
-        const result = await this.executeMultiStepWorkflow(userInput, sessionData, systemPrompt, 6);
-
-        yield {
-          immediate_display: {
-            reply: result.text || `🔧 增量修改完成！\n\n针对您的修改需求"${userInput}"，我已经使用V3增强工具完成了精确的代码修改。\n\n📝 **修改详情**\n${result.toolCalls?.map((tc: any) => `- ${tc.toolName}: ${tc.result?.message || '执行成功'}`).join('\n') || '- 代码分析\n- 精确编辑\n- 功能验证'}\n\n✅ **修改结果**\n- 文件修改: ${result.filesModified?.length || 0} 个\n- 文件创建: ${result.filesCreated?.length || 0} 个\n- 文件删除: ${result.filesDeleted?.length || 0} 个\n\n所有修改已完成，请测试新功能！`,
-            agent_name: 'CodingAgent-V3-Enhanced',
-            timestamp: new Date().toISOString()
-          },
-          system_state: {
-            intent: 'incremental_modification_complete',
-            done: true,
-            progress: 100,
-            current_stage: '增量修改完成',
-            metadata: {
-              mode: 'incremental',
-              tools_used: result.toolCalls?.map((tc: any) => tc.toolName) || [],
-              files_modified: result.filesModified || [],
-              files_created: result.filesCreated || [],
-              files_deleted: result.filesDeleted || []
-            }
-          }
-        };
-      }
-      
-      // 🔍 处理代码分析
-      private async* handleCodeAnalysis(userInput: string, sessionData: any, context?: Record<string, any>) {
-        yield {
-          immediate_display: {
-            reply: `🔍 代码分析功能已激活！\n\n基于您的分析需求"${userInput}"，V3增强版本提供：\n\n📊 **深度分析能力**\n- 项目架构评估\n- 代码质量检查\n- 性能瓶颈识别\n- 安全漏洞扫描\n\n🛠️ **分析工具**\n- read_file: 深入读取关键文件\n- get_file_structure: 分析项目结构\n- list_files: 获取文件清单\n- run_command: 执行分析命令\n\n📈 **专业报告**\n- 结构化分析结果\n- 具体改进建议\n- 最佳实践推荐\n\n正在开始深度分析...`,
-            agent_name: 'CodingAgent-V3-Enhanced',
-            timestamp: new Date().toISOString()
-          },
-          system_state: {
-            intent: 'code_analysis_complete',
-            done: true,
-            progress: 100,
-            current_stage: '代码分析完成',
-            metadata: {
-              mode: 'analysis',
-              analysis_type: 'comprehensive'
-            }
-          }
-        };
-      }
-      
-      // 🎯 确定处理模式
-      private determineMode(userInput: string, context?: Record<string, any>): 'initial' | 'incremental' | 'analysis' {
-        if (context?.mode) {
-          return context.mode;
-        }
-
-        const input = userInput.toLowerCase();
-        
-        if (input.includes('创建') || input.includes('新建') || input.includes('生成项目') || input.includes('初始化')) {
-          return 'initial';
-        }
-        
-        if (input.includes('修改') || input.includes('更新') || input.includes('编辑') || input.includes('优化') || input.includes('添加功能')) {
-          return 'incremental';
-        }
-        
-        if (input.includes('分析') || input.includes('查看') || input.includes('检查') || input.includes('解释')) {
-          return 'analysis';
-        }
-
-        return 'incremental';
-      }
-      
-      // 📋 构建项目生成 prompt
-      private buildInitialProjectPrompt(userInput: string, context?: Record<string, any>): string {
-        return `你是HeysMe平台的专业全栈开发工程师，专门生成高质量的代码项目。
-
-## 🎯 项目需求
-**用户需求：** ${userInput}
-
-## 🛠️ 可用工具
-你必须使用以下工具来创建项目：
-- write_file: 创建项目文件
-- get_file_structure: 分析目录结构
-- run_command: 执行构建命令
-- list_files: 查看文件列表
-
-## 📋 项目生成流程
-1. 使用 get_file_structure 了解当前目录
-2. 使用 write_file 创建 package.json 和配置文件
-3. 使用 write_file 创建核心组件和页面
-4. 使用 run_command 安装依赖和测试构建
-
-请严格按照工具调用流程创建完整的 Next.js 项目。用中文详细说明每个步骤。`;
-      }
-      
-      // 📝 构建增量编辑 prompt
-      private buildIncrementalEditPrompt(userInput: string, context?: Record<string, any>): string {
-        return `你是HeysMe平台的专业代码编辑专家，专门进行精确的代码修改。
-
-## 🎯 修改需求
-**用户需求：** ${userInput}
-
-## 🛠️ 可用工具
-- read_file: 读取现有文件内容
-- edit_file: 精确修改文件内容
-- write_file: 创建新文件
-- get_file_structure: 分析项目结构
-- run_command: 执行测试命令
-
-## 📋 修改流程
-1. 使用 get_file_structure 了解项目结构
-2. 使用 read_file 读取需要修改的文件
-3. 使用 edit_file 进行精确修改
-4. 使用 run_command 验证修改结果
-
-请严格按照工具调用流程进行代码修改。用中文详细说明每个步骤。`;
-      }
-      
-      // 🔄 执行多步骤工作流程
-      async executeMultiStepWorkflow(
-        userInput: string,
-        sessionData: any,
-        systemPrompt: string,
-        maxSteps: number = 8
-      ): Promise<any> {
-        console.log(`🔄 [多步骤工作流] 开始执行，最大步骤: ${maxSteps}`);
-        
-        const result = {
-          text: '',
-          steps: [] as any[],
-          toolCalls: [] as any[],
-          toolResults: [] as any[],
-          filesCreated: [] as string[],
-          filesModified: [] as string[],
-          filesDeleted: [] as string[],
-          commandsExecuted: [] as string[]
-        };
-        
-        try {
-          // 这里应该调用 BaseAgentV2 的 executeMultiStepWorkflow 方法
-          // 但由于我们在适配器中，暂时使用简化实现
-          
-          // 模拟多步骤执行
-          result.text = `基于您的需求"${userInput}"，我已经准备好使用V3增强工具集进行处理。\n\n🛠️ **可用工具集**\n- read_file: 读取文件内容\n- write_file: 创建/重写文件\n- edit_file: 精确编辑文件\n- append_to_file: 追加文件内容\n- delete_file: 删除文件\n- run_command: 执行命令\n- get_file_structure: 获取项目结构\n- list_files: 列出文件清单\n\n🎯 **智能处理模式**\n- 自动分析项目需求\n- 智能选择合适工具\n- 多步骤协调执行\n- 实时结果验证\n\nV3增强功能已激活，请提供具体的项目需求或修改指令！`;
-          
-          // 模拟工具调用记录
-          result.toolCalls = [
-            { toolName: 'get_file_structure', result: { success: true, message: '项目结构分析完成' } },
-            { toolName: 'list_files', result: { success: true, message: '文件清单获取完成' } }
-          ];
-          
-          console.log(`✅ [多步骤工作流] 执行完成，生成文本长度: ${result.text.length}`);
-          
-        } catch (error: any) {
-          console.error(`❌ [多步骤工作流] 执行失败:`, error);
-          result.text = `执行过程中遇到错误: ${error.message}`;
-        }
-        
-        return result;
-      }
-      
-      async process() {
-        throw new Error('V2 Adapter process method not implemented');
-      }
-      
-      // 🗂️ 辅助方法
-      private async getDirectoryStructure(dir: string): Promise<any> {
-        try {
-          const fs = require('fs/promises');
-          const path = require('path');
-          const items = await fs.readdir(dir, { withFileTypes: true });
-          const structure: any = {};
-
-          for (const item of items) {
-            if (item.name.startsWith('.')) continue;
-
-            if (item.isDirectory()) {
-              structure[item.name] = await this.getDirectoryStructure(path.join(dir, item.name));
-            } else {
-              structure[item.name] = 'file';
-            }
-          }
-
-          return structure;
-        } catch (error) {
-          return {};
-        }
-      }
-      
-      private async listFiles(dir: string): Promise<string[]> {
-        try {
-          const fs = require('fs/promises');
-          const path = require('path');
-          const items = await fs.readdir(dir, { withFileTypes: true });
-          const files: string[] = [];
-
-          for (const item of items) {
-            if (item.name.startsWith('.')) continue;
-
-            const fullPath = path.join(dir, item.name);
-            if (item.isDirectory()) {
-              const subFiles = await this.listFiles(fullPath);
-              files.push(...subFiles.map(f => path.join(item.name, f)));
-            } else {
-              files.push(item.name);
-            }
-          }
-
-          return files;
-        } catch (error) {
-          return [];
-        }
-      }
-    })();
   }
 
   /**
@@ -678,29 +244,7 @@ export class CodingAgent extends BaseAgent {
         上下文: context
       });
       
-      // 🆕 检查是否启用 V3 增强功能
-      const useV3Enhanced = context?.useV3 || context?.enhanced || 
-                           userInput.toLowerCase().includes('v3') ||
-                           userInput.toLowerCase().includes('增强') ||
-                           userInput.toLowerCase().includes('工具') ||
-                           userInput.toLowerCase().includes('精确') ||
-                           userInput.toLowerCase().includes('分析');
-      
-      if (useV3Enhanced) {
-        console.log('🚀 [V3增强] 使用 V3 增强功能处理');
-        // 🔧 类型适配：将旧版 SessionData 转换为 V2 格式
-        const v2SessionData = {
-          id: sessionData.id,
-          userId: sessionData.userId || 'unknown',
-          createdAt: sessionData.metadata?.createdAt || new Date(),
-          updatedAt: sessionData.metadata?.updatedAt || new Date(),
-          metadata: sessionData.metadata || {}
-        };
-        yield* this.v2Adapter.processRequest(userInput, v2SessionData, context);
-        return;
-      }
-      
-      // 🎯 根据模式选择不同的处理流程（保持原有逻辑）
+      // 🎯 根据模式选择不同的处理流程
       if (mode === 'initial') {
         // 🚀 初始模式：完整项目生成
         console.log('🚀 [初始模式] 开始完整项目生成');
@@ -718,18 +262,6 @@ export class CodingAgent extends BaseAgent {
     } catch (error) {
       yield await this.handleError(error as Error, sessionData, context);
     }
-  }
-  
-  /**
-   * 🆕 启用 V3 增强功能的便捷方法
-   */
-  async* processWithV3Enhancement(
-    userInput: string,
-    sessionData: SessionData,
-    context?: Record<string, any>
-  ): AsyncGenerator<StreamableAgentResponse, void, unknown> {
-    const enhancedContext = { ...context, useV3: true };
-    yield* this.process({ user_input: userInput }, sessionData, enhancedContext);
   }
 
   /**
@@ -1114,274 +646,146 @@ export class CodingAgent extends BaseAgent {
   /**
    * 📊 增量AI生成处理 - 用于已有项目的修改
    */
+  /**
+   * 🆕 基于 Vercel AI SDK 的增量编辑处理 - 替换有 bug 的旧实现
+   */
   private async* handleIncrementalAIGeneration(
     userInput: string, 
     sessionData: SessionData,
     context?: Record<string, any>
   ): AsyncGenerator<StreamableAgentResponse, void, unknown> {
+    const messageId = `incremental-vercel-ai-${Date.now()}`;
+    
     try {
-      console.log('📊 [增量AI调用] 开始增量修改处理...');
-      
-      // 动态导入
-      const { generateStreamWithModel } = await import('@/lib/ai-models');
-      const { getIncrementalEditPrompt, INCREMENTAL_EDIT_TOOLS } = await import('@/lib/prompts/coding/incremental-edit');
-      // 🔧 临时替代：简单的工具输入验证
-      const validateToolInput = (toolName: string, input: any) => {
-        console.log(`🔧 [工具验证] ${toolName}:`, input);
-        return { valid: true, input, errors: [] };
-      };
-      
-      // 🔧 获取当前项目文件信息
-      const existingFiles = (sessionData?.metadata as any)?.projectFiles || [];
-      const projectContext = {
-        projectType: (sessionData?.metadata as any)?.projectType || 'react',
-        framework: (sessionData?.metadata as any)?.framework || 'Next.js',
-        totalFiles: existingFiles.length,
-        lastModified: new Date().toISOString()
-      };
-      
-      console.log('📊 [项目上下文] 文件数量:', existingFiles.length);
-      
-      // 🎯 使用新的增量编辑prompt
-      const fileStructure = existingFiles.map((f: any) => `${f.filename}: ${f.type || 'file'}`).join('\n');
-      const targetFiles = existingFiles.map((f: any) => f.filename).join(', ');
-      const contextInfo = JSON.stringify(projectContext, null, 2);
-      
-      const incrementalPrompt = getIncrementalEditPrompt(
-        fileStructure,
-        userInput,
-        targetFiles,
-        contextInfo
-      );
-      
-      console.log('📊 [增量Prompt] 长度:', incrementalPrompt.length);
+      console.log('🚀 [Vercel AI 增量编辑] 开始处理增量修改...');
 
-      const messageId = `incremental-${Date.now()}`;
-      let chunkCount = 0;
-      let accumulatedResponse = '';
-      // 🆕 增加增量模式的文本累积器
-      let lastSentTextLength = 0;
-
-      // 🔧 使用专门的增量编辑系统prompt
-      const systemPrompt = `你是一个专业的全栈开发工程师和代码助手，专门处理已有项目的增量修改。
-
-## 重要指令：
-1. 仔细分析用户的真实意图
-2. 基于现有项目状态提供建议和执行工具调用
-3. 使用提供的工具来执行文件操作
-4. 每次工具调用都要提供清晰的说明
-
-## 工作模式：
-- 当前处于项目增量修改模式
-- 用户已有一个正在开发的项目
-- 你需要分析需求并执行适当的工具调用
-
-## 工具使用指南：
-- write_to_file: 创建或更新文件
-- read_file: 读取文件内容
-- execute_command: 执行命令
-- list_files: 列出文件
-
-请基于用户请求执行适当的操作。`;
-
-      // 🚀 使用增强的工具执行器
-      const { EnhancedIncrementalToolExecutor } = await import('./enhanced-tool-executor');
-      
-      let modifiedFiles: CodeFile[] = [];
-      
-      // 🔧 获取会话历史以保持对话连续性
-      const sessionId = (sessionData as any)?.sessionId || `incremental-${Date.now()}`;
-      
-      console.log(`💬 [增量对话] 使用BaseAgent流式历史管理`);
-
-      // 🔧 关键修复：将session历史同步到BaseAgent（增量编辑也需要历史）
-      const codingHistory = (sessionData?.metadata as any)?.codingHistory || [];
-      if (!this.conversationHistory.has(sessionData.id)) {
-        this.conversationHistory.set(sessionData.id, []);
-      }
-      const baseAgentHistory = this.conversationHistory.get(sessionData.id)!;
-      if (baseAgentHistory.length === 0 && codingHistory.length > 0) {
-        console.log(`🔄 [增量历史同步] 从session恢复 ${codingHistory.length} 条历史到BaseAgent`);
-        baseAgentHistory.push(...codingHistory);
-      }
-
-      // 🆕 创建响应队列，用于存储在工具执行回调中生成的响应
-      const responseQueue: StreamableAgentResponse[] = [];
-      
-      // 🚀 配置增强的工具执行器
-      const toolExecutor = new EnhancedIncrementalToolExecutor({
-        onTextUpdate: async (text: string, partial: boolean) => {
-          // 🎯 直接发送清理后的文本，避免代码块泄漏
-          if (text && text.trim()) {
-            responseQueue.push(this.createResponse({
-              immediate_display: {
-                reply: text,
-                agent_name: this.name,
-                timestamp: new Date().toISOString()
-              },
-              system_state: {
-                intent: 'incremental_text_update',
-                done: false,
-                metadata: {
-                  message_id: messageId,
-                  is_partial: partial,
-                  mode: 'incremental',
-                  streaming: true,
-                  stream_type: 'chunk'
-                }
-              }
-            }));
-          }
-        },
-        onToolExecute: async (toolName: string, params: Record<string, any>) => {
-          // 🔧 执行实际的文件操作并返回增强结果
-          const startTime = Date.now();
-          
-          try {
-            const result = await this.executeIncrementalTool(toolName, params, existingFiles, modifiedFiles);
-            
-            return {
-              success: true,
-              content: result,
-              metadata: {
-                toolName,
-                executionTime: Date.now() - startTime,
-                fileModified: params.file_path
-              }
-            };
-          } catch (error) {
-            return {
-              success: false,
-              content: '',
-              error: error instanceof Error ? error.message : '未知错误',
-              metadata: {
-                toolName,
-                executionTime: Date.now() - startTime
-              }
-            };
-          }
-        },
-        onToolResult: async (result) => {
-          if (result.success && result.metadata.fileModified) {
-            console.log(`✅ [工具执行成功] ${result.metadata.toolName}: ${result.metadata.fileModified}`);
-          }
-        }
-      });
-      
-      // 🚀 使用Claude官方文档标准的工具调用流程
-      console.log('🎯 [Claude标准工具调用] 实现正确的工具调用流程');
-      
-      // 准备工具定义（转换为Claude API格式）
-      const claudeTools = this.convertToClaudeToolFormat(Object.values(INCREMENTAL_EDIT_TOOLS));
-      
-      // 🔧 基于用户需求智能推断并执行工具
-      const userNeed = this.analyzeUserNeed(userInput);
-      
-      if (userNeed.requiresTools) {
-        console.log(`🎯 [智能推断] 需要执行工具: ${userNeed.tools.join(', ')}`);
-        
-        // 执行推断的工具
-        for (const toolAction of userNeed.actions) {
-          try {
-            yield this.createResponse({
-              immediate_display: {
-                reply: `🔧 正在执行: ${toolAction.name}`,
-                agent_name: this.name,
-                timestamp: new Date().toISOString()
-              },
-              system_state: {
-                intent: 'tool_execution_start',
-                done: false,
-                metadata: { toolName: toolAction.name, params: toolAction.params }
-              }
-            });
-            
-            const result = await this.executeIncrementalTool(
-              toolAction.name,
-              toolAction.params,
-              existingFiles,
-              modifiedFiles
-            );
-            
-            yield this.createResponse({
-              immediate_display: {
-                reply: `✅ ${toolAction.name} 完成: ${result}`,
-                agent_name: this.name,
-                timestamp: new Date().toISOString()
-              },
-              system_state: {
-                intent: 'tool_execution_result',
-                done: false,
-                metadata: { toolName: toolAction.name, result, success: true }
-              }
-            });
-            
-          } catch (error) {
-            console.error(`❌ [工具执行失败] ${toolAction.name}:`, error);
-            
-            yield this.createResponse({
-              immediate_display: {
-                reply: `❌ ${toolAction.name} 失败: ${error instanceof Error ? error.message : '未知错误'}`,
-                agent_name: this.name,
-                timestamp: new Date().toISOString()
-              },
-              system_state: {
-                intent: 'tool_execution_error',
-                done: false,
-                metadata: { toolName: toolAction.name, error: error instanceof Error ? error.message : '未知错误' }
-              }
-            });
-          }
-        }
-      } else {
-        // 如果不需要工具，使用AI分析
-        console.log('💬 [AI分析] 提供需求分析');
-        
-        for await (const chunk of this.callLLMStreaming(incrementalPrompt, {
-          system: systemPrompt,
-          maxTokens: 2000,
-          sessionId: sessionData.id,
-          useHistory: true
-        })) {
-          yield this.createResponse({
-            immediate_display: {
-              reply: chunk,
-              agent_name: this.name,
-              timestamp: new Date().toISOString()
-            },
-            system_state: {
-              intent: 'text_response',
-              done: false,
-              metadata: { streaming: true }
-            }
-          });
-        }
-      }
-      
-      console.log('📊 [增量AI调用] 流式修改完成');
-      
-      // 🔧 发送完成响应 - 包含修改后的文件
-      const finalProjectFiles = modifiedFiles.length > 0 ? modifiedFiles : existingFiles;
-      
-      // 🚀 保存到Supabase（如果有修改的文件）
-      let storageInfo = '';
-      if (modifiedFiles.length > 0) {
-        try {
-          await this.updateSessionWithProject(sessionData, finalProjectFiles);
-          storageInfo = '\n💾 **存储状态**：已保存到Supabase项目存储';
-        } catch (error) {
-          console.error('❌ [存储失败]:', error);
-          storageInfo = '\n⚠️ **存储状态**：已保存到会话存储（Supabase暂时不可用）';
-        }
-      }
-      
-      const completionMessage = modifiedFiles.length > 0
-        ? `✅ **增量修改完成**\n\n📁 **修改的文件**：\n${modifiedFiles.map(f => `• ${f.filename}`).join('\n')}${storageInfo}\n\n如需进一步修改，请告诉我具体需求。`
-        : `✅ **分析完成**\n\n已完成需求分析和代码审查。如需具体修改，请告诉我详细需求。`;
-      
+      // 发送开始处理的响应
       yield this.createResponse({
         immediate_display: {
-          reply: completionMessage, 
+          reply: '🔄 正在分析您的修改需求，准备执行相关操作...',
+          agent_name: this.name,
+          timestamp: new Date().toISOString()
+        },
+        system_state: {
+          intent: 'incremental_analyzing',
+          done: false,
+          progress: 10,
+          current_stage: '需求分析',
+          metadata: { message_id: messageId, mode: 'incremental' }
+        }
+      });
+
+      // 🔧 获取当前项目文件信息
+      const existingFiles = (sessionData?.metadata as any)?.projectFiles || [];
+      console.log(`📊 [项目上下文] 现有文件数量: ${existingFiles.length}`);
+
+      // 构建项目上下文信息
+      const projectContext = existingFiles.length > 0 
+        ? `当前项目包含 ${existingFiles.length} 个文件:\n${existingFiles.map((f: any) => `- ${f.filename} (${f.type || 'file'})`).join('\n')}`
+        : '这是一个新项目，暂无现有文件。';
+
+      // 构建对话历史
+      const conversationHistory = this.conversationHistory.get(sessionData.id) || [];
+      const messages = [
+        {
+          role: 'system' as const,
+          content: `你是一个专业的编程助手，专门处理项目的增量修改和文件操作。
+
+## 当前项目状态：
+${projectContext}
+
+## 你的任务：
+1. **需求理解**: 分析用户的修改需求
+2. **智能操作**: 根据需求执行适当的文件操作
+3. **质量保证**: 确保代码质量和项目结构合理
+4. **用户指导**: 提供清晰的说明和建议
+
+## 可用工具：
+- read_file: 读取现有文件内容
+- create_file: 创建新文件
+- edit_file: 编辑现有文件（支持替换、追加、前置）
+- list_files: 列出文件和目录结构
+
+请根据用户需求智能选择和组合使用这些工具。始终确保代码质量和项目的一致性。用中文回复。`
+        },
+        ...conversationHistory.map(msg => ({
+          role: msg.role as 'user' | 'assistant',
+          content: msg.content
+        })),
+        {
+          role: 'user' as const,
+          content: userInput
+        }
+      ];
+
+      // 发送工具调用开始的响应
+      yield this.createResponse({
+        immediate_display: {
+          reply: '🛠️ 开始执行增量编辑工具调用...',
+          agent_name: this.name,
+          timestamp: new Date().toISOString()
+        },
+        system_state: {
+          intent: 'incremental_tool_calling',
+          done: false,
+          progress: 30,
+          current_stage: '工具执行',
+          metadata: { message_id: messageId }
+        }
+      });
+
+      // 使用 Vercel AI SDK 的多步骤工具调用
+      const result = await generateText({
+        model: anthropic('claude-3-5-sonnet-20241022'),
+        messages,
+        tools: this.getVercelAITools(),
+        stopWhen: stepCountIs(6), // 允许最多6步：分析 + 多个文件操作
+        temperature: 0.3, // 编程任务使用较低温度
+        onStepFinish: async ({ toolResults }) => {
+          console.log(`📊 [增量编辑步骤完成] 执行了 ${toolResults.length} 个工具`);
+        }
+      });
+
+      console.log(`✅ [Vercel AI 增量编辑] 完成，执行了 ${result.steps.length} 个步骤`);
+
+      // 提取所有工具调用结果
+      const allToolCalls = result.steps.flatMap(step => step.toolCalls);
+      const allToolResults = result.steps.flatMap(step => step.toolResults);
+
+      // 统计文件操作
+      const fileOperations = allToolResults.filter(tr => 
+        ['create_file', 'edit_file', 'read_file'].includes(
+          allToolCalls[allToolResults.indexOf(tr)]?.toolName
+        )
+      );
+
+      // 🔧 更新项目文件列表（如果有新的文件操作）
+      const modifiedFiles: CodeFile[] = [];
+      for (const toolResult of allToolResults) {
+        const toolCall = allToolCalls[allToolResults.indexOf(toolResult)];
+        if (toolCall && ['create_file', 'edit_file'].includes(toolCall.toolName)) {
+          // 修复：直接访问 toolResult 的属性，而不是 result 子属性
+          const result = toolResult as any;
+          if (result.success && result.file_path) {
+            modifiedFiles.push({
+              filename: result.file_path,
+              content: '', // 内容已经写入文件，这里不需要存储
+              language: this.detectLanguage(result.file_path),
+              type: toolCall.toolName === 'create_file' ? 'page' : 'component',
+              description: result.description || `${toolCall.toolName === 'create_file' ? '创建' : '修改'}的文件`
+            });
+          }
+        }
+      }
+
+      // 发送最终结果
+      const completionMessage = modifiedFiles.length > 0
+        ? `✅ **增量修改完成**\n\n📁 **操作的文件**：\n${modifiedFiles.map(f => `• ${f.filename}`).join('\n')}\n\n如需进一步修改，请告诉我具体需求。`
+        : result.text;
+
+      yield this.createResponse({
+        immediate_display: {
+          reply: completionMessage,
           agent_name: this.name,
           timestamp: new Date().toISOString()
         },
@@ -1391,36 +795,109 @@ export class CodingAgent extends BaseAgent {
           progress: 100,
           current_stage: '增量修改完成',
           metadata: {
-            streaming: false,
             message_id: messageId,
-            is_final: true,
+            steps_executed: result.steps.length,
+            tools_used: Array.from(new Set(allToolCalls.map(tc => tc.toolName))),
+            files_modified: fileOperations.length,
+            total_tokens: result.usage?.totalTokens,
             mode: 'incremental',
-            totalChunks: chunkCount,
             // 🔧 返回修改后的文件信息
-            hasCodeFiles: finalProjectFiles.length > 0,
-            codeFilesReady: finalProjectFiles.length > 0,
-            projectFiles: finalProjectFiles,
-            totalFiles: finalProjectFiles.length,
+            hasCodeFiles: modifiedFiles.length > 0,
+            codeFilesReady: modifiedFiles.length > 0,
+            projectFiles: [...existingFiles, ...modifiedFiles],
+            totalFiles: existingFiles.length + modifiedFiles.length,
             incrementalComplete: true,
-                         // 🆕 增强的工具调用结果
-             modifiedFiles: modifiedFiles,
-             modifiedFilesCount: modifiedFiles.length,
-             toolCallsExecuted: modifiedFiles.length > 0,
-             incrementalSuccess: true
+            modifiedFiles: modifiedFiles,
+            modifiedFilesCount: modifiedFiles.length,
+            toolCallsExecuted: fileOperations.length > 0,
+            incrementalSuccess: true
           }
         }
       });
-      
-      // 🔧 保存增量对话历史
-      this.saveConversationHistory(sessionData, userInput, `增量修改完成${modifiedFiles.length > 0 ? `，已修改 ${modifiedFiles.length} 个文件` : ''}`);
-      
+
+      // 🔧 更新会话中的项目文件列表
+      if (modifiedFiles.length > 0) {
+        try {
+          const updatedProjectFiles = [...existingFiles, ...modifiedFiles];
+          await this.updateSessionWithProject(sessionData, updatedProjectFiles);
+          console.log(`💾 [会话更新] 已更新项目文件列表，总计 ${updatedProjectFiles.length} 个文件`);
+        } catch (error) {
+          console.error('❌ [会话更新失败]:', error);
+        }
+      }
+
+      // 更新对话历史
+      this.updateConversationHistory(sessionData, userInput, completionMessage);
+
     } catch (error) {
-      console.error('❌ [增量AI生成错误]:', error);
+      console.error('❌ [Vercel AI 增量编辑] 处理失败:', error);
       
-      // 🔧 重新抛出错误，让上层处理
-      throw error;
+      yield this.createResponse({
+        immediate_display: {
+          reply: '抱歉，处理您的增量修改请求时遇到了问题。请检查您的需求描述或稍后重试。',
+          agent_name: this.name,
+          timestamp: new Date().toISOString()
+        },
+        system_state: {
+          intent: 'incremental_error',
+          done: true,
+          progress: 0,
+          current_stage: '处理失败',
+          metadata: {
+            message_id: messageId,
+            error: error instanceof Error ? error.message : '未知错误',
+            mode: 'incremental'
+          }
+        }
+      });
     }
   }
+
+  /**
+   * 🆕 辅助方法：检测文件语言类型
+   */
+  private detectLanguage(filename: string): string {
+    const ext = path.extname(filename).toLowerCase();
+    const languageMap: Record<string, string> = {
+      '.ts': 'typescript',
+      '.tsx': 'typescript',
+      '.js': 'javascript',
+      '.jsx': 'javascript',
+      '.py': 'python',
+      '.css': 'css',
+      '.scss': 'scss',
+      '.html': 'html',
+      '.json': 'json',
+      '.md': 'markdown',
+      '.yml': 'yaml',
+      '.yaml': 'yaml'
+    };
+    return languageMap[ext] || 'text';
+  }
+
+  /**
+   * 🆕 辅助方法：更新对话历史
+   */
+  private updateConversationHistory(sessionData: SessionData, userInput: string, assistantResponse: string) {
+    if (!this.conversationHistory.has(sessionData.id)) {
+      this.conversationHistory.set(sessionData.id, []);
+    }
+
+    const history = this.conversationHistory.get(sessionData.id)!;
+    history.push(
+      { role: 'user', content: userInput },
+      { role: 'assistant', content: assistantResponse }
+    );
+
+    // 保持历史记录在合理范围内
+    if (history.length > 20) {
+      history.splice(0, history.length - 20);
+    }
+  }
+
+  /**
+   * 🔧 保留原有的复杂增量编辑逻辑的其余部分（临时注释掉）
+   */
 
   /**
    * 🆕 分离文本和代码的核心方法

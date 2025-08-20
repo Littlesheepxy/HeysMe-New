@@ -5,7 +5,7 @@
  */
 
 import { ConversationalWelcomeAgent } from '@/lib/agents/welcome';
-import { OptimizedInfoCollectionAgent } from '@/lib/agents/info-collection';
+import { VercelAIInfoCollectionAgent } from '@/lib/agents/info-collection/vercel-ai-agent';
 import { PromptOutputAgent } from '@/lib/agents/prompt-output-agent';
 import { CodingAgent } from '@/lib/agents/coding';
 import { BaseAgent } from '@/lib/agents/base-agent';
@@ -34,11 +34,11 @@ export class AgentOrchestrator {
    */
   private initializeAgents(): void {
     this.agents.set('welcome', new ConversationalWelcomeAgent());
-    this.agents.set('info_collection', new OptimizedInfoCollectionAgent());
+    this.agents.set('info_collection', new VercelAIInfoCollectionAgent());
     this.agents.set('prompt_output', new PromptOutputAgent());
     this.agents.set('coding', new CodingAgent());
     
-    console.log(`✅ [编排器] 初始化了 ${this.agents.size} 个Agent`);
+    console.log(`✅ [编排器] 初始化了 ${this.agents.size} 个Agent (使用VercelAI信息收集)`);
   }
 
   /**

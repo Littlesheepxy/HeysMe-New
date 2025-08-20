@@ -240,101 +240,74 @@ export const INCREMENTAL_EDIT_CONFIG = {
 export const INCREMENTAL_EDIT_TOOLS = {
   read_file: tool({
     description: "读取项目文件内容进行分析。支持读取完整文件或指定行号范围。用于理解现有代码结构、分析文件内容或检查特定代码段。",
-    parameters: z.object({
+    inputSchema: z.object({
       file_path: z.string().describe("要读取的文件路径，支持相对路径和绝对路径"),
       start_line: z.number().optional().describe("起始行号（可选），从1开始计数"),
       end_line: z.number().optional().describe("结束行号（可选），必须大于等于start_line")
-    }),
-    execute: async ({ file_path, start_line, end_line }) => {
-      return `模拟读取文件 ${file_path} 的内容${start_line ? ` (行 ${start_line}-${end_line || '末尾'})` : ''}`;
-    }
+    })
   }),
   
   write_file: tool({
     description: "创建新文件或完全重写现有文件。用于生成全新的代码文件、配置文件或文档。",
-    parameters: z.object({
+    inputSchema: z.object({
       file_path: z.string().describe("要写入的文件路径"),
       content: z.string().describe("要写入的完整文件内容")
-    }),
-    execute: async ({ file_path, content }) => {
-      return `模拟写入文件 ${file_path}，内容长度: ${content.length} 字符`;
-    }
+    })
   }),
   
   edit_file: tool({
     description: "对现有文件进行精确的部分修改。用于修改特定的代码行、函数、组件或配置项。",
-    parameters: z.object({
+    inputSchema: z.object({
       file_path: z.string().describe("要编辑的文件路径"),
       old_content: z.string().describe("需要替换的原内容"),
       new_content: z.string().describe("新内容"),
       line_number: z.number().optional().describe("行号（可选）")
-    }),
-    execute: async ({ file_path, old_content, new_content, line_number }) => {
-      return `模拟编辑文件 ${file_path}${line_number ? ` (行 ${line_number})` : ''}，将 "${old_content.substring(0, 50)}..." 替换为 "${new_content.substring(0, 50)}..."`;
-    }
+    })
   }),
   
   append_to_file: tool({
     description: "在现有文件末尾添加新内容。用于向文件添加新的函数、组件、样式规则等。",
-    parameters: z.object({
+    inputSchema: z.object({
       file_path: z.string().describe("要追加内容的文件路径"),
       content: z.string().describe("要追加的内容")
-    }),
-    execute: async ({ file_path, content }) => {
-      return `模拟向文件 ${file_path} 追加内容，长度: ${content.length} 字符`;
-    }
+    })
   }),
   
   delete_file: tool({
     description: "安全删除不再需要的文件。用于清理过时的组件、临时文件等。",
-    parameters: z.object({
+    inputSchema: z.object({
       file_path: z.string().describe("要删除的文件路径")
-    }),
-    execute: async ({ file_path }) => {
-      return `模拟删除文件 ${file_path}`;
-    }
+    })
   }),
   
   search_code: tool({
     description: "在项目代码库中搜索特定的代码内容、函数名、变量名或文本模式。",
-    parameters: z.object({
+    inputSchema: z.object({
       query: z.string().describe("搜索查询字符串"),
       file_pattern: z.string().optional().describe("文件模式（可选）")
-    }),
-    execute: async ({ query, file_pattern }) => {
-      return `模拟搜索代码 "${query}"${file_pattern ? ` 在文件模式 ${file_pattern} 中` : ''}`;
-    }
+    })
   }),
   
   get_file_structure: tool({
     description: "获取项目的文件和目录结构树状视图。用于了解项目组织结构。",
-    parameters: z.object({
+    inputSchema: z.object({
       directory: z.string().optional().describe("目录路径（可选，默认为根目录）")
-    }),
-    execute: async ({ directory }) => {
-      return `模拟获取文件结构${directory ? ` for ${directory}` : ''}`;
-    }
+    })
   }),
   
   run_command: tool({
     description: "执行项目构建、测试或开发相关的shell命令。用于安装依赖、运行构建脚本等。",
-    parameters: z.object({
+    inputSchema: z.object({
       command: z.string().describe("要执行的命令"),
       directory: z.string().optional().describe("执行目录（可选）")
-    }),
-    execute: async ({ command, directory }) => {
-      return `模拟执行命令 "${command}"${directory ? ` in ${directory}` : ''}`;
-    }
+    })
   }),
   
   list_files: tool({
     description: "列出项目中所有文件的简洁清单，包括文件类型信息。",
-    parameters: z.object({
+    inputSchema: z.object({
       directory: z.string().optional().describe("目录路径（可选）")
-    }),
-    execute: async ({ directory }) => {
-      return `模拟列出文件${directory ? ` in ${directory}` : ''}`;
-    }
+    })
   })
 };
 

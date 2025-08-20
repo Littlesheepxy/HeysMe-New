@@ -20,16 +20,44 @@ import {
   Star,
   Users,
   GitBranch,
-  Calendar
+  Calendar,
+  Palette,
+  Play,
+  Camera,
+  Smartphone,
+  Globe,
+  FileText,
+  Layers,
+  Video,
+  Image,
+  Headphones
 } from 'lucide-react'
 import { useTheme } from '@/contexts/theme-context'
 
-// 工具结果数据类型
-interface ToolResultData {
+// 工具结果数据类型 (增强版 - 支持更多平台)
+export interface ToolResultData {
   id: string
-  tool_name: 'analyze_github' | 'scrape_webpage' | 'extract_linkedin'
+  tool_name: 
+    // 代码平台
+    | 'analyze_github' | 'analyze_gitlab' | 'analyze_codepen' | 'analyze_replit'
+    // 设计平台  
+    | 'analyze_behance' | 'analyze_dribbble' | 'analyze_figma' | 'analyze_pinterest'
+    // 视频平台
+    | 'analyze_youtube' | 'analyze_bilibili' | 'analyze_vimeo' | 'analyze_tiktok'
+    // 社交平台
+    | 'extract_linkedin' | 'analyze_instagram' | 'analyze_twitter' | 'analyze_weibo'
+    // 开发部署平台
+    | 'analyze_vercel' | 'analyze_netlify' | 'analyze_bolt' | 'analyze_youware'
+    // 内容平台
+    | 'analyze_xiaohongshu' | 'analyze_medium' | 'analyze_substack'
+    // 通用工具
+    | 'scrape_webpage' | 'parse_document'
+  
+  platform_type: 'code_repository' | 'design_portfolio' | 'video_platform' | 'social_media' | 'deployment_platform' | 'content_platform' | 'document' | 'webpage' | 'other'
+  content_type: 'profile' | 'project' | 'video' | 'image' | 'article' | 'code' | 'design' | 'portfolio' | 'social_post' | 'document' | 'webpage' | 'mixed'
   source_url: string
   extracted_data: {
+    // 代码平台数据
     github?: {
       username: string
       name: string
@@ -46,6 +74,151 @@ interface ToolResultData {
         language: string
       }>
     }
+    
+    // 设计平台数据
+    behance?: {
+      username: string
+      display_name: string
+      location: string
+      followers: number
+      following: number
+      projects_count: number
+      avatar_url: string
+      featured_projects: Array<{
+        title: string
+        views: number
+        likes: number
+        covers: string[]
+        fields: string[]
+        url: string
+      }>
+      skills: string[]
+    }
+    
+    dribbble?: {
+      username: string
+      name: string
+      location: string
+      followers: number
+      following: number
+      shots_count: number
+      avatar_url: string
+      top_shots: Array<{
+        title: string
+        views: number
+        likes: number
+        image_url: string
+        tags: string[]
+      }>
+    }
+    
+    // 视频平台数据
+    youtube?: {
+      channel_name: string
+      channel_id: string
+      subscriber_count: number
+      video_count: number
+      view_count: number
+      avatar_url: string
+      description: string
+      recent_videos: Array<{
+        title: string
+        views: number
+        duration: string
+        thumbnail: string
+        published_at: string
+        tags: string[]
+      }>
+    }
+    
+    bilibili?: {
+      username: string
+      uid: string
+      followers: number
+      following: number
+      videos_count: number
+      avatar_url: string
+      recent_videos: Array<{
+        title: string
+        play_count: number
+        duration: string
+        cover: string
+        published_at: string
+      }>
+    }
+    
+    // 社交平台数据
+    linkedin?: {
+      name: string
+      headline: string
+      location: string
+      connections: number
+      experience_count: number
+      skills: string[]
+      current_position?: string
+      experience?: Array<{
+        title: string
+        company: string
+        duration: string
+        description: string
+      }>
+      education?: Array<{
+        school: string
+        degree: string
+        field: string
+        year: string
+      }>
+    }
+    
+    instagram?: {
+      username: string
+      full_name: string
+      followers: number
+      following: number
+      posts_count: number
+      avatar_url: string
+      bio: string
+      recent_posts: Array<{
+        image_url: string
+        caption: string
+        likes: number
+        comments: number
+        posted_at: string
+      }>
+    }
+    
+    // 部署平台数据
+    vercel?: {
+      username: string
+      projects: Array<{
+        name: string
+        url: string
+        framework: string
+        status: 'deployed' | 'building' | 'error'
+        last_deployed: string
+        preview_image?: string
+      }>
+      total_deployments: number
+    }
+    
+    // 内容平台数据
+    xiaohongshu?: {
+      username: string
+      nickname: string
+      followers: number
+      following: number
+      notes_count: number
+      avatar_url: string
+      recent_notes: Array<{
+        title: string
+        images: string[]
+        likes: number
+        comments: number
+        tags: string[]
+      }>
+    }
+    
+    // 通用网页数据
     webpage?: {
       title: string
       description: string
@@ -56,16 +229,45 @@ interface ToolResultData {
         author?: string
         keywords?: string[]
         type?: string
+        published_date?: string
       }
+      extracted_links?: Array<{
+        text: string
+        url: string
+        type: 'external' | 'internal'
+      }>
     }
-    linkedin?: {
-      name: string
-      headline: string
-      location: string
-      connections: number
-      experience_count: number
-      skills: string[]
-      current_position?: string
+  }
+  
+  // 多媒体信息
+  media_info?: {
+    thumbnails: string[]
+    preview_images: string[]
+    videos?: Array<{
+      url: string
+      duration: number
+      quality: string
+    }>
+    images?: Array<{
+      url: string
+      width: number
+      height: number
+      alt?: string
+    }>
+  }
+  
+  // 内容分析结果
+  content_analysis?: {
+    summary: string
+    tags: string[]
+    sentiment?: 'positive' | 'neutral' | 'negative'
+    topics: string[]
+    technical_stack?: string[]
+    design_elements?: string[]
+    quality_indicators: {
+      completeness: number
+      relevance: number
+      freshness: number
     }
   }
   cache_info: {
@@ -73,11 +275,18 @@ interface ToolResultData {
     expires_at: string
     hit_count: number
     status: 'fresh' | 'cached' | 'expired'
+    last_accessed: string
   }
   usage_stats: {
     used_in_pages: string[]
     sync_count: number
     last_sync: string
+    page_details?: Array<{
+      page_id: string
+      page_title: string
+      last_sync: string
+      sync_status: 'success' | 'failed' | 'pending'
+    }>
   }
   tags: string[]
 }
@@ -131,9 +340,44 @@ function CacheStatusIndicator({ status, expiresAt }: {
 // 工具类型图标
 function ToolTypeIcon({ toolName }: { toolName: string }) {
   const iconMap = {
+    // 代码平台
     'analyze_github': <Code className="w-4 h-4" />,
+    'analyze_gitlab': <Code className="w-4 h-4" />,
+    'analyze_codepen': <Code className="w-4 h-4" />,
+    'analyze_replit': <Code className="w-4 h-4" />,
+    
+    // 设计平台
+    'analyze_behance': <Palette className="w-4 h-4" />,
+    'analyze_dribbble': <Palette className="w-4 h-4" />,
+    'analyze_figma': <Layers className="w-4 h-4" />,
+    'analyze_pinterest': <Image className="w-4 h-4" />,
+    
+    // 视频平台
+    'analyze_youtube': <Play className="w-4 h-4" />,
+    'analyze_bilibili': <Video className="w-4 h-4" />,
+    'analyze_vimeo': <Play className="w-4 h-4" />,
+    'analyze_tiktok': <Smartphone className="w-4 h-4" />,
+    
+    // 社交平台
+    'extract_linkedin': <User className="w-4 h-4" />,
+    'analyze_instagram': <Camera className="w-4 h-4" />,
+    'analyze_twitter': <Smartphone className="w-4 h-4" />,
+    'analyze_weibo': <Smartphone className="w-4 h-4" />,
+    
+    // 部署平台
+    'analyze_vercel': <Globe className="w-4 h-4" />,
+    'analyze_netlify': <Globe className="w-4 h-4" />,
+    'analyze_bolt': <Zap className="w-4 h-4" />,
+    'analyze_youware': <Code className="w-4 h-4" />,
+    
+    // 内容平台
+    'analyze_xiaohongshu': <FileText className="w-4 h-4" />,
+    'analyze_medium': <FileText className="w-4 h-4" />,
+    'analyze_substack': <FileText className="w-4 h-4" />,
+    
+    // 通用工具
     'scrape_webpage': <Link2 className="w-4 h-4" />,
-    'extract_linkedin': <User className="w-4 h-4" />
+    'parse_document': <FileText className="w-4 h-4" />
   }
   
   return iconMap[toolName as keyof typeof iconMap] || <Code className="w-4 h-4" />
@@ -239,9 +483,44 @@ export default function ToolResultCard({
 
   const getToolDisplayName = (toolName: string) => {
     const nameMap = {
+      // 代码平台
       'analyze_github': 'GitHub 分析',
+      'analyze_gitlab': 'GitLab 分析',
+      'analyze_codepen': 'CodePen 分析',
+      'analyze_replit': 'Replit 分析',
+      
+      // 设计平台
+      'analyze_behance': 'Behance 分析',
+      'analyze_dribbble': 'Dribbble 分析',
+      'analyze_figma': 'Figma 分析',
+      'analyze_pinterest': 'Pinterest 分析',
+      
+      // 视频平台
+      'analyze_youtube': 'YouTube 分析',
+      'analyze_bilibili': 'Bilibili 分析',
+      'analyze_vimeo': 'Vimeo 分析',
+      'analyze_tiktok': 'TikTok 分析',
+      
+      // 社交平台
+      'extract_linkedin': 'LinkedIn 提取',
+      'analyze_instagram': 'Instagram 分析',
+      'analyze_twitter': 'Twitter 分析',
+      'analyze_weibo': '微博分析',
+      
+      // 部署平台
+      'analyze_vercel': 'Vercel 分析',
+      'analyze_netlify': 'Netlify 分析',
+      'analyze_bolt': 'Bolt 分析',
+      'analyze_youware': 'Youware 分析',
+      
+      // 内容平台
+      'analyze_xiaohongshu': '小红书分析',
+      'analyze_medium': 'Medium 分析',
+      'analyze_substack': 'Substack 分析',
+      
+      // 通用工具
       'scrape_webpage': '网页抓取',
-      'extract_linkedin': 'LinkedIn 提取'
+      'parse_document': '文档解析'
     }
     return nameMap[toolName as keyof typeof nameMap] || toolName
   }

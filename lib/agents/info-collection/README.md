@@ -1,6 +1,15 @@
 # 📊 Info Collection Module - 信息收集模块
 
-基于Claude官方工具调用最佳实践的优化版信息收集模块。
+基于多种AI SDK的信息收集模块，提供现代化的工具调用实现。
+
+## 🆕 最新推荐：VercelAIInfoCollectionAgent
+
+**基于 Vercel AI SDK 的现代化实现**，与 coding agent 保持技术栈一致，提供：
+- 原生 Vercel AI 工具调用
+- 简洁的代码架构（360行 vs 1521行）
+- 内置流式处理
+- 综合分析工具（synthesize_profile）
+- 完整的业务逻辑支持
 
 ## 🎯 模块架构
 

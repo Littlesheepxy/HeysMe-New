@@ -4,10 +4,10 @@
  * 智能链接处理系统 - TypeScript服务测试
  */
 
-import { githubService } from './lib/services/github-service';
-import { webService } from './lib/services/web-service';
-import { documentService } from './lib/services/document-service';
-import { socialService } from './lib/services/social-service';
+import { githubService } from '../lib/services/github-service';
+import { webService } from '../lib/services/web-service';
+import { documentService } from '../lib/services/document-service';
+import { socialService } from '../lib/services/social-service';
 
 async function testGitHubService() {
   console.log('\n🐙 测试GitHub服务...');
@@ -129,7 +129,7 @@ async function testServiceHealth() {
   
   try {
     // 导入健康检查
-    const { healthCheck } = await import('./lib/services/index');
+    const { healthCheck } = await import('../lib/services/index');
     const health = await healthCheck();
     
     console.log(`✅ 服务健康检查完成`);

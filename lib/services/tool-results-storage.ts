@@ -119,7 +119,7 @@ export class ToolResultsStorageService {
       const toolResult: Partial<ToolResult> = {
         ...result,
         url_hash,
-        cache_expires_at,
+        cache_expires_at: cache_expires_at || undefined,
         metadata: {
           ...result.metadata,
           cached_at: new Date().toISOString(),

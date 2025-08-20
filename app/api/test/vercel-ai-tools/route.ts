@@ -79,7 +79,6 @@ export async function POST(req: NextRequest) {
         analyze_github: githubAnalyzeTool,
         scrape_webpage: webScrapeTool
       },
-      maxTokens: 4000,
       temperature: 0.7,
       toolChoice: 'auto' // 让 AI 自动决定是否使用工具
     });
@@ -94,7 +93,7 @@ export async function POST(req: NextRequest) {
     });
     
     result.toolResults.forEach((toolResult, index) => {
-      console.log(`📊 [工具结果 ${index}] 结果:`, toolResult.result);
+      console.log(`📊 [工具结果 ${index}] 结果:`, toolResult.output);
     });
 
     // 格式化工具调用结果

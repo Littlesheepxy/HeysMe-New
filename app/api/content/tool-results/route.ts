@@ -190,7 +190,7 @@ const mockToolResults = [
 // GET /api/content/tool-results - 获取工具结果列表
 export async function GET(request: NextRequest) {
   try {
-    const { userId } = auth()
+    const { userId } = await auth()
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
@@ -238,7 +238,7 @@ export async function GET(request: NextRequest) {
 // POST /api/content/tool-results - 创建新的工具结果（通常由Agent调用）
 export async function POST(request: NextRequest) {
   try {
-    const { userId } = auth()
+    const { userId } = await auth()
     if (!userId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }

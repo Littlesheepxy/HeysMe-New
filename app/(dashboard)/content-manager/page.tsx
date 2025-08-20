@@ -1,7 +1,7 @@
 'use client'
 
 import { Suspense, useState, useEffect, useRef } from 'react'
-import ToolResultCard from '@/components/content-manager/tool-results/ToolResultCard'
+import ToolResultCard, { type ToolResultData } from '@/components/content-manager/tool-results/ToolResultCard'
 import ToolResultDetailPanel from '@/components/content-manager/tool-results/ToolResultDetailPanel'
 import { motion, AnimatePresence } from 'framer-motion'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -64,32 +64,7 @@ interface ContentItem {
   source: 'manual' | 'imported' | 'ai_generated' | 'tool_extracted'
 }
 
-// 工具结果数据类型
-interface ToolResultData {
-  id: string
-  tool_name: 'analyze_github' | 'scrape_webpage' | 'extract_linkedin'
-  source_url: string
-  extracted_data: any
-  cache_info: {
-    created_at: string
-    expires_at: string
-    hit_count: number
-    status: 'fresh' | 'cached' | 'expired'
-    last_accessed: string
-  }
-  usage_stats: {
-    used_in_pages: string[]
-    sync_count: number
-    last_sync: string
-    page_details: Array<{
-      page_id: string
-      page_title: string
-      last_sync: string
-      sync_status: 'success' | 'failed' | 'pending'
-    }>
-  }
-  tags: string[]
-}
+// 工具结果数据类型已从组件导入
 
 // 同步任务定义
 interface SyncTask {

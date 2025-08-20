@@ -3,8 +3,9 @@
  * 使用多步骤工具调用实现智能代码生成和文件操作
  */
 
-import { BaseAgent, AgentCapabilities, StreamableAgentResponse } from '../base-agent';
-import { SessionData } from '@/types/chat';
+import { BaseAgent } from '../base-agent';
+import { AgentCapabilities, StreamableAgentResponse } from '@/lib/types/streaming';
+import { SessionData } from '@/lib/types/session';
 import { anthropic } from '@ai-sdk/anthropic';
 import { generateText, tool, stepCountIs } from 'ai';
 import { z } from 'zod';
@@ -15,18 +16,13 @@ export class VercelAICodingAgent extends BaseAgent {
   constructor() {
     const capabilities: AgentCapabilities = {
       canStream: true,
-      canUseTools: true,
-      canAnalyzeCode: true,
-      canGenerateCode: true,
-      canAccessFiles: true,
-      canAccessInternet: false,
-      canRememberContext: true,
-      maxContextLength: 200000,
-      supportedLanguages: ['zh', 'en'],
-      specializedFor: ['code_generation', 'file_operations', 'project_development']
+      requiresInteraction: false,
+      outputFormats: ['text', 'json', 'markdown'],
+      maxRetries: 3,
+      timeout: 60000
     };
 
-    super('VercelAI编程专家', 'vercel-ai-coding', capabilities);
+    super('VercelAI编程专家', capabilities);
   }
 
   /**
@@ -186,7 +182,7 @@ export class VercelAICodingAgent extends BaseAgent {
                 const itemPath = path.join(dir, item);
                 const stats = await fs.stat(itemPath);
                 
-                const itemInfo = {
+                const itemInfo: any = {
                   name: item,
                   path: itemPath,
                   type: stats.isDirectory() ? 'directory' : 'file',
@@ -234,7 +230,7 @@ export class VercelAICodingAgent extends BaseAgent {
         execute: async ({ project_path = '.', focus_areas = ['structure'] }) => {
           console.log(`🔧 [项目分析] ${project_path}`);
           try {
-            const analysis = {
+            const analysis: any = {
               project_path,
               structure: {},
               dependencies: {},
@@ -366,6 +362,18 @@ export class VercelAICodingAgent extends BaseAgent {
   }
 
   /**
+   * 实现 BaseAgent 的抽象方法
+   */
+  async *process(
+    input: any,
+    sessionData: SessionData,
+    context?: Record<string, any>
+  ): AsyncGenerator<StreamableAgentResponse, void, unknown> {
+    const userInput = typeof input === 'string' ? input : input?.user_input || '';
+    yield* this.processRequest(userInput, sessionData, context);
+  }
+
+  /**
    * 主要处理方法 - 使用 Vercel AI SDK 的多步骤工具调用
    */
   async *processRequest(
@@ -450,9 +458,8 @@ export class VercelAICodingAgent extends BaseAgent {
         tools: this.getTools(),
         stopWhen: stepCountIs(8), // 允许最多8步：分析 + 多个文件操作
         temperature: 0.3, // 编程任务使用较低温度
-        maxTokens: 12000,
-        onStepFinish: async ({ toolResults, stepNumber }) => {
-          console.log(`📊 [步骤 ${stepNumber}] 完成，执行了 ${toolResults.length} 个工具`);
+        onStepFinish: async ({ toolResults }) => {
+          console.log(`📊 [步骤完成] 执行了 ${toolResults.length} 个工具`);
           // 注意：这里不能使用 yield，因为这是在回调函数中
           // 步骤完成的通知将在主流程中处理
         }
@@ -486,7 +493,7 @@ export class VercelAICodingAgent extends BaseAgent {
           metadata: {
             message_id: messageId,
             steps_executed: result.steps.length,
-            tools_used: [...new Set(allToolCalls.map(tc => tc.toolName))],
+            tools_used: Array.from(new Set(allToolCalls.map(tc => tc.toolName))),
             files_modified: fileOperations.length,
             total_tokens: result.usage?.totalTokens
           }
