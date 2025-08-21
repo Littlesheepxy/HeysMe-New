@@ -326,7 +326,6 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
           try {
             const { UnifiedToolExecutor } = await import('@/lib/agents/coding/streaming-tool-executor');
             const executor = new UnifiedToolExecutor({
-              mode: 'claude',
               onTextUpdate: async (text: string, partial: boolean) => {
                 console.log('📝 [工具文本]', text, partial ? '(部分)' : '(完整)');
               },
@@ -457,7 +456,6 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
       setCurrentSay(null);
       setAwaitingCodingResponse(false);
       if (toolExecutor) {
-        toolExecutor.reset();
         setAccumulatedAIResponse('');
       }
     }

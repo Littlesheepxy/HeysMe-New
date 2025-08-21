@@ -30,7 +30,16 @@ import {
   Layers,
   Video,
   Image,
-  Headphones
+  Headphones,
+  Monitor,
+  Tablet,
+  Eye,
+  MousePointer,
+  Layout,
+  BarChart3,
+  Shield,
+  Wifi,
+  WifiOff
 } from 'lucide-react'
 import { useTheme } from '@/contexts/theme-context'
 
@@ -270,6 +279,35 @@ export interface ToolResultData {
       freshness: number
     }
   }
+  
+  // 展示策略分析 (新增)
+  display_strategy?: {
+    content_classification: {
+      primary_type: 'text' | 'link' | 'media' | 'data' | 'timeline'
+      display_methods: Array<{
+        method: 'direct_text' | 'button_link' | 'embedded' | 'visualization' | 'timeline' | 'placeholder'
+        priority: 'high' | 'medium' | 'low'
+        suitability_score: number
+        responsive_behavior: string
+      }>
+    }
+    accessibility_status: {
+      is_accessible: boolean
+      restriction_type?: 'login_required' | 'cors_blocked' | 'rate_limited' | 'private' | 'not_found'
+      fallback_strategy?: string
+    }
+    embedding_capability: {
+      can_embed: boolean
+      embed_type?: 'iframe' | 'api' | 'widget' | 'preview'
+      embed_url?: string
+      security_considerations?: string[]
+    }
+    interaction_recommendations: {
+      primary_action: string
+      secondary_actions: string[]
+      user_journey_impact: 'high' | 'medium' | 'low'
+    }
+  }
   cache_info: {
     created_at: string
     expires_at: string
@@ -471,6 +509,70 @@ function LinkedInPreview({ data }: { data: ToolResultData['extracted_data']['lin
   )
 }
 
+// 展示策略指示器
+function DisplayStrategyIndicator({ strategy }: { strategy?: ToolResultData['display_strategy'] }) {
+  if (!strategy) return null
+
+  const getDisplayMethodIcon = (method: string) => {
+    switch (method) {
+      case 'direct_text': return <FileText className="w-3 h-3" />
+      case 'button_link': return <MousePointer className="w-3 h-3" />
+      case 'embedded': return <Layout className="w-3 h-3" />
+      case 'visualization': return <BarChart3 className="w-3 h-3" />
+      case 'timeline': return <Calendar className="w-3 h-3" />
+      case 'placeholder': return <Eye className="w-3 h-3" />
+      default: return <Globe className="w-3 h-3" />
+    }
+  }
+
+  const getAccessibilityIcon = (isAccessible: boolean) => {
+    return isAccessible ? <Wifi className="w-3 h-3 text-green-500" /> : <WifiOff className="w-3 h-3 text-red-500" />
+  }
+
+  const primaryMethod = strategy.content_classification.display_methods[0]
+  
+  return (
+    <div className="flex items-center gap-2 text-xs">
+      <div className="flex items-center gap-1">
+        {getDisplayMethodIcon(primaryMethod?.method || 'button_link')}
+        <span className="capitalize">{primaryMethod?.method?.replace('_', ' ') || 'Link'}</span>
+      </div>
+      <div className="flex items-center gap-1">
+        {getAccessibilityIcon(strategy.accessibility_status.is_accessible)}
+        <span>{strategy.accessibility_status.is_accessible ? '可访问' : '受限'}</span>
+      </div>
+      {strategy.embedding_capability.can_embed && (
+        <div className="flex items-center gap-1 text-blue-500">
+          <Layout className="w-3 h-3" />
+          <span>可嵌入</span>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// 响应式展示预览
+function ResponsivePreview({ strategy }: { strategy?: ToolResultData['display_strategy'] }) {
+  if (!strategy) return null
+
+  return (
+    <div className="flex items-center gap-3 text-xs text-gray-500">
+      <div className="flex items-center gap-1">
+        <Monitor className="w-3 h-3" />
+        <span>桌面</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <Tablet className="w-3 h-3" />
+        <span>平板</span>
+      </div>
+      <div className="flex items-center gap-1">
+        <Smartphone className="w-3 h-3" />
+        <span>移动</span>
+      </div>
+    </div>
+  )
+}
+
 export default function ToolResultCard({
   data,
   onEdit,
@@ -611,6 +713,14 @@ export default function ToolResultCard({
           }`}>
             {renderDataPreview()}
           </div>
+
+          {/* 展示策略指示器 */}
+          {data.display_strategy && (
+            <div className="space-y-2">
+              <DisplayStrategyIndicator strategy={data.display_strategy} />
+              <ResponsivePreview strategy={data.display_strategy} />
+            </div>
+          )}
 
           {/* 标签 */}
           {data.tags && data.tags.length > 0 && (

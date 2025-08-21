@@ -9,6 +9,7 @@ import { LoadingText, StreamingText, LoadingDots } from '@/components/ui/loading
 import { UnifiedLoading, ThinkingLoader, GeneratingLoader, SimpleTextLoader } from '@/components/ui/unified-loading';
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer';
 import { FileCreationPanel } from './FileCreationPanel';
+import { ToolCallDisplay, ToolCallList } from './ToolCallDisplay';
 import { cleanTextContent } from '@/lib/utils';
 import { useTheme } from '@/contexts/theme-context';
 
@@ -95,7 +96,11 @@ export const MessageBubble = React.memo(function MessageBubble({
   // 🎯 用户消息判断
   const { isUser, isSystemMessage, actualIsUser } = useMemo(() => {
     const isUser = message.sender === 'user' || message.agent === 'user';
-    const isSystemMessage = message.agent === 'system' || message.sender === 'assistant' || message.sender === 'system';
+    
+    // 🔧 修复：只有明确标记为 system 的消息才是系统消息
+    // 不应该把所有 assistant 消息都当作系统消息
+    const isSystemMessage = message.agent === 'system' || message.sender === 'system';
+    
     const actualIsUser = isUser && !isSystemMessage;
     
     return { isUser, isSystemMessage, actualIsUser };
@@ -404,6 +409,15 @@ export const MessageBubble = React.memo(function MessageBubble({
             : ""
         } ${actualIsUser ? "text-gray-800 dark:text-gray-200" : "text-gray-800 dark:text-gray-200"}`} style={isCompactMode ? { maxWidth: '100%' } : {}}>
           
+          {/* 🎯 工具调用展示面板 - 优先显示在内容前面 */}
+          {!actualIsUser && message.metadata?.toolCalls && message.metadata.toolCalls.length > 0 && (
+            <div className={isCompactMode ? "px-1 py-1 mb-2" : "mb-3"}>
+              <ToolCallList 
+                toolCalls={message.metadata.toolCalls}
+              />
+            </div>
+          )}
+
           {/* 🎯 消息文本内容渲染 - MessageBubble核心职责 */}
           <div className={`whitespace-pre-wrap break-words ${isCompactMode ? "text-sm" : ""} overflow-hidden`}>
             {(() => {
@@ -418,8 +432,13 @@ export const MessageBubble = React.memo(function MessageBubble({
                 return <GeneratingLoader text="正在准备个性化选项" size="sm" />;
               }
               
-              // 检测特殊loading文本
-              if (!actualIsUser && cleanedContent && (
+              // 检测特殊loading文本 - 但排除增量编辑消息
+              const isIncrementalEdit = message.metadata?.mode === 'incremental' || 
+                                      message.agent === 'CodingAgent' ||
+                                      cleanedContent.includes('增量编辑') ||
+                                      cleanedContent.includes('工具调用');
+              
+              if (!actualIsUser && cleanedContent && !isIncrementalEdit && (
                 cleanedContent.includes('正在分析') ||
                 cleanedContent.includes('正在为您生成') ||
                 cleanedContent.includes('请稍候')
@@ -440,9 +459,14 @@ export const MessageBubble = React.memo(function MessageBubble({
                 fileCreationStatus={fileCreationStatus}
                 version={codeVersion} // 使用计算出的正确版本号
                 isActive={true}
+                sessionId={message.metadata?.sessionId || message.metadata?.system_state?.metadata?.message_id}
+                autoDeployEnabled={true}
+                projectName={message.metadata?.projectName || 'HeysMe Project'}
               />
             </div>
           )}
+
+
 
           {/* 🎯 消息内交互表单 - MessageBubble核心职责 */}
           {!actualIsUser && 

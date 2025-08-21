@@ -443,24 +443,42 @@ export class AgentOrchestrator {
     
     if (agentName === 'coding') {
       // 🎯 CodingAgent模式判断逻辑
-      const currentStage = session.metadata.progress.currentStage;
       const hasProjectFiles = session.metadata && 
                              (session.metadata as any).projectFiles && 
                              (session.metadata as any).projectFiles.length > 0;
       
-      // 如果当前在code_generation阶段且已有项目文件，使用增量模式
-      if (currentStage === 'code_generation' && hasProjectFiles) {
+      // 🆕 简化的判断逻辑：核心原则是"有代码就增量，无代码就初始"
+      // 1. 检查是否已经有项目文件（最可靠的指标）
+      // 2. 检查会话历史中是否有成功的代码生成记录
+      const hasSuccessfulCodeGeneration = session.conversationHistory.some(entry => 
+        (entry.agent === 'coding' && entry.metadata?.projectGenerated === true) ||
+        entry.metadata?.intent === 'project_complete' ||
+        entry.metadata?.hasCodeFiles === true
+      );
+      
+      const shouldUseIncremental = hasProjectFiles || hasSuccessfulCodeGeneration;
+      
+      if (shouldUseIncremental) {
         agentInput = {
           user_input: userInput,
           mode: 'incremental'
         } as any;
-        console.log(`🔧 [编排器] CodingAgent使用增量模式 (有${(session.metadata as any).projectFiles.length}个项目文件)`);
+        console.log(`🔧 [编排器] CodingAgent使用增量模式 - 检测到已有代码`, {
+          hasProjectFiles: hasProjectFiles,
+          projectFilesCount: hasProjectFiles ? (session.metadata as any).projectFiles.length : 0,
+          hasSuccessfulCodeGeneration: hasSuccessfulCodeGeneration,
+          reason: hasProjectFiles ? '有项目文件' : '有代码生成历史'
+        });
       } else {
         agentInput = {
           user_input: userInput,
           mode: 'initial'
         } as any;
-        console.log(`🔧 [编排器] CodingAgent使用初始模式`);
+        console.log(`🔧 [编排器] CodingAgent使用初始模式 - 首次代码生成`, {
+          hasProjectFiles: hasProjectFiles,
+          hasSuccessfulCodeGeneration: hasSuccessfulCodeGeneration,
+          isFirstTimeGeneration: true
+        });
       }
     }
     

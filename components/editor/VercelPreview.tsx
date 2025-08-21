@@ -27,6 +27,8 @@ import { type CodeFile } from '@/lib/agents/coding/types';
 import { StagewiseToolbar } from './StagewiseToolbar';
 import { useTheme } from '@/contexts/theme-context';
 import { VercelErrorDialog } from '@/components/dialogs/vercel-error-dialog';
+import { VersionSelector } from './VersionSelector';
+import { ProjectVersionManager, type ProjectVersion } from '@/lib/services/project-version-manager';
 
 type DeviceType = 'desktop' | 'mobile';
 type EditMode = 'none' | 'text' | 'ai';
@@ -37,7 +39,6 @@ interface VercelPreviewProps {
   description?: string;
   isLoading: boolean;
   previewUrl: string | null;
-  enableVercelDeploy: boolean;
   onPreviewReady: (url: string) => void;
   onLoadingChange: (loading: boolean) => void;
   isEditMode?: boolean;
@@ -49,6 +50,7 @@ interface VercelPreviewProps {
   isGeneratingCode?: boolean; // 新增：是否正在生成代码
   generationProgress?: number; // 新增：生成进度 0-100
   generationStatus?: string; // 新增：生成状态文本
+  sessionId?: string; // 新增：会话ID，用于版本管理
 }
 
 export default function VercelPreview({
@@ -57,7 +59,6 @@ export default function VercelPreview({
   description = '',
   isLoading,
   previewUrl,
-  enableVercelDeploy = true,
   onPreviewReady,
   onLoadingChange,
   isEditMode = false,
@@ -68,7 +69,8 @@ export default function VercelPreview({
   onRefresh,
   isGeneratingCode = false,
   generationProgress = 0,
-  generationStatus = '正在生成代码...'
+  generationStatus = '正在生成代码...',
+  sessionId
 }: VercelPreviewProps) {
   const { theme } = useTheme();
   const iframeRef = useRef<HTMLIFrameElement>(null);
@@ -83,6 +85,12 @@ export default function VercelPreview({
   const [vercelErrorInfo, setVercelErrorInfo] = useState<VercelErrorInfo | null>(null);
   const [showErrorDialog, setShowErrorDialog] = useState(false);
 
+  // 🆕 版本管理状态
+  const [versions, setVersions] = useState<ProjectVersion[]>([]);
+  const [currentVersion, setCurrentVersion] = useState<string>('v1');
+  const [deployingVersion, setDeployingVersion] = useState<string | null>(null);
+  const [versionManager] = useState(() => ProjectVersionManager.getInstance());
+
   // 使用新的 Vercel 部署 Hook
   const {
     isDeploying,
@@ -96,6 +104,11 @@ export default function VercelPreview({
     onStatusChange: (status) => {
       setDeploymentStatus(status);
       onLoadingChange(status !== 'ready' && status !== 'error');
+      
+      // 🆕 部署完成后清除部署版本状态
+      if (status === 'ready' || status === 'error') {
+        setDeployingVersion(null);
+      }
     },
     onLog: (log) => {
       setDeployLogs(prev => [...prev, log]);
@@ -114,6 +127,124 @@ export default function VercelPreview({
     setLocalDeviceType(device);
     onDeviceChange?.(device);
   }, [onDeviceChange]);
+
+  // 🆕 版本管理 useEffect - 初始化和文件变化检测
+  useEffect(() => {
+    if (!sessionId) return;
+
+    // 获取现有版本历史
+    const history = versionManager.getVersionHistory(sessionId);
+    if (history) {
+      setVersions(history.versions);
+      setCurrentVersion(history.currentVersion);
+    } else if (files.length > 0) {
+      // 如果没有版本历史但有文件，创建初始版本
+      const initialVersion = versionManager.createVersion(
+        sessionId,
+        files,
+        '项目初始版本',
+        'Initial project setup'
+      );
+      setVersions([initialVersion]);
+      setCurrentVersion(initialVersion.version);
+    }
+  }, [sessionId, versionManager]);
+
+  // 🆕 检测文件变化，自动创建新版本
+  useEffect(() => {
+    if (!sessionId || !files.length) return;
+
+    const currentVersionData = versionManager.getCurrentVersion(sessionId);
+    if (!currentVersionData) return;
+
+    // 检查文件是否有变化
+    const hasChanges = files.length !== currentVersionData.files.length ||
+      files.some((file, index) => {
+        const oldFile = currentVersionData.files[index];
+        return !oldFile || file.content !== oldFile.content || file.filename !== oldFile.filename;
+      });
+
+    if (hasChanges) {
+      // 创建新版本
+      const newVersion = versionManager.createVersion(
+        sessionId,
+        files,
+        '代码更新',
+        'Updated project files'
+      );
+      
+      // 更新状态
+      const updatedHistory = versionManager.getVersionHistory(sessionId);
+      if (updatedHistory) {
+        setVersions(updatedHistory.versions);
+        setCurrentVersion(updatedHistory.currentVersion);
+      }
+    }
+  }, [files, sessionId, versionManager]);
+
+  // 🆕 版本选择处理
+  const handleVersionSelect = useCallback((versionId: string) => {
+    if (!sessionId) return;
+
+    const selectedVersion = versionManager.switchToVersion(sessionId, versionId);
+    if (selectedVersion) {
+      setCurrentVersion(versionId);
+      // 这里可以触发文件更新，但需要父组件支持
+      console.log(`🔄 [版本切换] 切换到版本: ${versionId}`);
+    }
+  }, [sessionId, versionManager]);
+
+  // 🆕 版本部署处理
+  const handleVersionDeploy = useCallback(async (versionId: string) => {
+    if (!sessionId || isDeploying) return;
+
+    const versionData = versionManager.getVersion(sessionId, versionId);
+    if (!versionData) return;
+
+    setDeployingVersion(versionId);
+    setDeployLogs([]); // 清空日志
+    setShowLogs(true); // 显示日志面板
+
+    try {
+      await deployProject({
+        projectName: projectName.toLowerCase().replace(/\s+/g, '-'),
+        files: versionData.files,
+        gitMetadata: {
+          commitAuthorName: 'HeysMe User',
+          commitMessage: `Deploy ${versionId}: ${versionData.name}`,
+          commitRef: 'main',
+          dirty: false,
+        },
+        projectSettings: {
+          buildCommand: 'npm run build',
+          installCommand: 'npm install',
+        },
+        meta: {
+          source: 'heysme-preview',
+          description: `${versionData.name} - ${versionData.description}`,
+          timestamp: new Date().toISOString(),
+          version: versionId,
+        }
+      });
+    } catch (error) {
+      console.error(`部署版本 ${versionId} 失败:`, error);
+      setDeployingVersion(null);
+    }
+  }, [sessionId, versionManager, projectName, deployProject, isDeploying]);
+
+  // 🆕 版本删除处理
+  const handleVersionDelete = useCallback((versionId: string) => {
+    if (!sessionId) return;
+
+    const success = versionManager.deleteVersion(sessionId, versionId);
+    if (success) {
+      const updatedHistory = versionManager.getVersionHistory(sessionId);
+      if (updatedHistory) {
+        setVersions(updatedHistory.versions);
+        setCurrentVersion(updatedHistory.currentVersion);
+      }
+    }
+  }, [sessionId, versionManager]);
 
   // 部署到 Vercel 预览
   const handleDeploy = useCallback(async () => {
@@ -155,27 +286,22 @@ export default function VercelPreview({
     setIsRefreshing(true);
     
     try {
-      // 🔧 首先尝试简单的iframe刷新，避免重新部署
-      if (iframeRef.current) {
-        console.log('🔄 [刷新] 尝试iframe刷新而不重新部署...');
-        iframeRef.current.src = iframeRef.current.src;
+      // 🔧 修复：优先使用iframe刷新，避免重复部署
+      if (deploymentUrl || previewUrl) {
+        console.log('🔄 [刷新] 已有部署URL，使用iframe刷新...');
+        if (iframeRef.current) {
+          iframeRef.current.src = iframeRef.current.src;
+        }
         await new Promise(resolve => setTimeout(resolve, 1000));
-      } else if (onRefresh) {
-        // 如果iframe刷新失败，使用自定义刷新回调
-        console.log('🔄 [刷新] iframe不可用，触发重新部署...');
-        onRefresh();
       } else {
-        // 最后才调用内部的重新部署逻辑
-        console.log('🔄 [刷新] 触发内部重新部署...');
+        // 只有在没有部署URL时才重新部署
+        console.log('🔄 [刷新] 没有部署URL，触发重新部署...');
         await handleDeploy();
       }
-      
-      // 等待刷新完成
-      await new Promise(resolve => setTimeout(resolve, 1000));
     } finally {
       setIsRefreshing(false);
     }
-  }, [isRefreshing, onRefresh, handleDeploy]);
+  }, [isRefreshing, deploymentUrl, previewUrl, handleDeploy]);
 
   // 下载代码
   const handleDownload = useCallback(() => {
@@ -295,6 +421,21 @@ export default function VercelPreview({
               </Button>
             </div>
           </div>
+
+          {/* 🆕 中间：版本选择器 */}
+          {sessionId && versions.length > 0 && (
+            <div className="flex-1 max-w-xs mx-4">
+              <VersionSelector
+                versions={versions}
+                currentVersion={currentVersion}
+                onVersionSelect={handleVersionSelect}
+                onVersionDeploy={handleVersionDeploy}
+                onVersionDelete={handleVersionDelete}
+                isDeploying={isDeploying}
+                deployingVersion={deployingVersion || undefined}
+              />
+            </div>
+          )}
 
           {/* 右侧：操作按钮 */}
           <div className="flex items-center gap-1.5">
@@ -422,7 +563,7 @@ export default function VercelPreview({
             <motion.div
               initial={{ opacity: 0, scale: 0.9 }}
               animate={{ opacity: 1, scale: 1 }}
-              className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl p-8 max-w-md mx-4 text-center shadow-2xl border border-red-200 dark:border-red-800"
+              className="bg-white/95 dark:bg-gray-800/95 backdrop-blur-md rounded-xl p-8 max-w-lg mx-4 text-center shadow-2xl border border-red-200 dark:border-red-800"
             >
               {/* 错误图标 */}
               <motion.div
@@ -439,15 +580,29 @@ export default function VercelPreview({
                 部署失败
               </h3>
               
-              {/* 错误信息 */}
-              <p className="text-gray-600 dark:text-gray-400 mb-6 text-sm leading-relaxed">
-                {deploymentError}
-              </p>
+              {/* 错误信息 - 显示更多详情 */}
+              <div className="text-left mb-6">
+                <p className="text-gray-600 dark:text-gray-400 text-sm leading-relaxed mb-3">
+                  部署过程中遇到了问题，请查看详细错误信息：
+                </p>
+                <div className="bg-red-50 dark:bg-red-900/20 rounded-lg p-3 border border-red-200 dark:border-red-700">
+                  <pre className="text-xs text-red-700 dark:text-red-300 whitespace-pre-wrap overflow-x-auto max-h-32">
+                    {typeof deploymentError === 'string' 
+                      ? deploymentError 
+                      : JSON.stringify(deploymentError, null, 2)
+                    }
+                  </pre>
+                </div>
+              </div>
               
               {/* 操作按钮 */}
               <div className="flex flex-col sm:flex-row gap-3 justify-center">
                 <Button
-                  onClick={resetDeployment}
+                  onClick={() => {
+                    resetDeployment();
+                    // 重新触发部署
+                    setTimeout(() => handleDeploy(), 500);
+                  }}
                   className="bg-red-500 hover:bg-red-600 text-white px-6"
                 >
                   <RotateCcw className="w-4 h-4 mr-2" />
@@ -459,7 +614,22 @@ export default function VercelPreview({
                   className="border-red-300 text-red-600 hover:bg-red-50 dark:border-red-700 dark:text-red-400"
                 >
                   <Terminal className="w-4 h-4 mr-2" />
-                  查看日志
+                  查看详细日志
+                </Button>
+                <Button
+                  onClick={() => {
+                    // 复制错误信息到剪贴板
+                    navigator.clipboard.writeText(
+                      typeof deploymentError === 'string' 
+                        ? deploymentError 
+                        : JSON.stringify(deploymentError, null, 2)
+                    );
+                  }}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs"
+                >
+                  复制错误信息
                 </Button>
               </div>
             </motion.div>
@@ -584,19 +754,7 @@ export default function VercelPreview({
                 等待代码生成完成后将自动部署预览
               </p>
               
-              {/* 立即部署按钮 - 改进居中和样式 */}
-              {files.length > 0 && enableVercelDeploy && (
-                <div className="flex justify-center">
-                  <Button
-                    onClick={handleDeploy}
-                    disabled={isDeploying}
-                    className="flex items-center gap-2 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white font-medium rounded-lg shadow-lg transition-all duration-200 hover:shadow-xl hover:scale-105"
-                  >
-                    <Play className="w-5 h-5" />
-                    立即部署预览
-                  </Button>
-                </div>
-              )}
+              {/* 移除手动部署按钮 - 现在完全自动化 */}
             </div>
           </div>
         )}

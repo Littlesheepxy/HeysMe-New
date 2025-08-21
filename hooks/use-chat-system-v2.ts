@@ -743,6 +743,12 @@ export function useChatSystemV2() {
               // 🆕 添加完整的chunk数据结构调试
               console.log('🔍 [完整数据结构]', JSON.stringify(chunk, null, 2));
               
+              // 🔧 专门调试toolCalls数据传递
+              if (chunk.system_state?.metadata?.toolCalls) {
+                console.log('🎯 [工具调用数据] 检测到toolCalls:', chunk.system_state.metadata.toolCalls.length, '个');
+                console.log('🎯 [工具调用数据] 详细内容:', chunk.system_state.metadata.toolCalls);
+              }
+              
               // 🔧 修复：处理不同格式的流式数据
               // 检查是否是流式更新消息
               const isStreamUpdate = chunk.system_state?.metadata?.is_update;
@@ -935,6 +941,14 @@ export function useChatSystemV2() {
                           console.log('🎯 [文件状态] 更新fileCreationProgress');
                         }
                       }
+                      
+                      // 🔧 专门处理toolCalls数据
+                      if (chunk.system_state?.metadata?.toolCalls) {
+                        updatedMetadata.toolCalls = chunk.system_state.metadata.toolCalls;
+                        if (process.env.NODE_ENV === 'development') {
+                          console.log('🎯 [工具调用] 更新toolCalls:', chunk.system_state.metadata.toolCalls.length, '个工具调用');
+                        }
+                      }
 
                       session.conversationHistory[streamingMessageIndex] = {
                         ...existingMessage,
@@ -964,7 +978,9 @@ export function useChatSystemV2() {
                       updateCount: 1,
                       interaction: chunk.interaction,
                       // 保存system_state中的所有metadata
-                      ...(chunk.system_state?.metadata || {})
+                      ...(chunk.system_state?.metadata || {}),
+                      // 🔧 调试：确保toolCalls被正确传递
+                      toolCalls: chunk.system_state?.metadata?.toolCalls
                     }
                   };
                   

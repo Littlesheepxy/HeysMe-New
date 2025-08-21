@@ -8,8 +8,10 @@ import { CodeFile } from './types';
 import { anthropic } from '@ai-sdk/anthropic';
 import { generateText, tool, stepCountIs } from 'ai';
 import { z } from 'zod';
-import fs from 'fs/promises';
-import path from 'path';
+// import fs from 'fs/promises'; // 🔒 注释掉本地文件操作
+import path from 'path'; // 🔧 保留 path 用于文件扩展名检测
+// import { DatabaseFileTools } from './database-tools'; // 🔒 注释掉，使用新的数据库工具
+import { databaseFileTools } from './database-file-tools';
 
 
 /**
@@ -29,9 +31,13 @@ export class CodingAgent extends BaseAgent {
   }
 
   /**
-   * 🆕 Vercel AI SDK 工具定义 - 用于增量编辑
+   * 🆕 Vercel AI SDK 工具定义 - 使用数据库存储
    */
   private getVercelAITools() {
+    // 🔧 注释掉本地文件工具，使用数据库工具
+    return databaseFileTools;
+    
+    /* 🔒 本地文件工具已注释 - 改用数据库存储
     return {
       create_file: tool({
         description: 'Create a new file with specified content. Use this for creating new files in the project.',
@@ -224,6 +230,7 @@ export class CodingAgent extends BaseAgent {
         }
       })
     };
+    */
   }
 
   /**
@@ -606,7 +613,7 @@ export class CodingAgent extends BaseAgent {
           intent: 'project_complete',
           done: true,
           progress: 100,
-          current_stage: '项目生成完成',
+          current_stage: 'code_generation', // 🆕 确保设置为code_generation阶段
           metadata: {
             streaming: false,
             message_id: messageId,
@@ -718,21 +725,31 @@ ${projectContext}
         }
       ];
 
-      // 发送工具调用开始的响应
+      // 🆕 发送初始分析阶段的响应
       yield this.createResponse({
         immediate_display: {
-          reply: '🛠️ 开始执行增量编辑工具调用...',
+          reply: '🔍 正在分析您的需求...',
           agent_name: this.name,
           timestamp: new Date().toISOString()
         },
         system_state: {
-          intent: 'incremental_tool_calling',
+          intent: 'incremental_analyzing',
           done: false,
-          progress: 30,
-          current_stage: '工具执行',
-          metadata: { message_id: messageId }
+          progress: 10,
+          current_stage: '需求分析',
+          metadata: { 
+            message_id: messageId,
+            content_mode: 'complete',
+            stream_type: 'start',
+            mode: 'incremental',
+            toolCalls: []
+          }
         }
       });
+
+      // 🆕 创建累积的工具调用状态
+      let allToolCallsForUI: any[] = [];
+      let stepCount = 0;
 
       // 使用 Vercel AI SDK 的多步骤工具调用
       const result = await generateText({
@@ -741,8 +758,30 @@ ${projectContext}
         tools: this.getVercelAITools(),
         stopWhen: stepCountIs(6), // 允许最多6步：分析 + 多个文件操作
         temperature: 0.3, // 编程任务使用较低温度
-        onStepFinish: async ({ toolResults }) => {
-          console.log(`📊 [增量编辑步骤完成] 执行了 ${toolResults.length} 个工具`);
+        onStepFinish: async ({ toolCalls, toolResults }) => {
+          stepCount++;
+          console.log(`📊 [增量编辑步骤 ${stepCount}] 执行了 ${toolResults.length} 个工具`);
+          
+          // 🆕 实时发送工具调用状态更新
+          if (toolCalls && toolCalls.length > 0) {
+            const currentStepToolCalls = toolCalls.map((toolCall, index) => {
+              const toolResult = toolResults[index];
+              return {
+                toolName: toolCall.toolName,
+                toolCallId: toolCall.toolCallId,
+                state: toolResult ? ((toolResult as any).isError ? 'output-error' : 'output-available') : 'input-available',
+                input: (toolCall as any).args || (toolCall as any).input,
+                output: toolResult ? ((toolResult as any)?.result || (toolResult as any)?.output) : undefined,
+                errorText: toolResult && (toolResult as any)?.isError ? String((toolResult as any).result || (toolResult as any).output) : undefined
+              };
+            });
+            
+            // 累积所有工具调用
+            allToolCallsForUI.push(...currentStepToolCalls);
+            
+            console.log(`🔧 [工具调用状态] 步骤 ${stepCount} 工具调用:`, currentStepToolCalls);
+            console.log(`📋 [累积工具调用] 总计: ${allToolCallsForUI.length} 个工具调用`);
+          }
         }
       });
 
@@ -778,6 +817,19 @@ ${projectContext}
         }
       }
 
+      // 🔧 使用累积的工具调用信息，如果没有则构建
+      const toolCallsForUI = allToolCallsForUI.length > 0 ? allToolCallsForUI : allToolCalls.map((toolCall, index) => {
+        const toolResult = allToolResults[index];
+        return {
+          toolName: toolCall.toolName,
+          toolCallId: toolCall.toolCallId,
+          state: toolResult ? ((toolResult as any).isError ? 'output-error' : 'output-available') : 'output-error',
+          input: (toolCall as any).args || (toolCall as any).input,
+          output: (toolResult as any)?.result || (toolResult as any)?.output,
+          errorText: (toolResult as any)?.isError ? String((toolResult as any).result || (toolResult as any).output) : undefined
+        };
+      });
+
       // 发送最终结果
       const completionMessage = modifiedFiles.length > 0
         ? `✅ **增量修改完成**\n\n📁 **操作的文件**：\n${modifiedFiles.map(f => `• ${f.filename}`).join('\n')}\n\n如需进一步修改，请告诉我具体需求。`
@@ -796,6 +848,8 @@ ${projectContext}
           current_stage: '增量修改完成',
           metadata: {
             message_id: messageId,
+            content_mode: 'complete', // 🔧 修复：最终消息使用完整替换模式
+            stream_type: 'complete',
             steps_executed: result.steps.length,
             tools_used: Array.from(new Set(allToolCalls.map(tc => tc.toolName))),
             files_modified: fileOperations.length,
@@ -810,7 +864,9 @@ ${projectContext}
             modifiedFiles: modifiedFiles,
             modifiedFilesCount: modifiedFiles.length,
             toolCallsExecuted: fileOperations.length > 0,
-            incrementalSuccess: true
+            incrementalSuccess: true,
+            // 🆕 工具调用信息用于UI显示
+            toolCalls: toolCallsForUI
           }
         }
       });
@@ -1716,7 +1772,7 @@ module.exports = {
   }
 
   /**
-   * 更新会话数据 - 🚀 现在使用Supabase存储
+   * 更新会话数据 - 🚀 现在使用Supabase存储和同步机制
    */
   private async updateSessionWithProject(sessionData: SessionData, files: CodeFile[]): Promise<void> {
     try {
@@ -1747,6 +1803,34 @@ module.exports = {
           this.name
         );
         
+        // 🔄 同步到 chat_sessions 表
+        const { chatSessionSync } = await import('@/lib/agents/coding/database-file-tools');
+        const generatedContent = {
+          codeProject: {
+            files: files.map(file => ({
+              filename: file.filename,
+              content: file.content,
+              language: file.language,
+              description: file.description
+            }))
+          },
+          metadata: {
+            projectId: result.projectId,
+            commitId: result.commitId,
+            syncedAt: new Date().toISOString(),
+            storageType: 'supabase'
+          }
+        };
+        
+        // 同步到 chat_sessions
+        const syncResult = await chatSessionSync.syncSessionToProject(
+          sessionData.id,
+          userId,
+          generatedContent
+        );
+        
+        console.log('🔄 [会话同步] 同步结果:', syncResult);
+
         // 更新会话元数据
         if (sessionData.metadata) {
           (sessionData.metadata as any).generatedProject = {
@@ -1761,6 +1845,16 @@ module.exports = {
           // 🆕 保留兼容性，但标记为已迁移
           (sessionData.metadata as any).projectFiles = files;
           (sessionData.metadata as any).migratedToSupabase = true;
+          (sessionData.metadata as any).syncedToSession = syncResult.success;
+          
+          // 🆕 确保currentStage设置为code_generation
+          if (sessionData.metadata.progress) {
+            sessionData.metadata.progress.currentStage = 'code_generation';
+            sessionData.metadata.progress.percentage = 90;
+            if (!sessionData.metadata.progress.completedStages.includes('code_generation')) {
+              sessionData.metadata.progress.completedStages.push('code_generation');
+            }
+          }
         }
         
         console.log('✅ [Supabase存储] 项目文件保存成功:', result);
@@ -1777,6 +1871,15 @@ module.exports = {
           };
           
           (sessionData.metadata as any).projectFiles = files;
+          
+          // 🆕 确保currentStage设置为code_generation
+          if (sessionData.metadata.progress) {
+            sessionData.metadata.progress.currentStage = 'code_generation';
+            sessionData.metadata.progress.percentage = 90;
+            if (!sessionData.metadata.progress.completedStages.includes('code_generation')) {
+              sessionData.metadata.progress.completedStages.push('code_generation');
+            }
+          }
         }
       }
       
@@ -1794,6 +1897,15 @@ module.exports = {
         };
         
         (sessionData.metadata as any).projectFiles = files;
+        
+        // 🆕 确保currentStage设置为code_generation
+        if (sessionData.metadata.progress) {
+          sessionData.metadata.progress.currentStage = 'code_generation';
+          sessionData.metadata.progress.percentage = 90;
+          if (!sessionData.metadata.progress.completedStages.includes('code_generation')) {
+            sessionData.metadata.progress.completedStages.push('code_generation');
+          }
+        }
       }
     }
   }

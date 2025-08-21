@@ -1,10 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { FolderOpen, Code, Eye, ChevronDown, ChevronRight } from 'lucide-react';
+import { FolderOpen, Code, Eye, ChevronDown, ChevronRight, Rocket } from 'lucide-react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { vscDarkPlus } from 'react-syntax-highlighter/dist/esm/styles/prism';
+import { ProjectVersionManager } from '@/lib/services/project-version-manager';
+import { useVercelDeployment } from '@/hooks/use-vercel-deployment';
 
 interface FileCreationPanelProps {
   codeFiles: Array<{
@@ -22,6 +24,9 @@ interface FileCreationPanelProps {
   onFileClick?: (file: any, index: number) => void;
   isActive?: boolean;
   streamingFile?: string; // 新增：当前正在流式生成的文件
+  sessionId?: string; // 新增：会话ID用于版本管理
+  autoDeployEnabled?: boolean; // 新增：是否启用自动部署
+  projectName?: string; // 新增：项目名称
 }
 
 export const FileCreationPanel = React.memo(function FileCreationPanel({
@@ -31,16 +36,33 @@ export const FileCreationPanel = React.memo(function FileCreationPanel({
   onVersionClick,
   onFileClick,
   isActive = false,
-  streamingFile
+  streamingFile,
+  sessionId,
+  autoDeployEnabled = true,
+  projectName = 'HeysMe Project'
 }: FileCreationPanelProps) {
   const [expandedFiles, setExpandedFiles] = useState<Set<string>>(new Set());
   const [showStreamPreview, setShowStreamPreview] = useState(true);
   const [visibleFiles, setVisibleFiles] = useState<Set<string>>(new Set());
+  const [currentVersion, setCurrentVersion] = useState(version);
+  const [hasAutoDeployed, setHasAutoDeployed] = useState(false);
   
   const completedCount = Object.values(fileCreationStatus).filter(s => s.status === 'completed').length;
   const hasActiveCreation = Object.values(fileCreationStatus).some(s => s.status === 'pending' || s.status === 'streaming');
   const streamingStatus = streamingFile ? fileCreationStatus[streamingFile] : null;
   const progressPercentage = Math.round((completedCount / codeFiles.length) * 100);
+  const isProjectComplete = completedCount === codeFiles.length && codeFiles.length > 0;
+
+  // 版本管理器和部署Hook
+  const versionManager = ProjectVersionManager.getInstance();
+  const { deployProject, isDeploying, deploymentResult } = useVercelDeployment({
+    onStatusChange: (status) => {
+      console.log(`🚀 [自动部署] 状态更新: ${status}`);
+    },
+    onLog: (message) => {
+      console.log(`📝 [部署日志] ${message}`);
+    }
+  });
 
   // 🎯 核心逻辑：严格控制文件依次显示
   const getVisibleFiles = () => {
@@ -94,6 +116,79 @@ export const FileCreationPanel = React.memo(function FileCreationPanel({
 
   const visibleFilesToShow = getVisibleFiles();
 
+  // 🆕 自动版本创建和部署
+  useEffect(() => {
+    if (!sessionId || !isProjectComplete || hasAutoDeployed) return;
+
+    console.log('🎯 [自动版本管理] 项目完成，开始创建版本和部署');
+
+    // 1. 创建新版本
+    const newVersion = versionManager.createVersion(
+      sessionId,
+      codeFiles.map(file => ({
+        filename: file.filename,
+        content: file.content,
+        language: file.language || 'text',
+        type: 'component',
+        description: `Generated file: ${file.filename}`
+      })),
+      '代码生成完成',
+      `Generated ${codeFiles.length} files`
+    );
+
+    setCurrentVersion(newVersion.version);
+    console.log(`✅ [版本创建] 创建新版本: ${newVersion.version}`);
+
+    // 2. 自动部署（如果启用）
+    if (autoDeployEnabled) {
+      const deployTimer = setTimeout(async () => {
+        try {
+          console.log('🚀 [自动部署] 开始部署新版本...');
+          await deployProject({
+            projectName: projectName.toLowerCase().replace(/\s+/g, '-'),
+            files: codeFiles.map(file => ({
+              filename: file.filename,
+              content: file.content,
+              language: file.language || 'text',
+              type: 'component',
+              description: `Generated file: ${file.filename}`
+            })),
+            gitMetadata: {
+              commitAuthorName: 'HeysMe User',
+              commitMessage: `Deploy ${newVersion.version}: Auto-generated project`,
+              commitRef: 'main',
+              dirty: false,
+            },
+            projectSettings: {
+              buildCommand: 'npm run build',
+              installCommand: 'npm install',
+            },
+            meta: {
+              source: 'heysme-auto-deploy',
+              description: `Auto-deployed version ${newVersion.version}`,
+              timestamp: new Date().toISOString(),
+              version: newVersion.version,
+            }
+          });
+          
+          setHasAutoDeployed(true);
+          console.log('✅ [自动部署] 部署完成');
+        } catch (error) {
+          console.error('❌ [自动部署] 部署失败:', error);
+        }
+      }, 2000); // 延迟2秒确保所有文件都已准备就绪
+
+      return () => clearTimeout(deployTimer);
+    }
+  }, [sessionId, isProjectComplete, hasAutoDeployed, autoDeployEnabled, codeFiles, projectName, versionManager, deployProject]);
+
+  // 重置自动部署状态，当文件发生变化时
+  useEffect(() => {
+    if (codeFiles.length > 0 && hasAutoDeployed) {
+      setHasAutoDeployed(false);
+    }
+  }, [codeFiles.length, hasAutoDeployed]);
+
   const toggleFileExpanded = (filename: string) => {
     setExpandedFiles(prev => {
       const newSet = new Set(prev);
@@ -120,7 +215,7 @@ export const FileCreationPanel = React.memo(function FileCreationPanel({
       {/* 头部 - 可点击的版本切换 */}
       <div 
         className="p-4 cursor-pointer hover:bg-white/20 dark:hover:bg-gray-700/20 rounded-t-xl transition-colors"
-        onClick={() => onVersionClick?.(version)}
+        onClick={() => onVersionClick?.(currentVersion)}
       >
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -139,12 +234,28 @@ export const FileCreationPanel = React.memo(function FileCreationPanel({
               )}
             </motion.div>
             <div>
-              <h4 className="font-medium text-gray-900 dark:text-gray-100 text-sm">
-                项目文件生成 - {version}
-              </h4>
+              <div className="flex items-center gap-2">
+                <h4 className="font-medium text-gray-900 dark:text-gray-100 text-sm">
+                  项目文件生成 - {currentVersion}
+                </h4>
+                {isDeploying && (
+                  <div className="flex items-center gap-1">
+                    <Rocket className="w-3 h-3 text-blue-500 animate-pulse" />
+                    <span className="text-xs text-blue-600 dark:text-blue-400">部署中...</span>
+                  </div>
+                )}
+                {deploymentResult?.url && (
+                  <div className="flex items-center gap-1">
+                    <Rocket className="w-3 h-3 text-green-500" />
+                    <span className="text-xs text-green-600 dark:text-green-400">已部署</span>
+                  </div>
+                )}
+              </div>
               <p className="text-xs text-gray-500 dark:text-gray-400 mt-0.5">
                 {hasActiveCreation 
                   ? `正在生成第 ${completedCount + 1}/${codeFiles.length} 个文件...` 
+                  : isProjectComplete && autoDeployEnabled
+                  ? `已完成 ${completedCount}/${codeFiles.length} 个文件 • 自动部署已启用`
                   : `已完成 ${completedCount}/${codeFiles.length} 个文件`}
               </p>
             </div>
