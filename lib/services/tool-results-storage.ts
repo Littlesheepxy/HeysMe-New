@@ -12,6 +12,8 @@ export interface ToolResult {
   session_id?: string;
   agent_name: string;
   tool_name: string;
+  platform_type: string;
+  content_type: string;
   source_url: string;
   url_hash: string;
   tool_output: any;

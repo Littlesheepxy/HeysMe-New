@@ -67,7 +67,10 @@ export class ProjectFileStorageService {
       
       console.log('🚀 [项目创建] 开始创建项目:', projectId);
       
-      // 2. 创建项目记录
+      // 2. 确保会话记录存在（避免外键约束错误）
+      await this.ensureSessionExists(sessionId, userId);
+      
+      // 3. 创建项目记录
       const { error: projectError } = await supabase
         .from('projects')
         .insert({
@@ -378,6 +381,59 @@ export class ProjectFileStorageService {
     }
   }
   
+  /**
+   * 🔧 确保会话记录存在（避免外键约束错误）
+   */
+  private async ensureSessionExists(sessionId: string, userId: string): Promise<void> {
+    try {
+      // 检查会话是否存在
+      const { data: existingSession, error: checkError } = await supabase
+        .from('chat_sessions')
+        .select('id')
+        .eq('id', sessionId)
+        .single();
+
+      if (checkError && checkError.code === 'PGRST116') {
+        // 会话不存在，创建基础会话记录
+        console.log('🔧 [会话创建] 创建基础会话记录:', sessionId);
+        
+        const { error: insertError } = await supabase
+          .from('chat_sessions')
+          .insert({
+            id: sessionId,
+            user_id: userId,
+            status: 'active',
+            user_intent: {},
+            personalization: {},
+            collected_data: {},
+            metadata: {
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+              lastActive: new Date().toISOString(),
+              source: 'project_creation'
+            },
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            last_active: new Date().toISOString()
+          });
+
+        if (insertError) {
+          console.warn('⚠️ [会话创建] 创建会话记录失败:', insertError.message);
+          // 不抛出错误，继续项目创建流程
+        } else {
+          console.log('✅ [会话创建] 基础会话记录创建成功');
+        }
+      } else if (checkError) {
+        console.warn('⚠️ [会话检查] 检查会话存在性失败:', checkError.message);
+      } else {
+        console.log('✅ [会话检查] 会话记录已存在');
+      }
+    } catch (error) {
+      console.warn('⚠️ [会话确保] 确保会话存在失败:', error);
+      // 不抛出错误，让项目创建继续进行
+    }
+  }
+
   /**
    * 🛠️ 工具方法：生成随机字符串
    */

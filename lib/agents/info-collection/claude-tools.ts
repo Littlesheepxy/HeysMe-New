@@ -1,6 +1,9 @@
 /**
- * Claude工具调用定义 - 遵循Anthropic官方最佳实践
+ * Claude工具调用定义 - 遵循Anthropic官方最佳实践 [已弃用]
  * 基于官方文档：https://docs.anthropic.com/en/docs/agents-and-tools/tool-use/implement-tool-use
+ * 
+ * 注意：当前项目使用的是 vercel-ai-agent.ts，此文件仅作为备份参考
+ * 请使用 VercelAIInfoCollectionAgent 进行开发和测试
  */
 
 import { githubService, webService, documentService, socialService } from '@/lib/services';

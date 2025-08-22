@@ -47,7 +47,7 @@ export class EnhancedPromptOutputAgent extends BaseAgent {
   }
 
   /**
-   * 主处理流程 - 集成内容展示策略分析
+   * 主处理流程 - 分阶段处理：内容分析 → 设计生成
    */
   async* process(
     input: {
@@ -61,18 +61,14 @@ export class EnhancedPromptOutputAgent extends BaseAgent {
     context?: Record<string, any>
   ): AsyncGenerator<StreamableAgentResponse, void, unknown> {
     try {
-      // 步骤1: 分析收集到的信息和工具结果
-      yield this.createThinkingResponse('正在分析您的信息和展示策略...', 20);
-      await this.delay(1000);
-
       const userGoal = input.user_goal || extractUserGoal(sessionData);
       const userType = input.user_type || extractUserType(sessionData);
       const collectedData = input.collected_data || sessionData.collectedData;
       const toolResults = input.tool_results || [];
 
-      // 步骤2: 分析内容展示策略
-      yield this.createThinkingResponse('正在分析每个信息源的最佳展示方式...', 40);
-      await this.delay(1200);
+      // ==================== 阶段1: 内容展示策略分析 ====================
+      yield this.createThinkingResponse('🔍 正在分析每个信息源的最佳展示方式...', 20);
+      await this.delay(1000);
 
       const contentDisplayAnalysis = await this.analyzeContentDisplayStrategies(
         toolResults,
@@ -83,36 +79,40 @@ export class EnhancedPromptOutputAgent extends BaseAgent {
 
       yield this.createResponse({
         immediate_display: {
-          reply: this.formatContentAnalysisMessage(contentDisplayAnalysis),
+          reply: '🔍 内容展示策略分析完成，正在生成页面设计方案...',
           agent_name: this.name,
           timestamp: new Date().toISOString()
         },
         system_state: {
           intent: 'analyzing',
           done: false,
-          progress: 50,
-          current_stage: '内容展示策略分析',
-          metadata: { contentDisplayAnalysis }
+          progress: 40,
+          current_stage: '内容展示策略分析完成',
+          metadata: { 
+            contentDisplayAnalysis,
+            silent_processing: true // 标记为静默处理
+          }
         }
       });
 
-      await this.delay(1000);
+      await this.delay(1200);
 
-      // 步骤3: 生成整合的页面设计策略
-      yield this.createThinkingResponse('正在设计最适合的页面结构和布局...', 70);
+      // ==================== 阶段2: 设计方案生成 ====================
+      yield this.createThinkingResponse('🎨 基于展示策略生成个性化页面设计方案...', 60);
       await this.delay(1500);
 
-      const enhancedDesignStrategy = await this.generateEnhancedDesignStrategy(
+      const designStrategy = await this.generateDesignWithDisplayStrategy(
         userGoal,
         userType,
         collectedData,
         contentDisplayAnalysis,
+        sessionData,
         sessionData.personalization
       );
 
       yield this.createResponse({
         immediate_display: {
-          reply: this.formatEnhancedDesignMessage(enhancedDesignStrategy, userType),
+          reply: '🎨 页面设计方案生成完成，正在准备开发指令...',
           agent_name: this.name,
           timestamp: new Date().toISOString()
         },
@@ -120,32 +120,33 @@ export class EnhancedPromptOutputAgent extends BaseAgent {
           intent: 'designing',
           done: false,
           progress: 85,
-          current_stage: '页面设计方案',
+          current_stage: '页面设计方案生成完成',
           metadata: { 
-            designStrategy: enhancedDesignStrategy,
-            contentDisplayAnalysis 
+            designStrategy,
+            contentDisplayAnalysis,
+            silent_processing: true // 标记为静默处理
           }
         }
       });
 
-      await this.delay(1200);
+      await this.delay(1000);
 
-      // 步骤4: 生成增强的开发任务描述
-      yield this.createThinkingResponse('正在生成详细的开发指令和技术方案...', 95);
+      // ==================== 阶段3: 开发指令生成 ====================
+      yield this.createThinkingResponse('📋 生成详细的开发实现指令...', 95);
       await this.delay(800);
 
-      const enhancedDevelopmentPrompt = this.generateEnhancedDevelopmentPrompt(
-        enhancedDesignStrategy,
+      const developmentPrompt = this.generateComprehensiveDevelopmentPrompt(
+        designStrategy,
         contentDisplayAnalysis,
         userGoal,
         userType,
         collectedData
       );
 
-      // 步骤5: 输出最终设计方案
+      // ==================== 完成输出 - 自动跳转 ====================
       yield this.createResponse({
         immediate_display: {
-          reply: '🎯 智能页面设计方案已完成！每个信息源都有最佳的展示策略，现在开始生成您的专属代码...',
+          reply: '✅ 页面设计方案已完成，正在启动代码生成...',
           agent_name: this.name,
           timestamp: new Date().toISOString()
         },
@@ -153,22 +154,24 @@ export class EnhancedPromptOutputAgent extends BaseAgent {
           intent: 'advance',
           done: true,
           progress: 100,
-          current_stage: '增强设计完成',
+          current_stage: '设计完成',
           metadata: {
-            designStrategy: enhancedDesignStrategy,
+            designStrategy,
             contentDisplayAnalysis,
-            developmentPrompt: enhancedDevelopmentPrompt,
-            readyForCoding: true
+            developmentPrompt,
+            readyForCoding: true,
+            silent_advance: true, // 静默推进到下一个Agent
+            auto_transition: true // 自动转换标记
           }
         }
       });
 
       // 更新会话数据
-      this.updateSessionWithEnhancedDesign(
+      this.updateSessionWithDesignResults(
         sessionData, 
-        enhancedDesignStrategy, 
+        designStrategy, 
         contentDisplayAnalysis,
-        enhancedDevelopmentPrompt
+        developmentPrompt
       );
 
     } catch (error) {
@@ -212,52 +215,59 @@ export class EnhancedPromptOutputAgent extends BaseAgent {
 
       const analysisSchema = z.object({
         content_analysis: z.object({
-          total_sources: z.number(),
-          accessible_sources: z.number(),
-          restricted_sources: z.number(),
+          total_sources: z.number().int().min(0),
+          accessible_sources: z.number().int().min(0),
+          restricted_sources: z.number().int().min(0),
           content_quality_score: z.number().min(1).max(10),
           completeness_level: z.enum(['low', 'medium', 'high'])
         }),
         display_strategy: z.object({
           primary_sections: z.array(z.object({
-            section_name: z.string(),
-            content_type: z.string(),
-            display_method: z.string(),
+            section_name: z.string().min(1),
+            content_type: z.enum(['text', 'link', 'media', 'data', 'timeline']),
+            display_method: z.string().min(1),
             priority: z.enum(['high', 'medium', 'low']),
-            responsive_behavior: z.string(),
+            responsive_behavior: z.string().min(1),
             data_sources: z.array(z.string()),
-            fallback_strategy: z.string()
-          })),
+            fallback_strategy: z.string().min(1)
+          })).min(1),
           interactive_elements: z.array(z.object({
-            element_type: z.string(),
-            purpose: z.string(),
-            target_url: z.string().optional(),
-            accessibility_status: z.string(),
-            display_text: z.string(),
-            visual_style: z.string()
+            element_type: z.enum(['button', 'link', 'embedded', 'card', 'modal']),
+            purpose: z.string().min(1),
+            target_url: z.string().url().optional(),
+            accessibility_status: z.enum(['accessible', 'restricted', 'failed']),
+            display_text: z.string().min(1),
+            visual_style: z.string().min(1)
           }))
         }),
         restricted_content_handling: z.object({
           inaccessible_links: z.array(z.object({
-            url: z.string(),
-            restriction_type: z.string(),
-            platform: z.string(),
-            suggested_display: z.string(),
-            fallback_content: z.string(),
-            user_action_required: z.string()
+            url: z.string().url(),
+            restriction_type: z.enum(['login_required', 'cors_blocked', 'private', 'rate_limited', 'network_error']),
+            platform: z.string().min(1),
+            suggested_display: z.string().min(1),
+            fallback_content: z.string().min(1),
+            user_action_required: z.string().min(1)
           })),
           placeholder_strategies: z.array(z.object({
-            content_type: z.string(),
-            placeholder_design: z.string(),
-            call_to_action: z.string()
+            content_type: z.string().min(1),
+            placeholder_design: z.string().min(1),
+            call_to_action: z.string().min(1)
           }))
+        }),
+        // 确保包含实现指导
+        implementation_guide: z.object({
+          development_priority: z.enum(['high', 'medium', 'low']),
+          component_suggestions: z.array(z.string()).min(1),
+          data_structure_requirements: z.string().min(1),
+          api_integration_needs: z.string().min(1)
         })
-      });
+      }).strict(); // 严格模式，不允许额外字段
 
       const aiAnalysis = await this.callLLM(prompt, {
         schema: analysisSchema,
         maxTokens: 32000,
-        system: "你是内容展示策略专家，分析信息源并制定最佳展示策略。"
+        system: "你是内容展示策略专家，严格按照JSON schema格式分析信息源并制定最佳展示策略。必须输出完整的JSON对象，不能省略任何必需字段。"
       });
 
       if ('object' in aiAnalysis) {
@@ -291,49 +301,186 @@ export class EnhancedPromptOutputAgent extends BaseAgent {
   }
 
   /**
-   * 生成增强的设计策略
+   * 基于内容展示策略生成设计方案
+   */
+  private async generateDesignWithDisplayStrategy(
+    userGoal: string,
+    userType: string,
+    collectedData: any,
+    contentDisplayAnalysis: any,
+    sessionData: SessionData,
+    personalization?: PersonalizationProfile
+  ): Promise<any> {
+    try {
+      console.log("🎨 基于展示策略生成设计方案...");
+
+      // 整合所有阶段的完整数据
+      const completeUserInfo = this.buildCompleteUserInfo(collectedData, sessionData);
+      const correctedUserGoal = this.extractCorrectUserGoal(sessionData);
+      const correctedUserType = this.extractCorrectUserType(sessionData);
+      
+      const prompt = formatPrompt(DESIGN_AGENT_PROMPT, {
+        collected_user_info: JSON.stringify(completeUserInfo, null, 2),
+        user_goal: correctedUserGoal,
+        user_type: correctedUserType,
+        tool_results: JSON.stringify(contentDisplayAnalysis.rule_engine_analyses || [], null, 2),
+        content_display_analysis: JSON.stringify(contentDisplayAnalysis, null, 2),
+        content_quality_assessment: JSON.stringify({
+          overall_score: contentDisplayAnalysis.ai_analysis?.content_analysis?.content_quality_score || 7,
+          completeness_level: contentDisplayAnalysis.ai_analysis?.content_analysis?.completeness_level || 'medium',
+          data_richness: this.calculateDataRichness(collectedData, sessionData),
+          source_diversity: contentDisplayAnalysis.ai_analysis?.content_analysis?.total_sources || 0
+        }, null, 2)
+      });
+
+      // 使用完整的设计策略 Schema
+      const designSchema = z.object({
+        identity_analysis: z.object({
+          core_identity: z.string(),
+          unique_strengths: z.array(z.string()),
+          target_audience: z.string(),
+          value_proposition: z.string(),
+          personality_traits: z.array(z.string()),
+          professional_stage: z.string()
+        }),
+        data_insights: z.object({
+          strongest_areas: z.array(z.string()),
+          hidden_gems: z.array(z.string()),
+          story_narrative: z.string(),
+          differentiation: z.string(),
+          completeness_score: z.string(),
+          recommendation_focus: z.string()
+        }),
+        design_strategy: z.object({
+          layout_concept: z.object({
+            name: z.string(),
+            description: z.string(),
+            structure: z.array(z.string()),
+            flow: z.string(),
+            grid_system: z.string(),
+            spacing_system: z.string(),
+            breakpoints: z.object({
+              mobile: z.string(),
+              tablet: z.string(),
+              desktop: z.string()
+            })
+          }),
+          visual_direction: z.object({
+            style_name: z.string(),
+            color_psychology: z.string(),
+            typography_choice: z.string(),
+            mood: z.string()
+          }),
+          interaction_design: z.object({
+            key_interactions: z.array(z.string()),
+            animation_purpose: z.string(),
+            user_journey: z.string()
+          })
+        }),
+        detailed_design_specifications: z.object({
+          color_system: z.any(),
+          typography_system: z.any(),
+          component_specifications: z.any(),
+          animation_specifications: z.any(),
+          spacing_and_layout: z.any(),
+          iconography: z.any()
+        }),
+        technical_recommendations: z.object({
+          framework: z.string(),
+          key_libraries: z.array(z.string()),
+          performance_priorities: z.array(z.string()),
+          accessibility_considerations: z.array(z.string()),
+          responsive_strategy: z.string(),
+          css_architecture: z.string(),
+          animation_libraries: z.string(),
+          icon_libraries: z.string()
+        }),
+        content_display_integration: z.object({
+          display_methods: z.array(z.object({
+            content_type: z.string(),
+            display_method: z.string(),
+            priority: z.string(),
+            responsive_behavior: z.string(),
+            fallback_strategy: z.string(),
+            implementation_notes: z.string()
+          })),
+          restricted_content_handling: z.array(z.object({
+            platform: z.string(),
+            restriction_reason: z.string(),
+            placeholder_design: z.string(),
+            user_guidance: z.string(),
+            alternative_approach: z.string()
+          })),
+          responsive_optimization: z.object({
+            desktop_strategy: z.string(),
+            tablet_strategy: z.string(),
+            mobile_strategy: z.string(),
+            breakpoint_considerations: z.string()
+          }),
+          performance_considerations: z.object({
+            loading_strategy: z.string(),
+            lazy_loading_targets: z.array(z.string()),
+            critical_content: z.array(z.string()),
+            optimization_recommendations: z.array(z.string())
+          })
+        }),
+        reasoning: z.string(),
+        alternatives: z.array(z.string()),
+        implementation_tips: z.array(z.string())
+      });
+
+      const result = await this.callLLM(prompt, {
+        schema: designSchema,
+        maxTokens: 64000,
+        system: "你是专业的页面设计策略专家，严格按照JSON schema格式基于内容展示策略分析生成详细的个性化设计方案。必须输出完整的JSON对象，包含所有必需字段和详细的设计规范。"
+      });
+
+      if ('object' in result) {
+        console.log("✅ 基于展示策略的设计方案生成成功");
+        return result.object;
+      } else {
+        throw new Error('设计方案生成失败');
+      }
+
+    } catch (error) {
+      console.error("❌ 设计方案生成失败，使用回退策略:", error);
+      
+      // 回退到基础设计策略
+      return this.generateFallbackDesignStrategy(userGoal, userType, collectedData, contentDisplayAnalysis);
+    }
+  }
+
+  /**
+   * 生成增强的设计策略（保留原方法作为备用）
    */
   private async generateEnhancedDesignStrategy(
     userGoal: string,
     userType: string,
     collectedData: any,
     contentDisplayAnalysis: any,
+    sessionData: SessionData,
     personalization?: PersonalizationProfile
   ): Promise<DesignStrategy & { contentIntegration: any }> {
     try {
       console.log("🎨 生成增强设计策略...");
 
-      // 基于内容展示分析增强设计prompt
-      const enhancedPrompt = `${DESIGN_AGENT_PROMPT}
-
-## 📊 **内容展示策略集成**
-
-### 🔍 **内容分析结果**
-${JSON.stringify(contentDisplayAnalysis, null, 2)}
-
-### 🎯 **设计要求增强**
-基于内容展示分析，你需要：
-
-1. **响应式设计优化**：
-   - 为不同设备优化每个内容的展示方式
-   - 确保移动端的可访问性和用户体验
-
-2. **内容展示集成**：
-   - 将分析出的展示策略融入页面设计
-   - 为不可访问内容设计合适的占位符
-   - 优化嵌入内容的布局和交互
-
-3. **交互体验设计**：
-   - 基于内容类型设计合适的交互方式
-   - 确保用户能够流畅地浏览所有信息
-   - 提供备选访问方案
-
-请在原有设计策略基础上，增加 contentIntegration 字段来描述如何整合这些展示策略。`;
-
-      const prompt = formatPrompt(enhancedPrompt, {
-        collected_user_info: JSON.stringify(collectedData, null, 2),
-        user_goal: userGoal,
-        user_type: userType
+      // 整合所有阶段的完整数据（备用方法也使用相同逻辑）
+      const completeUserInfo = this.buildCompleteUserInfo(collectedData, sessionData);
+      const correctedUserGoal = this.extractCorrectUserGoal(sessionData);
+      const correctedUserType = this.extractCorrectUserType(sessionData);
+      
+      const prompt = formatPrompt(DESIGN_AGENT_PROMPT, {
+        collected_user_info: JSON.stringify(completeUserInfo, null, 2),
+        user_goal: correctedUserGoal,
+        user_type: correctedUserType,
+        tool_results: JSON.stringify(contentDisplayAnalysis.rule_engine_analyses || [], null, 2),
+        content_display_analysis: JSON.stringify(contentDisplayAnalysis, null, 2),
+        content_quality_assessment: JSON.stringify({
+          overall_score: contentDisplayAnalysis.ai_analysis?.content_analysis?.content_quality_score || 7,
+          completeness_level: contentDisplayAnalysis.ai_analysis?.content_analysis?.completeness_level || 'medium',
+          data_richness: this.calculateDataRichness(collectedData, sessionData),
+          source_diversity: contentDisplayAnalysis.ai_analysis?.content_analysis?.total_sources || 0
+        }, null, 2)
       });
 
       // 扩展设计策略Schema
@@ -619,6 +766,218 @@ ${strategy.contentIntegration?.displayMethods?.map((method: any) =>
 **设计重点**: ${designFocus}`;
   }
 
+  /**
+   * 生成回退设计策略
+   */
+  private generateFallbackDesignStrategy(
+    userGoal: string,
+    userType: string,
+    collectedData: any,
+    contentDisplayAnalysis: any
+  ): any {
+    return {
+      identity_analysis: {
+        core_identity: userType || '专业人士',
+        unique_strengths: ['技术能力', '学习能力', '创新思维'],
+        target_audience: '潜在雇主和合作伙伴',
+        value_proposition: '专业可靠的技术专家',
+        personality_traits: ['专业', '可靠', '创新'],
+        professional_stage: '发展中'
+      },
+      design_strategy: {
+        layout_concept: {
+          name: '现代专业布局',
+          description: '简洁现代的专业展示布局',
+          structure: ['头部', '简介', '项目展示', '技能', '联系方式'],
+          flow: '从上到下的线性流程',
+          grid_system: '12列网格系统',
+          spacing_system: '8px基础单位',
+          breakpoints: {
+            mobile: '320px-768px',
+            tablet: '768px-1024px',
+            desktop: '1024px+'
+          }
+        },
+        visual_direction: {
+          style_name: '现代简约',
+          color_psychology: '专业可信的蓝色系',
+          typography_choice: '清晰易读的无衬线字体',
+          mood: '专业、现代、可信'
+        },
+        interaction_design: {
+          key_interactions: ['悬停效果', '平滑滚动', '响应式导航'],
+          animation_purpose: '增强用户体验和视觉反馈',
+          user_journey: '浏览 → 了解 → 联系'
+        }
+      },
+      content_display_integration: {
+        display_methods: contentDisplayAnalysis.rule_engine_analyses?.map((analysis: any) => ({
+          content_type: analysis.tool_name,
+          display_method: 'card',
+          priority: 'medium',
+          responsive_behavior: 'stack_on_mobile',
+          fallback_strategy: 'external_link',
+          implementation_notes: '使用卡片组件展示'
+        })) || [],
+        restricted_content_handling: [],
+        responsive_optimization: {
+          desktop_strategy: '多列布局，丰富交互',
+          tablet_strategy: '双列布局，适中交互',
+          mobile_strategy: '单列布局，简化交互',
+          breakpoint_considerations: '内容优先级和可访问性'
+        },
+        performance_considerations: {
+          loading_strategy: '渐进式加载',
+          lazy_loading_targets: ['图片', '嵌入内容'],
+          critical_content: ['基本信息', '核心技能'],
+          optimization_recommendations: ['图片压缩', '代码分割', '缓存策略']
+        }
+      },
+      reasoning: '基于基础信息生成的回退设计策略',
+      alternatives: ['极简风格', '创意风格', '商务风格'],
+      implementation_tips: ['使用现代CSS框架', '确保响应式设计', '优化加载性能']
+    };
+  }
+
+  /**
+   * 格式化设计策略消息
+   */
+  private formatDesignStrategyMessage(designStrategy: any, contentDisplayAnalysis: any): string {
+    const totalSources = contentDisplayAnalysis.ai_analysis?.content_analysis?.total_sources || 
+                        contentDisplayAnalysis.rule_engine_analyses?.length || 0;
+    
+    return `🎨 **个性化页面设计方案已生成**
+
+**身份定位**: ${designStrategy.identity_analysis?.core_identity || '专业人士'}
+**设计风格**: ${designStrategy.design_strategy?.visual_direction?.style_name || '现代简约'}
+**布局概念**: ${designStrategy.design_strategy?.layout_concept?.name || '专业布局'}
+
+**核心优势**:
+${designStrategy.identity_analysis?.unique_strengths?.map((strength: string) => `• ${strength}`).join('\n') || '• 专业能力突出'}
+
+**设计策略**:
+• **色彩心理**: ${designStrategy.design_strategy?.visual_direction?.color_psychology || '专业可信'}
+• **字体选择**: ${designStrategy.design_strategy?.visual_direction?.typography_choice || '清晰易读'}
+• **交互设计**: ${designStrategy.design_strategy?.interaction_design?.animation_purpose || '增强用户体验'}
+
+**内容展示优化**:
+• 共处理 ${totalSources} 个信息源
+• ${designStrategy.content_display_integration?.display_methods?.length || 0} 种展示方式
+• 完整的响应式适配策略
+
+**技术建议**:
+• **框架**: ${designStrategy.technical_recommendations?.framework || 'Next.js'}
+• **CSS架构**: ${designStrategy.technical_recommendations?.css_architecture || 'Tailwind CSS'}
+• **性能优先级**: ${designStrategy.technical_recommendations?.performance_priorities?.join(', ') || '加载速度, 响应式'}
+
+正在生成详细的开发实现指令...`;
+  }
+
+  /**
+   * 生成综合开发提示
+   */
+  private generateComprehensiveDevelopmentPrompt(
+    designStrategy: any,
+    contentDisplayAnalysis: any,
+    userGoal: string,
+    userType: string,
+    collectedData: any
+  ): string {
+    return `# 个性化页面开发实现指令
+
+## 🎯 项目概述
+- **用户目标**: ${userGoal}
+- **用户类型**: ${userType}
+- **设计风格**: ${designStrategy.design_strategy?.visual_direction?.style_name || '现代简约'}
+- **核心身份**: ${designStrategy.identity_analysis?.core_identity || '专业人士'}
+
+## 📊 内容展示策略实现
+
+### 信息源处理 (${contentDisplayAnalysis.ai_analysis?.content_analysis?.total_sources || 0} 个)
+${designStrategy.content_display_integration?.display_methods?.map((method: any) => 
+  `- **${method.content_type}**: ${method.display_method}展示，${method.responsive_behavior}`
+).join('\n') || '- 基于内容类型优化展示'}
+
+### 响应式策略
+- **桌面端**: ${designStrategy.content_display_integration?.responsive_optimization?.desktop_strategy || '多列布局'}
+- **平板端**: ${designStrategy.content_display_integration?.responsive_optimization?.tablet_strategy || '双列布局'}
+- **移动端**: ${designStrategy.content_display_integration?.responsive_optimization?.mobile_strategy || '单列布局'}
+
+## 🎨 设计系统实现
+
+### 布局系统
+- **网格**: ${designStrategy.design_strategy?.layout_concept?.grid_system || '12列网格'}
+- **间距**: ${designStrategy.design_strategy?.layout_concept?.spacing_system || '8px基础单位'}
+- **断点**: ${JSON.stringify(designStrategy.design_strategy?.layout_concept?.breakpoints || {})}
+
+### 视觉设计
+- **主题**: ${designStrategy.design_strategy?.visual_direction?.mood || '专业现代'}
+- **色彩**: ${designStrategy.design_strategy?.visual_direction?.color_psychology || '专业可信'}
+- **字体**: ${designStrategy.design_strategy?.visual_direction?.typography_choice || '清晰易读'}
+
+## 🔧 技术实现要求
+
+### 核心技术栈
+- **框架**: ${designStrategy.technical_recommendations?.framework || 'Next.js'}
+- **样式**: ${designStrategy.technical_recommendations?.css_architecture || 'Tailwind CSS'}
+- **动画**: ${designStrategy.technical_recommendations?.animation_libraries || 'Framer Motion'}
+- **图标**: ${designStrategy.technical_recommendations?.icon_libraries || 'Lucide React'}
+
+### 性能优化
+${designStrategy.content_display_integration?.performance_considerations?.optimization_recommendations?.map((rec: string) => `- ${rec}`).join('\n') || '- 图片优化\n- 代码分割\n- 缓存策略'}
+
+### 关键功能
+${designStrategy.design_strategy?.interaction_design?.key_interactions?.map((interaction: string) => `- ${interaction}`).join('\n') || '- 响应式导航\n- 平滑滚动\n- 悬停效果'}
+
+## 📋 实现优先级
+1. **高优先级**: ${designStrategy.content_display_integration?.performance_considerations?.critical_content?.join(', ') || '基本信息, 核心技能'}
+2. **中优先级**: 项目展示, 工作经历
+3. **低优先级**: 装饰元素, 高级交互
+
+## 🎯 用户体验目标
+${designStrategy.design_strategy?.interaction_design?.user_journey || '浏览 → 了解 → 联系'}
+
+## 💡 实现建议
+${designStrategy.implementation_tips?.map((tip: string) => `- ${tip}`).join('\n') || '- 确保响应式设计\n- 优化加载性能\n- 注重可访问性'}
+
+---
+
+**设计理念**: ${designStrategy.reasoning || '基于用户特点和内容分析的个性化设计'}
+`;
+  }
+
+  /**
+   * 更新会话数据
+   */
+  private updateSessionWithDesignResults(
+    sessionData: SessionData,
+    designStrategy: any,
+    contentDisplayAnalysis: any,
+    developmentPrompt: string
+  ): void {
+    const metadata = sessionData.metadata as any;
+    metadata.designStrategy = designStrategy;
+    metadata.contentDisplayAnalysis = contentDisplayAnalysis;
+    metadata.developmentPrompt = developmentPrompt;
+    metadata.designPhaseCompleted = true;
+    metadata.readyForCoding = true;
+    metadata.lastUpdated = new Date().toISOString();
+
+    const collectedData = sessionData.collectedData as any;
+    if (!collectedData.design) {
+      collectedData.design = {};
+    }
+    
+    collectedData.design = {
+      strategy: designStrategy,
+      contentDisplayAnalysis,
+      developmentPrompt,
+      generatedAt: new Date().toISOString()
+    };
+
+    console.log("✅ 会话数据已更新，设计策略和展示分析已保存");
+  }
+
   private updateSessionWithEnhancedDesign(
     sessionData: SessionData,
     strategy: any,
@@ -667,5 +1026,120 @@ ${strategy.contentIntegration?.displayMethods?.map((method: any) =>
 
   protected delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
+  }
+
+  // ==================== 数据整合辅助方法 ====================
+
+  /**
+   * 构建完整的用户信息，整合所有阶段的数据
+   */
+  private buildCompleteUserInfo(collectedData: any, sessionData: SessionData): any {
+    const metadata = sessionData.metadata as any;
+    
+    return {
+      // Welcome 阶段的核心分析
+      welcome_analysis: {
+        user_role: metadata.collectedInfo?.user_role || '专业人士',
+        use_case: metadata.collectedInfo?.use_case || '个人展示',
+        style_preference: metadata.collectedInfo?.style || '现代简约',
+        highlight_focus: metadata.collectedInfo?.highlight_focus || '综合展示',
+        commitment_level: metadata.collectedInfo?.commitment_level || '认真制作',
+        target_audience: metadata.collectedInfo?.target_audience || '潜在雇主和合作伙伴'
+      },
+      
+      // 信息收集阶段的详细数据
+      personal_info: collectedData?.personal || {},
+      professional_info: collectedData?.professional || {},
+      experience: collectedData?.experience || [],
+      education: collectedData?.education || [],
+      projects: collectedData?.projects || [],
+      achievements: collectedData?.achievements || [],
+      
+      // 收集过程的元数据
+      collection_metadata: {
+        total_tool_calls: metadata.totalToolCalls || 0,
+        data_sources: metadata.toolResults?.map((r: any) => r.tool_name) || [],
+        collection_timestamp: metadata.lastToolExecution,
+        collection_confidence: metadata.collectionConfidence || 0.8,
+        data_completeness: this.assessDataCompleteness(collectedData, metadata.collectedInfo)
+      },
+      
+      // 用户意图分析
+      user_intent_analysis: metadata.userIntentAnalysis || {
+        commitment_level: metadata.collectedInfo?.commitment_level || '认真制作',
+        reasoning: '基于用户交互分析'
+      }
+    };
+  }
+
+  /**
+   * 提取正确的用户目标
+   */
+  private extractCorrectUserGoal(sessionData: SessionData): string {
+    const metadata = sessionData.metadata as any;
+    return metadata.collectedInfo?.use_case || '创建个人主页';
+  }
+
+  /**
+   * 提取正确的用户类型
+   */
+  private extractCorrectUserType(sessionData: SessionData): string {
+    const metadata = sessionData.metadata as any;
+    return metadata.collectedInfo?.user_role || '专业人士';
+  }
+
+  /**
+   * 计算数据丰富度
+   */
+  private calculateDataRichness(collectedData: any, sessionData: SessionData): number {
+    let richness = 0;
+    const metadata = sessionData.metadata as any;
+    
+    // Welcome 阶段数据完整性 (30%)
+    const welcomeFields = ['user_role', 'use_case', 'style', 'highlight_focus'];
+    const welcomeCompleteness = welcomeFields.filter(field => 
+      metadata.collectedInfo?.[field] && metadata.collectedInfo[field] !== ''
+    ).length / welcomeFields.length;
+    richness += welcomeCompleteness * 0.3;
+    
+    // 个人信息完整性 (20%)
+    const personalFields = ['fullName', 'email', 'phone', 'location'];
+    const personalCompleteness = personalFields.filter(field => 
+      collectedData?.personal?.[field]
+    ).length / personalFields.length;
+    richness += personalCompleteness * 0.2;
+    
+    // 专业信息完整性 (25%)
+    const professionalCompleteness = (
+      (collectedData?.professional?.currentTitle ? 0.25 : 0) +
+      (collectedData?.professional?.summary ? 0.25 : 0) +
+      (collectedData?.professional?.skills?.length > 0 ? 0.25 : 0) +
+      (collectedData?.professional?.yearsExperience ? 0.25 : 0)
+    );
+    richness += professionalCompleteness * 0.25;
+    
+    // 经历和项目完整性 (25%)
+    const experienceCompleteness = (
+      (collectedData?.experience?.length > 0 ? 0.4 : 0) +
+      (collectedData?.education?.length > 0 ? 0.3 : 0) +
+      (collectedData?.projects?.length > 0 ? 0.3 : 0)
+    );
+    richness += experienceCompleteness * 0.25;
+    
+    return Math.round(richness * 10) / 10; // 保留一位小数
+  }
+
+  /**
+   * 评估数据完整性
+   */
+  private assessDataCompleteness(collectedData: any, welcomeInfo: any): string {
+    const mockSessionData = { 
+      metadata: { collectedInfo: welcomeInfo } 
+    } as unknown as SessionData;
+    const richness = this.calculateDataRichness(collectedData, mockSessionData);
+    
+    if (richness >= 0.8) return 'high';
+    if (richness >= 0.5) return 'medium';
+    return 'low';
   }
 }

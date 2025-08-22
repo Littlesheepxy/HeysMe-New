@@ -6,7 +6,7 @@
 
 import { ConversationalWelcomeAgent } from '@/lib/agents/welcome';
 import { VercelAIInfoCollectionAgent } from '@/lib/agents/info-collection/vercel-ai-agent';
-import { PromptOutputAgent } from '@/lib/agents/prompt-output-agent';
+import { EnhancedPromptOutputAgent } from '@/lib/agents/prompt-output/enhanced-agent';
 import { CodingAgent } from '@/lib/agents/coding';
 import { BaseAgent } from '@/lib/agents/base-agent';
 import { SessionData } from '@/lib/types/session';
@@ -35,7 +35,7 @@ export class AgentOrchestrator {
   private initializeAgents(): void {
     this.agents.set('welcome', new ConversationalWelcomeAgent());
     this.agents.set('info_collection', new VercelAIInfoCollectionAgent());
-    this.agents.set('prompt_output', new PromptOutputAgent());
+    this.agents.set('prompt_output', new EnhancedPromptOutputAgent());
     this.agents.set('coding', new CodingAgent());
     
     console.log(`✅ [编排器] 初始化了 ${this.agents.size} 个Agent (使用VercelAI信息收集)`);
@@ -438,10 +438,50 @@ export class AgentOrchestrator {
     const agentStartTime = new Date();
     console.log(`⏰ [编排器] ${agentName} 开始处理 (${agentStartTime.toISOString()})`);
     
-    // 🆕 为CodingAgent准备特殊的输入参数
+    // 🆕 为不同Agent准备特殊的输入参数
     let agentInput = { user_input: userInput };
     
-    if (agentName === 'coding') {
+    if (agentName === 'prompt_output') {
+      // 🎨 为EnhancedPromptOutputAgent准备输入参数
+      const metadata = session.metadata as any;
+      const toolResults = metadata.toolResults || [];
+      
+      // 转换工具结果格式以匹配 ToolResultData 接口
+      const formattedToolResults = toolResults.map((result: any) => ({
+        source_url: result.data?.url || result.data?.github_url || result.data?.website_url || 'unknown',
+        tool_name: result.tool_name,
+        extracted_data: result.data,
+        content_analysis: {
+          quality_indicators: {
+            completeness: 0.8,
+            relevance: 0.9,
+            freshness: 0.7
+          }
+        },
+        cache_info: {
+          status: 'fresh' as const,
+          cached_at: result.timestamp || new Date().toISOString()
+        },
+        metadata: {
+          extraction_confidence: result.data?.extraction_confidence || 0.8,
+          extracted_at: result.timestamp || new Date().toISOString()
+        }
+      }));
+      
+      agentInput = {
+        collected_data: session.collectedData || {},
+        tool_results: formattedToolResults,
+        user_goal: metadata.collectedInfo?.use_case || '创建个人主页',
+        user_type: metadata.collectedInfo?.user_role || '专业人士'
+      } as any;
+      
+      console.log(`🎨 [编排器] EnhancedPromptOutputAgent输入参数:`, {
+        collectedDataKeys: Object.keys(session.collectedData || {}),
+        toolResultsCount: formattedToolResults.length,
+        userGoal: (agentInput as any).user_goal,
+        userType: (agentInput as any).user_type
+      });
+    } else if (agentName === 'coding') {
       // 🎯 CodingAgent模式判断逻辑
       const hasProjectFiles = session.metadata && 
                              (session.metadata as any).projectFiles && 

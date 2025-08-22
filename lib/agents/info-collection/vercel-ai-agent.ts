@@ -11,6 +11,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { generateText, tool, stepCountIs } from 'ai';
 import { z } from 'zod';
 import { githubService, webService, documentService, socialService } from '@/lib/services';
+import { toolResultsStorage } from '@/lib/services/tool-results-storage';
 
 export class VercelAIInfoCollectionAgent extends BaseAgent {
   constructor() {
@@ -23,6 +24,65 @@ export class VercelAIInfoCollectionAgent extends BaseAgent {
     };
 
     super('VercelAI信息收集专家', capabilities);
+  }
+
+  /**
+   * 处理用户交互 - 实现 BaseAgent 接口
+   */
+  async handleInteraction(
+    interactionType: string,
+    data: any,
+    sessionData: SessionData
+  ): Promise<any> {
+    console.log(`🔄 [VercelAI交互] 处理交互类型: ${interactionType}`);
+    console.log(`📋 [交互数据]`, { 
+      hasMessage: !!data.message, 
+      hasFiles: !!data.files && data.files.length > 0,
+      messageLength: data.message?.length || 0,
+      filesCount: data.files?.length || 0
+    });
+
+    if (interactionType === 'interaction') {
+      // 构建用户输入
+      let userInput = '';
+      
+      // 优先使用用户的实际消息
+      if (data.message && typeof data.message === 'string' && data.message.trim()) {
+        userInput = data.message.trim();
+      }
+      
+      // 添加文件信息
+      if (data.files && data.files.length > 0) {
+        const fileDescriptions = data.files.map((file: any) => {
+          if (file.parsedContent) {
+            return `文档内容：${file.parsedContent.substring(0, 500)}...`;
+          }
+          return `文件：${file.id}`;
+        });
+        
+        if (userInput) {
+          userInput += '\n\n' + fileDescriptions.join('\n');
+        } else {
+          userInput = fileDescriptions.join('\n');
+        }
+      }
+      
+      if (!userInput.trim()) {
+        console.log(`⚠️ [交互警告] 没有有效的用户输入内容`);
+        return { action: 'continue' };
+      }
+      
+      console.log(`📝 [构建输入] 用户输入长度: ${userInput.length}`);
+      
+      // 使用流式处理方法
+      return { 
+        action: 'stream_response',
+        message: userInput  // 使用 message 字段，与 formatInteractionAsUserMessage 兼容
+      };
+    }
+    
+    // 其他交互类型的默认处理
+    return { action: 'continue' };
   }
 
   /**
@@ -44,11 +104,21 @@ export class VercelAIInfoCollectionAgent extends BaseAgent {
       const currentTurn = this.getTurnCount(sessionData);
       const isFirstTime = this.isFirstTimeInInfoCollection(sessionData);
       
-      if (isFirstTime) {
+      // 检查用户输入是否包含具体的链接或内容
+      const hasConcreteInput = this.hasConcreteInput(input.user_input);
+      
+      if (isFirstTime && !hasConcreteInput) {
         console.log(`🌟 [首次启动] 这是Info Collection阶段的第一次启动，发送过渡消息`);
         yield* this.createWelcomeToInfoCollectionFlow(welcomeData, sessionData);
         console.log(`✅ [过渡完成] 过渡消息已发送，等待用户提供链接、文档或文本`);
         return;
+      }
+      
+      // 如果是第一次但用户提供了具体内容，标记已发送欢迎消息
+      if (isFirstTime && hasConcreteInput) {
+        console.log(`🚀 [直接处理] 用户提供了具体内容，跳过过渡消息直接处理`);
+        const metadata = sessionData.metadata as any;
+        metadata.infoCollectionWelcomeSent = true;
       }
       
       // 检查轮次限制
@@ -139,76 +209,100 @@ export class VercelAIInfoCollectionAgent extends BaseAgent {
         }
       }),
 
-      parse_document: tool({
-        description: 'Parse and extract structured information from uploaded documents like resumes, portfolios, and certificates.',
+      analyze_social_media: tool({
+        description: 'Analyze social media profiles and content from platforms like TikTok, X/Twitter, Behance, Instagram, etc.',
         inputSchema: z.object({
-          file_data: z.string().describe('Document file data (base64 or file path)'),
-          file_type: z.enum(['pdf', 'docx', 'xlsx', 'pptx', 'txt']).describe('Document file type')
+          platform_url: z.string().describe('Complete social media profile URL'),
+          platform_type: z.enum(['tiktok', 'twitter', 'x', 'behance', 'dribbble', 'instagram', 'youtube', 'medium', 'dev.to']).describe('Social media platform type')
         }),
-        execute: async ({ file_data, file_type }) => {
-          console.log(`🔧 [文档工具] 解析: ${file_type} 文档`);
-          const result = await documentService.parseDocument(file_data, file_type);
-          console.log(`✅ [文档工具] 完成`);
+        execute: async ({ platform_url, platform_type }) => {
+          console.log(`🔧 [社交媒体工具] 分析 ${platform_type}: ${platform_url}`);
+          const result = await socialService.analyzeSocialMedia(platform_url, { analysis_focus: 'profile' });
+          console.log(`✅ [社交媒体工具] 完成`);
           return result;
         }
       }),
 
       synthesize_profile: tool({
-        description: 'Synthesize and analyze collected information from multiple sources to create a comprehensive professional profile.',
+        description: 'Synthesize collected information, generate display recommendations, and create storage plan for links and content.',
         inputSchema: z.object({
           github_data: z.any().optional().describe('GitHub analysis results'),
           website_data: z.any().optional().describe('Website scraping results'),
           linkedin_data: z.any().optional().describe('LinkedIn extraction results'),
-          document_data: z.any().optional().describe('Document parsing results')
+          social_media_data: z.any().optional().describe('Social media analysis results'),
+          document_content: z.string().optional().describe('Pre-parsed document content from frontend')
         }),
-        execute: async ({ github_data, website_data, linkedin_data, document_data }) => {
-          console.log(`🔧 [综合分析] 合成专业档案`);
+        execute: async ({ github_data, website_data, linkedin_data, social_media_data, document_content }) => {
+          console.log(`🔧 [综合分析] 合成专业档案并生成展示建议`);
           
+          // 构建基础档案
           const profile = {
             basic_info: {
-              name: github_data?.profile?.name || linkedin_data?.name || 'Unknown',
+              name: github_data?.profile?.name || linkedin_data?.name || social_media_data?.profile?.name || 'Unknown',
               location: github_data?.profile?.location || linkedin_data?.location,
-              bio: github_data?.profile?.bio || linkedin_data?.summary,
-              avatar: github_data?.profile?.avatar_url
+              bio: github_data?.profile?.bio || linkedin_data?.summary || social_media_data?.profile?.bio,
+              avatar: github_data?.profile?.avatar_url || social_media_data?.profile?.avatar
             },
             technical_skills: {
               primary_languages: github_data?.languages?.summary?.slice(0, 5) || [],
               technologies: [
-                ...(website_data?.technologies || []),
+                ...(website_data?.content_analysis?.technical_stack || []),
                 ...(github_data?.languages?.summary?.map((l: any) => l[0]) || [])
               ].filter((tech, index, arr) => arr.indexOf(tech) === index),
               expertise_level: github_data?.analysis?.tech_diversity || 0.5
             },
             professional_experience: {
-              github_activity: {
-                repos: github_data?.profile?.public_repos || 0,
-                stars: github_data?.activity_metrics?.total_stars || 0,
-                followers: github_data?.profile?.followers || 0
-              },
+              github_activity: github_data?.activity_metrics || {},
               projects: github_data?.repositories?.slice(0, 5) || [],
-              work_history: linkedin_data?.experience || []
+              work_history: linkedin_data?.experience || [],
+              social_presence: social_media_data?.influence_metrics || {}
             },
             online_presence: {
               github_url: github_data ? `https://github.com/${github_data.username}` : null,
               website_url: website_data?.url || null,
               linkedin_url: linkedin_data?.profile_url || null,
-              social_links: website_data?.social_links || []
-            },
-            analysis_summary: {
-              confidence_score: 0.85,
-              data_sources: [
-                github_data && 'GitHub',
-                website_data && 'Personal Website',
-                linkedin_data && 'LinkedIn',
-                document_data && 'Documents'
-              ].filter(Boolean),
-              key_strengths: [],
-              recommendations: []
+              social_media_url: social_media_data?.platform_url || null,
+              social_links: website_data?.content_analysis?.social_links || {}
             }
           };
 
-          console.log(`✅ [综合分析] 完成，数据源: ${profile.analysis_summary.data_sources.join(', ')}`);
-          return profile;
+          // 生成展示建议
+          const display_recommendations = {
+            hero_section: this.generateHeroRecommendations(profile, document_content),
+            projects_showcase: this.generateProjectsRecommendations(github_data, website_data),
+            social_proof: this.generateSocialProofRecommendations(social_media_data, github_data),
+            content_highlights: this.extractContentHighlights(website_data, social_media_data, document_content)
+          };
+
+          // 生成存储计划
+          const storage_plan = {
+            links_to_store: this.generateLinksToStore(github_data, website_data, linkedin_data, social_media_data),
+            content_summary: this.generateContentSummary(profile, document_content),
+            metadata: {
+              extraction_confidence: this.calculateOverallConfidence([github_data, website_data, linkedin_data, social_media_data]),
+              data_sources: [
+                github_data && 'GitHub',
+                website_data && 'Personal Website', 
+                linkedin_data && 'LinkedIn',
+                social_media_data && 'Social Media',
+                document_content && 'Documents'
+              ].filter(Boolean)
+            }
+          };
+
+          console.log(`✅ [综合分析] 完成，数据源: ${storage_plan.metadata.data_sources.join(', ')}`);
+          
+          return {
+            profile,
+            display_recommendations,
+            storage_plan,
+            analysis_summary: {
+              confidence_score: storage_plan.metadata.extraction_confidence,
+              data_sources: storage_plan.metadata.data_sources,
+              key_strengths: this.extractKeyStrengths(profile, document_content),
+              recommendations: this.generateDisplayRecommendations(profile, display_recommendations)
+            }
+          };
         }
       })
     };
@@ -250,20 +344,26 @@ export class VercelAIInfoCollectionAgent extends BaseAgent {
           role: 'system' as const,
           content: `你是一个专业的信息收集和分析专家。你的任务是：
 
-1. **智能分析**: 理解用户需求，确定需要收集哪些信息
-2. **工具调用**: 根据用户提供的链接、文档等信息，智能选择和调用相应工具
-3. **数据收集**: 从 GitHub、网站、LinkedIn、文档等多个来源收集信息
-4. **综合分析**: 使用 synthesize_profile 工具整合所有收集的信息
-5. **专业报告**: 生成结构化的专业分析报告
+1. **智能分析**: 理解用户需求，识别提供的链接和文档内容
+2. **链接分析**: 分析用户提供的各种链接（GitHub、网站、社交媒体等）
+3. **内容总结**: 为每个链接生成内容总结和展示建议
+4. **存储规划**: 确定哪些链接和信息需要存储到 Supabase
+5. **展示建议**: 生成如何在个人主页中展示这些内容的具体建议
+
+重要说明：
+- 文档内容已经由前端解析完成，直接使用提供的文档内容，无需调用 parse_document 工具
+- 重点分析用户提供的链接：GitHub、个人网站、社交媒体等
+- 为每个链接生成详细的内容分析和展示建议
+- 生成需要存储的链接列表，包含链接、标题、总结和元数据
 
 可用工具：
-- analyze_github: 分析 GitHub 用户和仓库
-- scrape_webpage: 抓取和分析网页内容
+- analyze_github: 分析 GitHub 用户和仓库，提取技术栈和项目信息
+- scrape_webpage: 抓取和分析网页内容，特别是个人网站和产品页面
 - extract_linkedin: 提取 LinkedIn 专业信息
-- parse_document: 解析上传的文档
-- synthesize_profile: 综合分析收集的信息
+- analyze_social_media: 分析社交媒体档案（TikTok、X、Behance等）
+- synthesize_profile: 综合分析所有收集的信息，生成展示建议和存储计划
 
-请根据用户输入智能决定调用哪些工具，并按逻辑顺序执行。最后提供专业的中文分析报告。`
+请根据用户输入的链接和文档内容，智能选择工具进行分析，最后提供专业的中文分析报告和展示建议。`
         },
         ...conversationHistory.map(msg => ({
           role: msg.role as 'user' | 'assistant',
@@ -320,7 +420,7 @@ export class VercelAIInfoCollectionAgent extends BaseAgent {
           timestamp: new Date().toISOString()
         }));
 
-        this.updateSessionWithToolResults(sessionData, toolResultsData);
+        await this.updateSessionWithToolResults(sessionData, toolResultsData);
       }
 
       // 发送最终分析结果
@@ -371,12 +471,52 @@ export class VercelAIInfoCollectionAgent extends BaseAgent {
   }
 
   /**
-   * 更新会话数据
+   * 更新会话数据并存储工具结果
    */
-  private updateSessionWithToolResults(sessionData: SessionData, toolResults: any[]) {
+  private async updateSessionWithToolResults(sessionData: SessionData, toolResults: any[]) {
     const metadata = sessionData.metadata as any;
     if (!metadata.toolResults) {
       metadata.toolResults = [];
+    }
+
+    // 存储工具结果到 Supabase
+    for (const toolResult of toolResults) {
+      try {
+        // 确定平台类型和内容类型
+        const platformType = this.determinePlatformType(toolResult.tool_name);
+        const contentType = this.determineContentType(toolResult.data);
+        
+        // 提取源URL
+        const sourceUrl = this.extractSourceUrl(toolResult.data, toolResult.tool_name);
+        
+        if (sourceUrl) {
+          await toolResultsStorage.storeResult({
+            user_id: sessionData.userId || 'unknown',
+            session_id: sessionData.id,
+            agent_name: this.name,
+            tool_name: toolResult.tool_name,
+            platform_type: platformType,
+            content_type: contentType,
+            source_url: sourceUrl,
+            tool_output: toolResult.data,
+            processed_data: this.processToolData(toolResult.data, toolResult.tool_name),
+            status: 'success',
+            is_cacheable: true,
+            metadata: {
+              extraction_confidence: toolResult.data.extraction_confidence || 0.8,
+              extracted_at: toolResult.timestamp,
+              agent_version: '1.0'
+            }
+          }, {
+            ttl_hours: 24, // 缓存24小时
+            user_specific: false
+          });
+          
+          console.log(`💾 [工具结果存储] ${toolResult.tool_name} - ${sourceUrl}`);
+        }
+      } catch (error) {
+        console.error(`❌ [存储失败] ${toolResult.tool_name}:`, error);
+      }
     }
 
     metadata.toolResults.push(...toolResults);
@@ -384,6 +524,105 @@ export class VercelAIInfoCollectionAgent extends BaseAgent {
     metadata.totalToolCalls = (metadata.totalToolCalls || 0) + toolResults.length;
 
     console.log(`📊 [会话更新] 添加了 ${toolResults.length} 个工具结果`);
+  }
+
+  /**
+   * 确定平台类型
+   */
+  private determinePlatformType(toolName: string): string {
+    const platformMap: Record<string, string> = {
+      'analyze_github': 'code_repository',
+      'scrape_webpage': 'webpage',
+      'extract_linkedin': 'social_media',
+      'analyze_social_media': 'social_media'
+    };
+    
+    return platformMap[toolName] || 'other';
+  }
+
+  /**
+   * 确定内容类型
+   */
+  private determineContentType(data: any): string {
+    if (data.profile) return 'profile';
+    if (data.repositories) return 'project';
+    if (data.content_analysis) return 'webpage';
+    return 'mixed';
+  }
+
+  /**
+   * 提取源URL
+   */
+  private extractSourceUrl(data: any, toolName: string): string | null {
+    if (data.url) return data.url;
+    if (data.platform_url) return data.platform_url;
+    if (data.profile_url) return data.profile_url;
+    if (data.username && toolName === 'analyze_github') {
+      return `https://github.com/${data.username}`;
+    }
+    return null;
+  }
+
+  /**
+   * 处理工具数据
+   */
+  private processToolData(data: any, toolName: string): any {
+    return {
+      summary: this.generateDataSummary(data, toolName),
+      key_metrics: this.extractKeyMetrics(data, toolName),
+      display_data: this.prepareDisplayData(data, toolName)
+    };
+  }
+
+  /**
+   * 生成数据摘要
+   */
+  private generateDataSummary(data: any, toolName: string): string {
+    switch (toolName) {
+      case 'analyze_github':
+        return `GitHub用户 ${data.username}，${data.profile?.public_repos || 0} 个公开仓库`;
+      case 'scrape_webpage':
+        return `网站 ${data.title || 'Unknown'}，内容质量 ${data.content_analysis?.content_quality || 'N/A'}`;
+      case 'extract_linkedin':
+        return `LinkedIn档案 ${data.profile?.name || 'Unknown'}`;
+      case 'analyze_social_media':
+        return `${data.platform_type} 社交媒体档案`;
+      default:
+        return '数据分析完成';
+    }
+  }
+
+  /**
+   * 提取关键指标
+   */
+  private extractKeyMetrics(data: any, toolName: string): any {
+    switch (toolName) {
+      case 'analyze_github':
+        return {
+          repos: data.profile?.public_repos || 0,
+          stars: data.activity_metrics?.total_stars || 0,
+          followers: data.profile?.followers || 0
+        };
+      case 'analyze_social_media':
+        return {
+          followers: data.influence_metrics?.followers || 0,
+          engagement: data.influence_metrics?.engagement_rate || 0
+        };
+      default:
+        return {};
+    }
+  }
+
+  /**
+   * 准备展示数据
+   */
+  private prepareDisplayData(data: any, toolName: string): any {
+    return {
+      title: data.title || data.profile?.name || 'Unknown',
+      description: data.description || data.profile?.bio || '',
+      image: data.image || data.profile?.avatar_url || null,
+      url: this.extractSourceUrl(data, toolName)
+    };
   }
 
   /**
@@ -414,6 +653,288 @@ export class VercelAIInfoCollectionAgent extends BaseAgent {
       { role: 'user', content: userInput },
       { role: 'assistant', content: assistantResponse }
     );
+  }
+
+  // ==================== 综合分析辅助方法 ====================
+
+  /**
+   * 生成首页展示建议
+   */
+  private generateHeroRecommendations(profile: any, documentContent?: string): any {
+    return {
+      title_suggestion: profile.basic_info.name || 'AI产品创始人',
+      tagline_suggestion: profile.basic_info.bio || 'AI生成个人主页产品创始人',
+      highlight_metrics: [
+        profile.professional_experience.github_activity?.total_stars && `${profile.professional_experience.github_activity.total_stars} GitHub Stars`,
+        profile.professional_experience.projects?.length && `${profile.professional_experience.projects.length} 开源项目`,
+        profile.online_presence.website_url && '产品官网上线'
+      ].filter(Boolean),
+      background_image_suggestion: profile.basic_info.avatar || null
+    };
+  }
+
+  /**
+   * 生成项目展示建议
+   */
+  private generateProjectsRecommendations(githubData: any, websiteData: any): any {
+    const projects = [];
+    
+    // GitHub 项目
+    if (githubData?.repositories) {
+      projects.push(...githubData.repositories.slice(0, 3).map((repo: any) => ({
+        type: 'github',
+        title: repo.name,
+        description: repo.description,
+        url: repo.url,
+        tech_stack: repo.language ? [repo.language] : [],
+        stars: repo.stars,
+        display_priority: 'high'
+      })));
+    }
+    
+    // 网站项目
+    if (websiteData?.url) {
+      projects.push({
+        type: 'website',
+        title: websiteData.title || 'HeysMe AI',
+        description: websiteData.description || 'AI生成个人主页产品',
+        url: websiteData.url,
+        tech_stack: websiteData.content_analysis?.technical_stack || [],
+        display_priority: 'highest'
+      });
+    }
+    
+    return {
+      featured_projects: projects,
+      display_format: 'card_grid',
+      show_tech_stack: true,
+      show_metrics: true
+    };
+  }
+
+  /**
+   * 生成社交证明建议
+   */
+  private generateSocialProofRecommendations(socialMediaData: any, githubData: any): any {
+    const socialProof = [];
+    
+    if (githubData?.profile?.followers) {
+      socialProof.push({
+        platform: 'GitHub',
+        metric: 'followers',
+        value: githubData.profile.followers,
+        display_text: `${githubData.profile.followers} GitHub 关注者`
+      });
+    }
+    
+    if (socialMediaData?.influence_metrics) {
+      socialProof.push({
+        platform: socialMediaData.platform_type,
+        metric: 'influence',
+        value: socialMediaData.influence_metrics.followers || 0,
+        display_text: `${socialMediaData.platform_type} 影响力`
+      });
+    }
+    
+    return {
+      metrics: socialProof,
+      display_style: 'horizontal_bar',
+      show_icons: true
+    };
+  }
+
+  /**
+   * 提取内容亮点
+   */
+  private extractContentHighlights(websiteData: any, socialMediaData: any, documentContent?: string): string[] {
+    const highlights = [];
+    
+    if (websiteData?.extracted_content?.highlights) {
+      highlights.push(...websiteData.extracted_content.highlights);
+    }
+    
+    if (socialMediaData?.content_analysis?.key_topics) {
+      highlights.push(...socialMediaData.content_analysis.key_topics);
+    }
+    
+    if (documentContent) {
+      // 从文档内容中提取关键词
+      const keywords = documentContent.match(/\b[A-Z][a-z]+(?:\s+[A-Z][a-z]+)*\b/g) || [];
+      highlights.push(...keywords.slice(0, 5));
+    }
+    
+    return Array.from(new Set(highlights)).slice(0, 10);
+  }
+
+  /**
+   * 生成需要存储的链接列表
+   */
+  private generateLinksToStore(githubData: any, websiteData: any, linkedinData: any, socialMediaData: any): any[] {
+    const linksToStore = [];
+    
+    if (githubData) {
+      linksToStore.push({
+        type: 'github',
+        url: `https://github.com/${githubData.username}`,
+        title: `${githubData.profile?.name || githubData.username} - GitHub`,
+        summary: `${githubData.profile?.public_repos || 0} 个公开仓库，主要使用 ${githubData.languages?.primary_language || 'Multiple'} 等技术`,
+        metadata: {
+          repos: githubData.profile?.public_repos || 0,
+          stars: githubData.activity_metrics?.total_stars || 0,
+          followers: githubData.profile?.followers || 0,
+          primary_language: githubData.languages?.primary_language
+        },
+        display_priority: 'high',
+        storage_location: 'user_links'
+      });
+    }
+    
+    if (websiteData) {
+      linksToStore.push({
+        type: 'website',
+        url: websiteData.url,
+        title: websiteData.title || 'Personal Website',
+        summary: websiteData.description || '个人/产品官方网站',
+        metadata: {
+          technologies: websiteData.content_analysis?.technical_stack || [],
+          content_quality: websiteData.content_analysis?.content_quality
+        },
+        display_priority: 'highest',
+        storage_location: 'user_links'
+      });
+    }
+    
+    if (linkedinData) {
+      linksToStore.push({
+        type: 'linkedin',
+        url: linkedinData.profile_url,
+        title: `${linkedinData.profile?.name} - LinkedIn`,
+        summary: linkedinData.profile?.summary || '专业社交档案',
+        metadata: {
+          experience: linkedinData.experience || [],
+          education: linkedinData.education || [],
+          skills: linkedinData.skills || []
+        },
+        display_priority: 'medium',
+        storage_location: 'user_links'
+      });
+    }
+    
+    if (socialMediaData) {
+      linksToStore.push({
+        type: 'social_media',
+        platform: socialMediaData.platform_type,
+        url: socialMediaData.platform_url,
+        title: `${socialMediaData.platform_type} Profile`,
+        summary: socialMediaData.profile?.bio || `${socialMediaData.platform_type} 社交媒体档案`,
+        metadata: {
+          followers: socialMediaData.influence_metrics?.followers || 0,
+          content_style: socialMediaData.profile?.content_style || 'professional',
+          influence_score: socialMediaData.influence_metrics?.influence_score || 0
+        },
+        display_priority: 'medium',
+        storage_location: 'user_links'
+      });
+    }
+    
+    return linksToStore;
+  }
+
+  /**
+   * 生成内容总结
+   */
+  private generateContentSummary(profile: any, documentContent?: string): any {
+    return {
+      core_identity: profile.basic_info.name || '专业人士',
+      key_skills: profile.technical_skills.primary_languages || [],
+      achievements: [
+        profile.professional_experience.github_activity?.total_stars && `${profile.professional_experience.github_activity.total_stars} GitHub Stars`,
+        profile.professional_experience.projects?.length && `${profile.professional_experience.projects.length} 个项目`
+      ].filter(Boolean),
+      values: ['技术创新', '开源贡献'],
+      goals: ['产品开发', '技术分享'],
+      document_insights: documentContent ? this.extractDocumentInsights(documentContent) : null
+    };
+  }
+
+  /**
+   * 计算整体置信度
+   */
+  private calculateOverallConfidence(dataSources: any[]): number {
+    const validSources = dataSources.filter(source => source && source.extraction_confidence);
+    if (validSources.length === 0) return 0.5;
+    
+    const avgConfidence = validSources.reduce((sum, source) => sum + source.extraction_confidence, 0) / validSources.length;
+    return Math.min(avgConfidence + (validSources.length * 0.1), 1.0);
+  }
+
+  /**
+   * 提取关键优势
+   */
+  private extractKeyStrengths(profile: any, documentContent?: string): string[] {
+    const strengths = [];
+    
+    if (profile.technical_skills.primary_languages?.length > 0) {
+      strengths.push(`多技术栈开发能力 (${profile.technical_skills.primary_languages.slice(0, 3).map((l: any) => l[0] || l).join(', ')})`);
+    }
+    
+    if (profile.professional_experience.github_activity?.repos > 10) {
+      strengths.push('丰富的开源项目经验');
+    }
+    
+    if (profile.online_presence.website_url) {
+      strengths.push('产品化思维和实现能力');
+    }
+    
+    if (documentContent && documentContent.includes('创始人')) {
+      strengths.push('创业和领导经验');
+    }
+    
+    return strengths;
+  }
+
+  /**
+   * 生成展示建议
+   */
+  private generateDisplayRecommendations(profile: any, displayRecommendations: any): string[] {
+    const recommendations = [];
+    
+    if (profile.online_presence.github_url) {
+      recommendations.push('在项目展示区突出显示 GitHub 仓库和技术栈');
+    }
+    
+    if (profile.online_presence.website_url) {
+      recommendations.push('将产品官网作为核心项目进行重点展示');
+    }
+    
+    if (profile.online_presence.social_media_url) {
+      recommendations.push('在社交证明区域展示社交媒体影响力');
+    }
+    
+    recommendations.push('使用创新领袖型设计风格，突出技术实力和产品vision');
+    
+    return recommendations;
+  }
+
+  /**
+   * 从文档内容中提取关键洞察
+   */
+  private extractDocumentInsights(documentContent: string): any {
+    const insights = {
+      key_skills: [] as string[],
+      experience_years: 0,
+      education: [] as string[],
+      achievements: [] as string[],
+      summary: documentContent.substring(0, 200) + '...'
+    };
+    
+    // 简化的文档分析逻辑
+    const skillKeywords = ['JavaScript', 'Python', 'React', 'Node.js', 'TypeScript', 'Java', 'Go'];
+    insights.key_skills = skillKeywords.filter(skill => 
+      documentContent.toLowerCase().includes(skill.toLowerCase())
+    );
+    
+    return insights;
   }
 
   // ==================== 业务逻辑方法 ====================
@@ -533,6 +1054,42 @@ export class VercelAIInfoCollectionAgent extends BaseAgent {
   private isFirstTimeInInfoCollection(sessionData: SessionData): boolean {
     const metadata = sessionData.metadata as any;
     return !metadata.infoCollectionWelcomeSent;
+  }
+
+  /**
+   * 检查用户输入是否包含具体的链接或内容
+   */
+  private hasConcreteInput(userInput: string): boolean {
+    if (!userInput || userInput.trim().length < 10) {
+      return false;
+    }
+
+    const input = userInput.toLowerCase().trim();
+    
+    // 检查是否包含链接
+    const urlPatterns = [
+      /https?:\/\/github\.com\/[\w-]+/i,
+      /https?:\/\/linkedin\.com\/in\/[\w-]+/i,
+      /https?:\/\/www\.linkedin\.com\/in\/[\w-]+/i,
+      /https?:\/\/[\w.-]+\.[\w]{2,}/i, // 通用网址
+    ];
+    
+    for (const pattern of urlPatterns) {
+      if (pattern.test(input)) {
+        return true;
+      }
+    }
+    
+    // 检查是否包含具体的技能描述或经历描述
+    const contentKeywords = [
+      '我是', '我的', '擅长', '经验', '技能', '项目', '工作', '开发', '设计',
+      'github', 'linkedin', '简历', '作品集', '网站', '博客'
+    ];
+    
+    const hasKeywords = contentKeywords.some(keyword => input.includes(keyword));
+    const hasSubstantialContent = input.length > 50; // 超过50字符认为是具体内容
+    
+    return hasKeywords || hasSubstantialContent;
   }
 
   /**

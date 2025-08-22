@@ -1,3 +1,11 @@
+/**
+ * 优化版信息收集 Agent [已弃用]
+ * 集成了多种数据源和智能分析能力
+ * 
+ * 注意：当前项目使用的是 vercel-ai-agent.ts，此文件仅作为备份参考
+ * 请使用 VercelAIInfoCollectionAgent 进行开发和测试
+ */
+
 import { BaseAgent } from '../base-agent';
 import { StreamableAgentResponse, AgentCapabilities } from '@/lib/types/streaming';
 import { SessionData } from '@/lib/types/session';
