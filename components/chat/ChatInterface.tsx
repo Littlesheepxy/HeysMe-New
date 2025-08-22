@@ -769,8 +769,10 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
             index === prev.length - 1 
               ? {
                   ...msg,
-                  // 🔧 关键修复：对于CodingAgent，只累积reply内容（已经是分离后的纯文本）
-                  content: (msg.content || '') + (response.immediate_display?.reply || ''),
+                  // 🔧 关键修复：根据content_mode决定是追加还是替换内容
+                  content: response.system_state?.metadata?.content_mode === 'complete' 
+                    ? (response.immediate_display?.reply || '')
+                    : (msg.content || '') + (response.immediate_display?.reply || ''),
                   metadata: {
                     ...msg.metadata,
                     streaming: !response.system_state?.done,

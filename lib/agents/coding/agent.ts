@@ -750,6 +750,9 @@ ${projectContext}
       // 🆕 创建累积的工具调用状态
       let allToolCallsForUI: any[] = [];
       let stepCount = 0;
+      
+      // 🔧 创建一个队列来存储需要发送的更新
+      const pendingUpdates: any[] = [];
 
       // 使用 Vercel AI SDK 的多步骤工具调用
       const result = await generateText({
@@ -781,9 +784,42 @@ ${projectContext}
             
             console.log(`🔧 [工具调用状态] 步骤 ${stepCount} 工具调用:`, currentStepToolCalls);
             console.log(`📋 [累积工具调用] 总计: ${allToolCallsForUI.length} 个工具调用`);
+            
+            // 🔧 将更新添加到队列中，稍后发送
+            pendingUpdates.push({
+              stepCount,
+              toolCalls: [...allToolCallsForUI], // 创建副本
+              currentStepToolCalls
+            });
           }
         }
       });
+      
+      // 🔧 发送所有待处理的工具调用更新
+      for (const update of pendingUpdates) {
+        yield this.createResponse({
+          immediate_display: {
+            reply: `🔧 执行步骤 ${update.stepCount}：${update.currentStepToolCalls.map((tc: any) => tc.toolName).join(', ')}`,
+            agent_name: this.name,
+            timestamp: new Date().toISOString()
+          },
+          system_state: {
+            intent: 'incremental_analyzing',
+            done: false,
+            progress: Math.min(20 + (update.stepCount * 15), 85),
+            current_stage: `执行工具 (${update.stepCount}/${6})`,
+            metadata: {
+              message_id: messageId,
+              content_mode: 'append',
+              stream_type: 'tool_update',
+              mode: 'incremental',
+              toolCalls: update.toolCalls,
+              currentStep: update.stepCount,
+              totalSteps: 6
+            }
+          }
+        });
+      }
 
       console.log(`✅ [Vercel AI 增量编辑] 完成，执行了 ${result.steps.length} 个步骤`);
 

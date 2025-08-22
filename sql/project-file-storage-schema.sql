@@ -381,9 +381,9 @@ BEGIN
   
   -- 更新提交统计
   UPDATE public.project_commits SET
-    files_added = files_added,
-    files_modified = files_modified,
-    files_deleted = files_deleted
+    files_added = create_commit.files_added,
+    files_modified = create_commit.files_modified,
+    files_deleted = create_commit.files_deleted
   WHERE id = commit_id;
   
   RETURN commit_id;
