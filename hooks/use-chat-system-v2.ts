@@ -123,6 +123,96 @@ export function useChatSystemV2() {
     loadExistingSessions();
   }, [loadExistingSessions]);
 
+  // 🆕 新增辅助函数：同步到对应Agent的历史字段
+  const syncToAgentHistory = useCallback((session: SessionData, message: any) => {
+    const currentStage = session.metadata.progress.currentStage;
+    const metadata = session.metadata as any;
+    
+    // 根据当前阶段确定要同步到哪个历史字段
+    let targetHistoryField: string;
+    switch (currentStage) {
+      case 'welcome':
+        targetHistoryField = 'welcomeHistory';
+        break;
+      case 'info_collection':
+      case 'information_collection':
+        targetHistoryField = 'infoCollectionHistory';
+        break;
+      case 'coding':
+      case 'code_generation':
+        targetHistoryField = 'codingHistory';
+        break;
+      default:
+        return; // 不同步未知阶段
+    }
+    
+    // 初始化历史字段
+    if (!metadata[targetHistoryField]) {
+      metadata[targetHistoryField] = [];
+    }
+    
+    // 转换为Agent历史格式
+    const agentHistoryEntry = {
+      role: message.type === 'user_message' ? 'user' : 'assistant',
+      content: message.content
+    };
+    
+    metadata[targetHistoryField].push(agentHistoryEntry);
+    
+    console.log(`🔄 [历史同步] 已同步消息到 ${targetHistoryField}, 新长度: ${metadata[targetHistoryField].length}`);
+  }, []);
+
+  // 🆕 迁移现有的General历史到对应Agent历史字段
+  const migrateGeneralHistoryToAgentFields = useCallback((session: SessionData) => {
+    const metadata = session.metadata as any;
+    
+    // 如果Agent字段为空但General历史有数据，进行迁移
+    if (session.conversationHistory.length > 0 && 
+        (!metadata.welcomeHistory || metadata.welcomeHistory.length === 0) &&
+        (!metadata.infoCollectionHistory || metadata.infoCollectionHistory.length === 0) &&
+        (!metadata.codingHistory || metadata.codingHistory.length === 0)) {
+      
+      console.log(`🔄 [历史迁移] 开始迁移${session.conversationHistory.length}条General历史到Agent字段`);
+      
+      // 根据当前阶段迁移到对应字段
+      const currentStage = session.metadata.progress.currentStage;
+      let targetField = 'welcomeHistory';
+      
+      switch (currentStage) {
+        case 'welcome':
+          targetField = 'welcomeHistory';
+          break;
+        case 'info_collection':
+        case 'information_collection':
+          targetField = 'infoCollectionHistory';
+          break;
+        case 'coding':
+        case 'code_generation':
+          targetField = 'codingHistory';
+          break;
+      }
+      
+      // 初始化目标字段
+      if (!metadata[targetField]) {
+        metadata[targetField] = [];
+      }
+      
+      // 迁移所有对话
+      session.conversationHistory.forEach(msg => {
+        const agentEntry = {
+          role: msg.type === 'user_message' ? 'user' : 'assistant',
+          content: msg.content
+        };
+        metadata[targetField].push(agentEntry);
+      });
+      
+      console.log(`✅ [历史迁移] 已迁移到 ${targetField}, 新长度: ${metadata[targetField].length}`);
+      
+      // 标记需要同步（避免循环依赖）
+      (session.metadata as any).needsSync = true;
+    }
+  }, []);
+
   // 🆕 同步会话到后端数据库
   const syncSessionToBackend = useCallback(async (session: SessionData) => {
     try {
@@ -365,12 +455,15 @@ export function useChatSystemV2() {
     (sessionId: string) => {
       const session = sessions.find((s) => s.id === sessionId)
       if (session) {
+        // 🆕 选择会话时进行历史迁移检查
+        migrateGeneralHistoryToAgentFields(session);
+        
         setCurrentSession(session)
         setCurrentError(null)
         setRetryCount(0)
       }
     },
-    [sessions],
+    [sessions, migrateGeneralHistoryToAgentFields],
   )
 
   const sendMessage = useCallback(
@@ -454,6 +547,9 @@ export function useChatSystemV2() {
             }
           }
         }
+        
+        // 🆕 同步用户消息到对应Agent的历史字段
+        syncToAgentHistory(updatedSession, userMessage);
 
         // 🔧 修复：立即更新状态，确保用户消息立即显示
         setCurrentSession(updatedSession)
@@ -517,6 +613,16 @@ export function useChatSystemV2() {
           if (option?.context) {
             requestBody.context = option.context;
           }
+          
+          // 🔍 调试：显示发送的参数
+          if (option?.forceAgent || option?.testMode || option?.context) {
+            console.log('🔍 [前端发送] API参数:', {
+              forceAgent: option?.forceAgent,
+              testMode: option?.testMode,
+              context: option?.context,
+              fullRequestBody: requestBody
+            });
+          }
 
           const response = await fetch('/api/chat/stream', {
             method: 'POST',
@@ -569,6 +675,7 @@ export function useChatSystemV2() {
             }
 
             currentSession.conversationHistory.push(systemErrorMessage)
+            syncToAgentHistory(currentSession, systemErrorMessage);
             setCurrentSession({ ...currentSession })
             setSessions((prev) => prev.map((s) => (s.id === currentSession!.id ? currentSession : s)))
           }
@@ -635,6 +742,12 @@ export function useChatSystemV2() {
               
               // 🆕 添加完整的chunk数据结构调试
               console.log('🔍 [完整数据结构]', JSON.stringify(chunk, null, 2));
+              
+              // 🔧 专门调试toolCalls数据传递
+              if (chunk.system_state?.metadata?.toolCalls) {
+                console.log('🎯 [工具调用数据] 检测到toolCalls:', chunk.system_state.metadata.toolCalls.length, '个');
+                console.log('🎯 [工具调用数据] 详细内容:', chunk.system_state.metadata.toolCalls);
+              }
               
               // 🔧 修复：处理不同格式的流式数据
               // 检查是否是流式更新消息
@@ -828,6 +941,14 @@ export function useChatSystemV2() {
                           console.log('🎯 [文件状态] 更新fileCreationProgress');
                         }
                       }
+                      
+                      // 🔧 专门处理toolCalls数据
+                      if (chunk.system_state?.metadata?.toolCalls) {
+                        updatedMetadata.toolCalls = chunk.system_state.metadata.toolCalls;
+                        if (process.env.NODE_ENV === 'development') {
+                          console.log('🎯 [工具调用] 更新toolCalls:', chunk.system_state.metadata.toolCalls.length, '个工具调用');
+                        }
+                      }
 
                       session.conversationHistory[streamingMessageIndex] = {
                         ...existingMessage,
@@ -857,7 +978,9 @@ export function useChatSystemV2() {
                       updateCount: 1,
                       interaction: chunk.interaction,
                       // 保存system_state中的所有metadata
-                      ...(chunk.system_state?.metadata || {})
+                      ...(chunk.system_state?.metadata || {}),
+                      // 🔧 调试：确保toolCalls被正确传递
+                      toolCalls: chunk.system_state?.metadata?.toolCalls
                     }
                   };
                   
@@ -874,6 +997,7 @@ export function useChatSystemV2() {
                   }
                   
                   session.conversationHistory.push(agentMessage);
+                  syncToAgentHistory(session, agentMessage);
                   streamingMessageIndex = session.conversationHistory.length - 1;
                   streamingMessageId = currentMessageId;
                   setCurrentSession({ ...session });
@@ -958,6 +1082,10 @@ export function useChatSystemV2() {
                 };
                 
                 session.conversationHistory.push(textMessage);
+                
+                // 🆕 同步到对应Agent的历史字段
+                syncToAgentHistory(session, textMessage);
+                
                 setCurrentSession({ ...session });
                 setSessions((prev) => prev.map((s) => (s.id === session.id ? session : s)));
                 console.log('📝 [文本回退] 作为普通文本处理:', data.trim().substring(0, 50) + '...');
@@ -980,6 +1108,7 @@ export function useChatSystemV2() {
         };
         
         session.conversationHistory.push(systemMessage);
+        syncToAgentHistory(session, systemMessage);
         setCurrentSession({ ...session });
         setSessions((prev) => prev.map((s) => (s.id === session.id ? session : s)));
       }
@@ -1040,6 +1169,7 @@ export function useChatSystemV2() {
           }
 
           session.conversationHistory.push(successMessage)
+          syncToAgentHistory(session, successMessage);
           setCurrentSession({ ...session })
           setSessions((prev) => prev.map((s) => (s.id === session.id ? session : s)))
         } else {

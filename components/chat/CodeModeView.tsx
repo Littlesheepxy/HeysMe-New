@@ -5,12 +5,15 @@ import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { ArrowLeft, ExternalLink, Send, CheckCircle, Paperclip, Eye, Share2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { ArrowLeft, ExternalLink, Send, CheckCircle, Paperclip, Eye, Share2, FileText } from 'lucide-react';
 import { useTheme } from '@/contexts/theme-context';
 import { MessageBubble } from './MessageBubble';
 import { CodePreviewToggle } from '@/components/editor/CodePreviewToggle';
 import { ShareDialog } from '@/components/dialogs/share-dialog';
 import { EnhancedInputBox } from '@/components/ui/enhanced-input-box';
+import { FloatingStageIndicator } from '@/components/ui/stage-indicator';
+
 
 interface CodeModeViewProps {
   currentSession: any;
@@ -24,6 +27,10 @@ interface CodeModeViewProps {
   getReactPreviewData: () => any;
   onFileUpload?: (file: File) => void;
   deploymentUrl?: string;
+  // 🆕 阶段指示器相关props
+  currentStage?: string;
+  progress?: number;
+  sessionMode?: string;
 }
 
 export function CodeModeView({
@@ -37,7 +44,10 @@ export function CodeModeView({
   onEditCode,
   getReactPreviewData,
   onFileUpload,
-  deploymentUrl
+  deploymentUrl,
+  currentStage,
+  progress,
+  sessionMode
 }: CodeModeViewProps) {
   const { theme } = useTheme();
   
@@ -50,6 +60,8 @@ export function CodeModeView({
   // 🆕 自动预览状态管理
   const [autoPreviewEnabled, setAutoPreviewEnabled] = useState(true); // 默认开启自动预览
   
+  // 🎯 文件创建状态现在由MessageBubble管理，跟随每条AI消息
+  
   // 🎯 检测项目是否完成 - 基于生成状态和文件数量
   const isProjectComplete = !isGenerating && generatedCode.length > 0;
 
@@ -57,6 +69,8 @@ export function CodeModeView({
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [currentSession?.conversationHistory]);
+
+  // 🎯 文件创建监听逻辑已移至MessageBubble中
 
   // 处理分享功能
   const handleShare = async (shareData: any) => {
@@ -120,25 +134,33 @@ export function CodeModeView({
     }
   };
 
+  // 🎯 版本和文件点击处理已移至MessageBubble中
+
+
+
   return (
     <div className="flex-1 flex flex-col h-full">
+      
       {/* 主要内容区域 */}
       <div className="flex-1 flex h-full">
         {/* 左侧对话区域 */}
-        <div className="w-1/3 flex flex-col border-r h-full">
+        <div className="w-1/3 flex flex-col border-r h-full min-w-0">          
           {/* 消息列表 */}
           <div className="flex-1 overflow-hidden min-h-0">
             <ScrollArea className="h-full">
-              <div className="py-4">
+              <div className="py-4 px-2">
                 {currentSession?.conversationHistory?.map((message: any, index: number) => (
                   <MessageBubble
                     key={message.id}
                     message={message}
                     isLast={index === (currentSession?.conversationHistory?.length || 0) - 1}
                     isGenerating={isGenerating}
+                    isCompactMode={true}
+                    messageIndex={index} // 传递消息索引用于版本号计算
                   />
                 ))}
                 
+                {/* 🎯 文件面板已集成到MessageBubble中，跟随每条AI消息显示 */}
                 
                 <div ref={messagesEndRef} />
               </div>

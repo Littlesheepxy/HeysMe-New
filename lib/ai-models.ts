@@ -1,22 +1,44 @@
 import { openai } from "@ai-sdk/openai"
 import { anthropic } from "@ai-sdk/anthropic"
+import { bedrock } from "@ai-sdk/amazon-bedrock"
+import { createOpenAI } from "@ai-sdk/openai"
 import { generateText, generateObject, streamText } from "ai"
 import type { ModelProvider } from "@/types/models"
+import { getClaude4ModelId, validateClaude4Config } from "./bedrock-config"
+
+// 智谱AI配置
+const zhipuAI = createOpenAI({
+  baseURL: process.env.ZHIPU_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4/',
+  apiKey: process.env.ZHIPU_API_KEY || '',
+  name: 'zhipu',
+})
 
 // 验证 API keys 是否配置
 function validateApiKeys() {
   const openaiKey = process.env.OPENAI_API_KEY
   const anthropicKey = process.env.ANTHROPIC_API_KEY
+  const awsAccessKey = process.env.AWS_ACCESS_KEY_ID
+  const awsSecretKey = process.env.AWS_SECRET_ACCESS_KEY
+  const zhipuKey = process.env.ZHIPU_API_KEY
 
   console.log("🔑 API Keys status:")
   console.log("- OpenAI:", openaiKey ? `✅ Configured (${openaiKey.substring(0, 10)}...)` : "❌ Missing")
   console.log("- Anthropic:", anthropicKey ? `✅ Configured (${anthropicKey.substring(0, 10)}...)` : "❌ Missing")
+  console.log("- AWS Bedrock:", (awsAccessKey && awsSecretKey) ? `✅ Configured` : "❌ Missing")
+  console.log("- 智谱AI:", zhipuKey ? `✅ Configured (${zhipuKey.substring(0, 10)}...)` : "❌ Missing")
 
-  return { openaiKey, anthropicKey }
+  return { 
+    openaiKey, 
+    anthropicKey, 
+    awsAccessKey, 
+    awsSecretKey, 
+    zhipuKey,
+    hasAws: !!(awsAccessKey && awsSecretKey)
+  }
 }
 
 export function getModelClient(provider: ModelProvider, modelId: string) {
-  const { openaiKey, anthropicKey } = validateApiKeys()
+  const { openaiKey, anthropicKey, hasAws, zhipuKey } = validateApiKeys()
 
   switch (provider) {
     case "openai":
@@ -25,6 +47,7 @@ export function getModelClient(provider: ModelProvider, modelId: string) {
       }
       console.log(`🤖 Creating OpenAI client with model: ${modelId}`)
       return openai(modelId)
+      
     case "claude":
       if (!anthropicKey) {
         throw new Error(
@@ -33,6 +56,37 @@ export function getModelClient(provider: ModelProvider, modelId: string) {
       }
       console.log(`🤖 Creating Anthropic client with model: ${modelId}`)
       return anthropic(modelId)
+      
+    case "bedrock":
+      if (!hasAws) {
+        throw new Error(
+          "AWS credentials are not configured. Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in your environment variables.",
+        )
+      }
+      
+      // 对于 Claude 4，使用智能模型ID选择
+      let actualModelId = modelId
+      if (modelId === "anthropic.claude-sonnet-4-20250514-v1:0") {
+        actualModelId = getClaude4ModelId()
+        const claude4Config = validateClaude4Config()
+        if (!claude4Config.isValid) {
+          console.warn(`⚠️ ${claude4Config.message}`)
+          claude4Config.recommendations.forEach(rec => console.warn(`  ${rec}`))
+        }
+      }
+      
+      console.log(`🤖 Creating AWS Bedrock client with model: ${actualModelId}`)
+      return bedrock(actualModelId)
+      
+    case "zhipu":
+      if (!zhipuKey) {
+        throw new Error(
+          "智谱AI API key is not configured. Please set ZHIPU_API_KEY in your environment variables.",
+        )
+      }
+      console.log(`🤖 Creating 智谱AI client with model: ${modelId}`)
+      return zhipuAI(modelId)
+      
     default:
       throw new Error(`Unsupported model provider: ${provider}`)
   }
@@ -78,27 +132,39 @@ export async function generateWithModel(
     if (options?.schema) {
       console.log(`🔧 [结构化输出] 使用 generateObject`);
       // 使用结构化输出
-      const result = await generateObject({
+      const requestParams: any = {
         model,
         prompt: isMessagesMode ? undefined : input as string,
         messages: isMessagesMode ? input as any : undefined, // 🆕 支持 messages
         system: isMessagesMode ? undefined : options.system, // messages 模式下 system 已包含在 messages 中
         schema: options.schema,
-        maxTokens: options.maxTokens,
-      })
+      }
+      
+      // 仅在有值时添加 maxTokens
+      if (options.maxTokens) {
+        requestParams.maxTokens = options.maxTokens
+      }
+      
+      const result = await generateObject(requestParams)
       console.log(`✅ [生成成功] 结构化对象生成完成 (Provider: ${provider})`);
       console.log(`📊 [结果统计] 对象字段数: ${result.object && typeof result.object === 'object' ? Object.keys(result.object as object).length : 0}`);
       return result
     } else {
       console.log(`📝 [文本输出] 使用 generateText`);
       // 使用文本生成
-      const result = await generateText({
+      const requestParams: any = {
         model,
         prompt: isMessagesMode ? undefined : input as string,
         messages: isMessagesMode ? input as any : undefined, // 🆕 支持 messages
         system: isMessagesMode ? undefined : options?.system, // messages 模式下 system 已包含在 messages 中
-        maxTokens: options?.maxTokens,
-      })
+      }
+      
+      // 仅在有值时添加 maxTokens
+      if (options?.maxTokens) {
+        requestParams.maxTokens = options.maxTokens
+      }
+      
+      const result = await generateText(requestParams)
       console.log(`✅ [生成成功] 文本生成完成 (Provider: ${provider})`);
       console.log(`📊 [结果统计] 文本长度: ${result.text.length}`);
       return result
@@ -110,15 +176,8 @@ export async function generateWithModel(
       hasSchema: !!options?.schema
     })
 
-    // 如果是 Claude 模型失败，尝试回退到 OpenAI
-    if (provider === "claude" && process.env.OPENAI_API_KEY) {
-      console.log(`🔄 [模型回退] Claude 失败，尝试回退到 GPT-4o...`)
-      try {
-        return await generateWithModel("openai", "gpt-4o", input, options)
-      } catch (fallbackError) {
-        console.error(`❌ [回退失败] OpenAI 回退也失败:`, fallbackError)
-      }
-    }
+    // 智能模型回退
+    await attemptModelFallback(provider, input, options)
 
     throw error
   }
@@ -171,7 +230,44 @@ export async function generateWithGPT4o(
   return generateWithModel("openai", "gpt-4o", input, options)
 }
 
-// 便捷函数：使用 claude 4 Sonnet
+// 智能模型回退函数
+async function attemptModelFallback(
+  failedProvider: ModelProvider,
+  input: string | Array<{ role: 'system' | 'user' | 'assistant', content: string }>,
+  options?: {
+    system?: string
+    schema?: any
+    maxTokens?: number
+  }
+) {
+  const { openaiKey, anthropicKey, hasAws, zhipuKey } = validateApiKeys()
+  
+  // 定义回退顺序 - Claude API 优先
+  const fallbackOrder: Array<{provider: ModelProvider, model: string, available: boolean}> = [
+    { provider: "claude", model: "claude-sonnet-4-20250514", available: !!anthropicKey },
+    { provider: "openai", model: "gpt-4o", available: !!openaiKey },
+    { provider: "bedrock", model: "anthropic.claude-sonnet-4-20250514-v1:0", available: hasAws },
+    { provider: "zhipu", model: "glm-4.5", available: !!zhipuKey },
+  ]
+  
+  // 过滤掉失败的提供商和不可用的提供商
+  const availableFallbacks = fallbackOrder.filter(
+    fallback => fallback.provider !== failedProvider && fallback.available
+  )
+  
+  for (const fallback of availableFallbacks) {
+    console.log(`🔄 [模型回退] ${failedProvider} 失败，尝试回退到 ${fallback.provider}...`)
+    try {
+      return await generateWithModel(fallback.provider, fallback.model, input, options)
+    } catch (fallbackError) {
+      console.error(`❌ [回退失败] ${fallback.provider} 回退也失败:`, fallbackError)
+    }
+  }
+  
+  console.error(`❌ [回退完全失败] 所有可用模型都失败了`)
+}
+
+// 便捷函数：使用 Claude 4 Sonnet
 export async function generateWithClaude(
   input: string | Array<{ role: 'system' | 'user' | 'assistant', content: string }>,
   options?: {
@@ -183,7 +279,31 @@ export async function generateWithClaude(
   return generateWithModel("claude", "claude-sonnet-4-20250514", input, options)
 }
 
-// 智能模型选择：优先使用可用的模型
+// 便捷函数：使用 AWS Bedrock Claude
+export async function generateWithBedrockClaude(
+  input: string | Array<{ role: 'system' | 'user' | 'assistant', content: string }>,
+  options?: {
+    system?: string
+    schema?: any
+    maxTokens?: number
+  },
+) {
+  return generateWithModel("bedrock", "anthropic.claude-sonnet-4-20250514-v1:0", input, options)
+}
+
+// 便捷函数：使用智谱AI
+export async function generateWithZhipu(
+  input: string | Array<{ role: 'system' | 'user' | 'assistant', content: string }>,
+  options?: {
+    system?: string
+    schema?: any
+    maxTokens?: number
+  },
+) {
+  return generateWithModel("zhipu", "glm-4.5", input, options)
+}
+
+// 智能模型选择：按优先级尝试可用的模型
 export async function generateWithBestAvailableModel(
   input: string | Array<{ role: 'system' | 'user' | 'assistant', content: string }>,
   options?: {
@@ -192,23 +312,31 @@ export async function generateWithBestAvailableModel(
     maxTokens?: number
   },
 ) {
-  const { openaiKey, anthropicKey } = validateApiKeys()
+  const { openaiKey, anthropicKey, hasAws, zhipuKey } = validateApiKeys()
 
-  if (anthropicKey) {
-    try {
-      return await generateWithClaude(input, options)
-    } catch (error) {
-      console.log("Claude failed, trying OpenAI...")
-      if (openaiKey) {
-        return await generateWithGPT4o(input, options)
+  // 按优先级顺序尝试模型 - Claude API 优先
+  const modelPriority = [
+    { provider: "claude" as ModelProvider, model: "claude-sonnet-4-20250514", available: !!anthropicKey },
+    { provider: "openai" as ModelProvider, model: "gpt-4o", available: !!openaiKey },
+    { provider: "bedrock" as ModelProvider, model: "anthropic.claude-sonnet-4-20250514-v1:0", available: hasAws },
+    { provider: "zhipu" as ModelProvider, model: "glm-4.5", available: !!zhipuKey },
+  ]
+
+  for (const model of modelPriority) {
+    if (model.available) {
+      try {
+        console.log(`🎯 [智能选择] 尝试使用 ${model.provider} - ${model.model}`)
+        return await generateWithModel(model.provider, model.model, input, options)
+      } catch (error) {
+        console.log(`❌ [智能选择] ${model.provider} 失败，尝试下一个模型...`)
+        continue
       }
-      throw error
     }
-  } else if (openaiKey) {
-    return await generateWithGPT4o(input, options)
-  } else {
-    throw new Error("No API keys configured. Please set ANTHROPIC_API_KEY or OPENAI_API_KEY.")
   }
+
+  throw new Error(
+    "No API keys configured or all models failed. Please configure at least one: ANTHROPIC_API_KEY, OPENAI_API_KEY, ZHIPU_API_KEY, or AWS credentials."
+  )
 }
 
 export async function* generateStreamWithModel(
@@ -218,7 +346,7 @@ export async function* generateStreamWithModel(
   options?: {
     system?: string
     maxTokens?: number
-    tools?: Array<{
+    tools?: Record<string, any> | Array<{
       name: string;
       description: string;
       input_schema: {
@@ -256,25 +384,57 @@ export async function* generateStreamWithModel(
     };
     
     // 🆕 添加工具支持
-    if (options?.tools && options.tools.length > 0) {
-      console.log(`🔧 [工具支持] 添加 ${options.tools.length} 个工具到请求中`);
-      options.tools.forEach((tool, index) => {
-        console.log(`  🛠️ [工具${index + 1}] ${tool.name}: ${tool.description}`);
-      });
-      
-      streamTextParams.tools = options.tools;
+    if (options?.tools) {
+      if (Array.isArray(options.tools)) {
+        // 旧格式工具（数组格式）
+        console.log(`🔧 [工具支持] 添加 ${options.tools.length} 个工具到请求中`);
+        options.tools.forEach((tool, index) => {
+          console.log(`  🛠️ [工具${index + 1}] ${tool.name}: ${tool.description}`);
+        });
+        streamTextParams.tools = options.tools;
+      } else {
+        // 新格式工具（对象格式，ai-sdk标准）
+        const toolCount = Object.keys(options.tools).length;
+        console.log(`🔧 [工具支持] 添加 ${toolCount} 个ai-sdk标准工具到请求中`);
+        Object.entries(options.tools).forEach(([name, tool], index) => {
+          console.log(`  🛠️ [工具${index + 1}] ${name}: ${tool.description || '无描述'}`);
+        });
+        streamTextParams.tools = options.tools;
+      }
     }
     
     // 使用流式文本生成
+    console.log(`📡 [API调用] 准备调用 streamText...`);
     const result = await streamText(streamTextParams)
 
     console.log(`✅ [流式开始] 文本流式生成开始 (Provider: ${provider})`);
     
-    for await (const textPart of result.textStream) {
-      yield textPart;
+    let chunkCount = 0;
+    let toolCallCount = 0;
+    
+    // 🆕 处理完整的流式响应（包括工具调用）
+    for await (const delta of result.fullStream) {
+      console.log(`🔍 [流式Delta类型] ${delta.type}`);
+      
+      if (delta.type === 'text-delta') {
+        chunkCount++;
+        console.log(`📤 [文本块] 第${chunkCount}个，长度: ${delta.text.length}`);
+        yield delta.text;
+      } else if (delta.type === 'tool-call') {
+        toolCallCount++;
+        console.log(`🛠️ [工具调用] 第${toolCallCount}个: ${delta.toolName}`);
+        const toolCallText = `[调用工具: ${delta.toolName}]`;
+        yield toolCallText;
+      } else if (delta.type === 'tool-result') {
+        console.log(`🔧 [工具结果]`);
+        const toolResultText = `[工具执行完成]`;
+        yield toolResultText;
+      } else {
+        console.log(`❓ [未知Delta类型] ${delta.type}:`, delta);
+      }
     }
     
-    console.log(`✅ [流式完成] 文本流式生成完成 (Provider: ${provider})`);
+    console.log(`✅ [流式完成] 文本流式生成完成 (Provider: ${provider})，文本块数: ${chunkCount}，工具调用数: ${toolCallCount}`);
 
   } catch (error) {
     console.error(`❌ [流式失败] ${provider} model ${modelId} 错误:`, {
@@ -282,14 +442,23 @@ export async function* generateStreamWithModel(
       inputType: Array.isArray(input) ? 'messages' : 'prompt'
     })
 
-    // 如果是 Claude 模型失败，尝试回退到 OpenAI
-    if (provider === "claude" && process.env.OPENAI_API_KEY) {
-      console.log(`🔄 [流式回退] Claude 失败，尝试回退到 GPT-4o...`)
+    // 智能回退逻辑 - 根据当前失败的提供商选择最优回退
+    const { openaiKey, anthropicKey, hasAws, zhipuKey } = validateApiKeys()
+    
+    const fallbackOptions = [
+      { provider: "claude" as ModelProvider, model: "claude-sonnet-4-20250514", available: !!anthropicKey },
+      { provider: "openai" as ModelProvider, model: "gpt-4o", available: !!openaiKey },
+      { provider: "bedrock" as ModelProvider, model: "anthropic.claude-sonnet-4-20250514-v1:0", available: hasAws },
+      { provider: "zhipu" as ModelProvider, model: "glm-4.5", available: !!zhipuKey },
+    ].filter(option => option.provider !== provider && option.available)
+    
+    for (const fallback of fallbackOptions) {
+      console.log(`🔄 [流式回退] ${provider} 失败，尝试回退到 ${fallback.provider}...`)
       try {
-        yield* generateStreamWithModel("openai", "gpt-4o", input, options)
+        yield* generateStreamWithModel(fallback.provider, fallback.model, input, options)
         return
       } catch (fallbackError) {
-        console.error(`❌ [流式回退失败] OpenAI 回退也失败:`, fallbackError)
+        console.error(`❌ [流式回退失败] ${fallback.provider} 回退也失败:`, fallbackError)
       }
     }
 

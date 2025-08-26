@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { Plus, MessageSquare, MoreHorizontal, Code, Sparkles, ChevronLeft, ChevronRight, User, Users, BookTemplate, Folder } from 'lucide-react';
+import { Plus, MessageSquare, MoreHorizontal, Sparkles, ChevronLeft, ChevronRight, User, Users, BookTemplate, Folder } from 'lucide-react';
 import { ConversationItem } from './ConversationItem';
 import { useTheme } from '@/contexts/theme-context';
 import { useEffect, useState } from 'react';
@@ -17,7 +17,6 @@ interface ChatSidebarProps {
   onToggleCollapse: () => void;
   onNewChat: () => void;
   onSelectSession: (sessionId: string) => void;
-  onGenerateExpertMode: () => void;
   onDeleteSession?: (sessionId: string) => void;
   onShareSession?: (sessionId: string) => void;
   onUpdateSessionTitle?: (sessionId: string, title: string) => void;
@@ -31,7 +30,6 @@ export function ChatSidebar({
   onToggleCollapse,
   onNewChat, 
   onSelectSession, 
-  onGenerateExpertMode,
   onDeleteSession,
   onShareSession,
   onUpdateSessionTitle
@@ -266,18 +264,7 @@ export function ChatSidebar({
               <span>内容管理</span>
             </a>
             
-            {/* 🎨 专业模式测试按钮 - 透明背景，悬停时显示颜色，无边框 */}
-            <button
-              onClick={onGenerateExpertMode}
-              className={`w-full flex items-center justify-start gap-3 h-9 px-4 rounded-[10px] font-medium transition-all duration-200 group ${
-                theme === "light"
-                  ? "text-gray-600 bg-transparent hover:bg-emerald-50 hover:text-emerald-700"
-                  : "text-gray-400 bg-transparent hover:bg-emerald-900/20 hover:text-emerald-300"
-              }`}
-            >
-              <Code className="w-4 h-4" />
-              <span>专业模式测试</span>
-            </button>
+
           </motion.div>
         )}
 
@@ -336,17 +323,7 @@ export function ChatSidebar({
               <Folder className="w-4 h-4" />
             </a>
             
-            <button
-              onClick={onGenerateExpertMode}
-              className={`w-10 h-10 flex items-center justify-center rounded-full transition-all duration-200 ${
-                theme === "light"
-                  ? "text-gray-600 bg-transparent hover:bg-emerald-50 hover:text-emerald-700"
-                  : "text-gray-400 bg-transparent hover:bg-emerald-900/20 hover:text-emerald-300"
-              }`}
-              title="专业模式测试"
-            >
-              <Code className="w-4 h-4" />
-            </button>
+
           </motion.div>
         )}
       </div>

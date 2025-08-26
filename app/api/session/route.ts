@@ -17,10 +17,87 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json().catch(() => ({}));
-    const { initialInput } = body;
+    const { initialInput, sessionId: requestedSessionId, ...restBody } = body;
 
-    // 🔧 修复：创建新会话时传递用户 ID
-    const sessionId = await agentOrchestrator.createSession(initialInput, { userId });
+    // 🔧 修复：支持指定sessionId和完整的会话配置
+    const sessionConfig = {
+      ...restBody,
+      ...(initialInput && typeof initialInput === 'object' ? initialInput : {})
+    };
+    
+    let sessionId;
+    if (requestedSessionId) {
+      // 使用指定的sessionId创建会话
+      console.log(`🎯 [会话API] 使用指定的sessionId: ${requestedSessionId}`);
+      sessionId = requestedSessionId;
+      
+      // 直接通过SessionManager创建会话
+      const { sessionManager } = await import('@/lib/utils/session-manager');
+      const sessionData = {
+        id: sessionId,
+        userId,
+        status: 'active',
+        userIntent: {
+          type: 'career_guidance',
+          target_audience: 'internal_review',
+          urgency: 'exploring',
+          primary_goal: '了解需求'
+        },
+        personalization: {
+          identity: {
+            profession: 'other',
+            experience_level: 'mid'
+          },
+          preferences: {
+            style: 'modern',
+            tone: 'professional',
+            detail_level: 'detailed'
+          },
+          context: {}
+        },
+        collectedData: {
+          personal: {},
+          professional: { skills: [] },
+          experience: [],
+          education: [],
+          projects: [],
+          achievements: [],
+          certifications: []
+        },
+        conversationHistory: [],
+        agentFlow: [],
+        metadata: {
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          lastActive: new Date(),
+          version: '1.0.0',
+          progress: {
+            currentStage: 'welcome',
+            completedStages: [],
+            totalStages: 4,
+            percentage: 0
+          },
+          metrics: {
+            totalTime: 0,
+            userInteractions: 0,
+            agentTransitions: 0,
+            errorsEncountered: 0
+          },
+          settings: {
+            autoSave: true,
+            reminderEnabled: false,
+            privacyLevel: 'private'
+          },
+          ...sessionConfig.metadata
+        },
+        ...sessionConfig
+      };
+      
+      await sessionManager.updateSession(sessionId, sessionData);
+    } else {
+      // 生成新的sessionId
+      sessionId = await agentOrchestrator.createSession(sessionConfig, { userId });
+    }
 
     console.log(`✅ [会话API] 用户 ${userId} 创建新会话: ${sessionId}`);
 

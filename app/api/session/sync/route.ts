@@ -27,19 +27,54 @@ export async function POST(req: NextRequest) {
 
     console.log(`🔄 [会话同步] 用户 ${userId} 同步会话数据到后端: ${sessionId}`);
 
-    // 🔧 确保会话数据包含用户 ID
-    const sessionDataWithUserId = {
-      ...sessionData,
-      userId: sessionData.userId || userId, // 确保设置用户 ID
-    };
-
-    // 直接使用SessionManager同步会话数据
+    // 🔧 智能合并会话数据，保护关键状态信息
     try {
       console.log(`🔍 [调试] 开始同步会话，sessionId: ${sessionId}`);
-      console.log(`🔍 [调试] sessionData 结构:`, Object.keys(sessionDataWithUserId));
-      console.log(`🔍 [调试] 用户 ID: ${sessionDataWithUserId.userId}`);
+      console.log(`🔍 [调试] sessionData 结构:`, Object.keys(sessionData));
+      console.log(`🔍 [调试] 用户 ID: ${userId}`);
       
-      sessionManager.updateSession(sessionId, sessionDataWithUserId);
+      // 获取当前后端会话状态
+      const currentSession = await sessionManager.getSession(sessionId);
+      
+      let mergedSessionData;
+      
+      if (currentSession) {
+        // 智能合并：保护后端的关键状态，合并前端的用户数据
+        console.log(`🔄 [智能合并] 当前后端阶段: ${currentSession.metadata.progress.currentStage}`);
+        console.log(`🔄 [智能合并] 前端传递阶段: ${sessionData.metadata?.progress?.currentStage}`);
+        
+        mergedSessionData = {
+          ...sessionData,
+          userId: sessionData.userId || userId,
+          // 保护关键的进度和状态信息
+          metadata: {
+            ...sessionData.metadata,
+            progress: {
+              ...sessionData.metadata?.progress,
+              // 如果后端阶段更新，优先使用后端的阶段信息
+              currentStage: currentSession.metadata.progress.currentStage,
+              percentage: currentSession.metadata.progress.percentage,
+              completedStages: currentSession.metadata.progress.completedStages,
+            },
+            // 保护其他关键元数据
+            metrics: currentSession.metadata.metrics,
+            lastActive: new Date(),
+            updatedAt: new Date(),
+          }
+        };
+        
+        console.log(`🔒 [状态保护] 使用后端阶段: ${mergedSessionData.metadata.progress.currentStage}`);
+      } else {
+        // 新会话，直接使用前端数据
+        mergedSessionData = {
+          ...sessionData,
+          userId: sessionData.userId || userId,
+        };
+        
+        console.log(`🆕 [新会话] 使用前端数据创建会话`);
+      }
+      
+      await sessionManager.updateSession(sessionId, mergedSessionData);
       console.log(`✅ [会话同步] 会话 ${sessionId} 已成功同步到SessionManager`);
       
       // 验证同步是否成功

@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { useChatSystemV2 } from "@/hooks/use-chat-system-v2"
 import { useTheme } from "@/contexts/theme-context"
 import { generateMockResumeCode } from "@/lib/utils/mockCodeGenerator"
@@ -18,6 +18,7 @@ import { CodeModeView } from "@/components/chat/CodeModeView"
 import { ErrorMonitor } from "@/components/ui/error-monitor"
 import { VercelStatusIndicator } from "@/components/ui/vercel-status-indicator"
 import { useVercelErrorMonitor } from "@/hooks/use-vercel-error-monitor"
+import { SessionDebugPanel } from "@/components/debug/SessionDebugPanel"
 
 
 export default function ChatPage() {
@@ -47,11 +48,61 @@ export default function ChatPage() {
   const [hasStartedChat, setHasStartedChat] = useState(false)
   const [isCodeMode, setIsCodeMode] = useState(false)
   const [userManuallyReturnedToChat, setUserManuallyReturnedToChat] = useState(false) // 🔧 新增：用户是否手动返回过对话模式
+  
+  // 🎯 推断当前阶段和进度
+  const getSessionProgress = () => {
+    if (!currentSession?.conversationHistory) {
+      return { currentStage: 'welcome', progress: 0 };
+    }
+    
+    const messageCount = currentSession.conversationHistory.length;
+    const hasCodeFiles = currentSession.conversationHistory.some((msg: any) => 
+      msg.metadata?.projectFiles && Array.isArray(msg.metadata.projectFiles) && msg.metadata.projectFiles.length > 0
+    );
+    
+    if (hasCodeFiles || isCodeMode) {
+      return { currentStage: 'code_generation', progress: 90 };
+    } else if (messageCount > 10) {
+      return { currentStage: 'page_design', progress: 70 };
+    } else if (messageCount > 4) {
+      return { currentStage: 'info_collection', progress: 40 };
+    } else if (messageCount > 0) {
+      return { currentStage: 'welcome', progress: 10 };
+    }
+    
+    return { currentStage: 'welcome', progress: 0 };
+  };
+  
+  const sessionProgress = getSessionProgress();
+  
+  // 🔍 调试信息
+  console.log('🔍 [Chat页面] sessionProgress:', {
+    sessionProgress,
+    isCodeMode,
+    hasStartedChat,
+    messageCount: currentSession?.conversationHistory?.length || 0
+  });
+  
+
   const [generatedCode, setGeneratedCode] = useState<any[]>([])
   const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
   const [chatMode, setChatMode] = useState<'normal' | 'professional'>('normal')
   const [isPrivacyMode, setIsPrivacyMode] = useState(false)
   const [deploymentUrl, setDeploymentUrl] = useState<string>('')
+  
+  // 🆕 添加Coding模式状态管理
+  const [codingModeError, setCodingModeError] = useState<string | null>(null)
+  const [awaitingCodingResponse, setAwaitingCodingResponse] = useState(false)
+  const [activeTools, setActiveTools] = useState<string[]>([])
+  const [codingContext, setCodingContext] = useState<{
+    projectType?: string;
+    framework?: string;
+    conversationHistory?: string[];
+  }>({
+    projectType: 'unknown',
+    framework: 'unknown',
+    conversationHistory: []
+  })
   
   // Vercel 错误监控状态
   const [showErrorMonitor, setShowErrorMonitor] = useState(false)
@@ -270,47 +321,64 @@ export default function ChatPage() {
       setHasStartedChat(true)
     }
 
-    // 🔧 检查是否在专业模式测试
-    const isInExpertMode = isCodeMode && currentSession?.conversationHistory?.some(msg => 
-      msg.metadata?.expertMode && msg.metadata?.awaitingUserInput
-    )
+      // 🔧 检查是否在专业模式测试
+  const isInExpertMode = isCodeMode && currentSession?.conversationHistory?.some(msg => 
+    msg.metadata?.expertMode && msg.metadata?.awaitingUserInput
+  )
 
-    // 根据模式选择不同的处理方式
-    let messageToSend = messageContent
-    let sendOptions: any = {}
+  // 根据模式选择不同的处理方式
+  let messageToSend = messageContent
+  let sendOptions: any = {}
 
-    if (isInExpertMode) {
-      // 🎯 专业模式测试：通过context参数传递模式信息
-      messageToSend = messageContent
-      sendOptions = {
-        forceAgent: 'coding',
-        context: {
-          expertMode: true,
-          testMode: true,
-          forceExpertMode: true
-        }
+  // 🎯 重新组织条件逻辑（注意：CodeModeView现在使用专门的handleCodingModeSendMessage）
+  if (isInExpertMode) {
+    // 🎯 专业模式测试：通过context参数传递模式信息
+    messageToSend = messageContent
+    sendOptions = {
+      forceAgent: 'coding',
+      context: {
+        expertMode: true,
+        testMode: true,
+        forceExpertMode: true
       }
-      console.log('🎯 [专业模式测试发送] 消息:', messageToSend, '选项:', sendOptions)
-    } else if (chatMode === 'professional') {
-      // 专业模式：通过context参数传递模式信息
-      messageToSend = messageContent
-      sendOptions = {
-        forceAgent: 'coding',
-        context: {
-          expertMode: true,
-          forceExpertMode: true
-        }
+    }
+    console.log('🎯 [专业模式测试发送] 消息:', messageToSend, '选项:', sendOptions)
+  } else if (chatMode === 'professional') {
+    // 专业模式：通过context参数传递模式信息
+    messageToSend = messageContent
+    sendOptions = {
+      forceAgent: 'coding',
+      context: {
+        expertMode: true,
+        forceExpertMode: true
       }
-      // 自动切换到代码模式
-      if (!isCodeMode) {
-        setIsCodeMode(true)
-        setGeneratedCode([])
-      }
-      console.log('🎯 [专业模式发送] 消息:', messageToSend, '选项:', sendOptions)
-    } else {
-      // 普通模式：直接使用用户输入
-      messageToSend = messageContent
-      sendOptions = undefined
+    }
+    // 自动切换到代码模式
+    if (!isCodeMode) {
+      setIsCodeMode(true)
+      setGeneratedCode([])
+    }
+    console.log('🎯 [专业模式发送] 消息:', messageToSend, '选项:', sendOptions)
+  } else {
+    // 普通模式：直接使用用户输入
+    messageToSend = messageContent
+    sendOptions = undefined
+    console.log('🎯 [普通模式发送] 当前状态:', {
+      isInExpertMode,
+      isCodeMode,
+      chatMode,
+      messageContent,
+      hasSession: !!currentSession,
+      sessionId: currentSession?.id
+    });
+  }
+
+    // 🆕 更新coding上下文
+    if (isCodeMode && messageContent.trim()) {
+      setCodingContext(prev => ({
+        ...prev,
+        conversationHistory: [...(prev.conversationHistory || []), messageContent].slice(-10)
+      }));
     }
 
     // 🔧 修复：先发送消息，让用户消息立即显示，会话创建在 sendMessage 内部处理
@@ -545,8 +613,41 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
         fullMessage = `${message}\n\n${fileInfos}`;
       }
 
+      // 🔧 修复：在专业模式下发送消息时传递正确的选项
+      let sendOptions: any = {};
+      
+      if (isCodeMode) {
+        // 🎯 修复：Coding模式也要传递context
+        sendOptions = {
+          forceAgent: 'coding',
+          context: {
+            mode: 'coding',
+            codingAgent: true,
+            forceAgent: 'coding',
+            withDocuments: true,
+            currentStage: 'code_generation'
+          }
+        };
+        console.log('🎯 [Coding模式+文档] 消息:', fullMessage, '选项:', sendOptions);
+      } else if (chatMode === 'professional') {
+        sendOptions = {
+          forceAgent: 'coding',
+          context: {
+            expertMode: true,
+            forceExpertMode: true,
+            withDocuments: true // 标记包含文档
+          }
+        };
+        // 自动切换到代码模式
+        if (!isCodeMode) {
+          setIsCodeMode(true);
+          setGeneratedCode([]);
+        }
+        console.log('🎯 [专业模式+文档] 消息:', fullMessage, '选项:', sendOptions);
+      }
+      
       // 发送消息
-      sendMessage(fullMessage);
+      sendMessage(fullMessage, sendOptions);
 
       // 显示成功提示
       toast({
@@ -651,51 +752,7 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
     return assets
   }
 
-  // 启动专业模式测试 - 直接进入专业模式体验
-  const generateTestCode = async () => {
-    try {
-      console.log('🎯 [专业模式测试] 启动专业模式...');
-      
-      // 设置为代码模式
-      setIsCodeMode(true)
-      setHasStartedChat(true)
-      setGeneratedCode([]) // 清空之前的代码
 
-      // 创建或获取会话
-      let session = currentSession
-      if (!session) {
-        console.log('🎯 [专业模式测试] 创建新会话...');
-        session = await createNewSession()
-      }
-
-      console.log('🎯 [专业模式测试] 会话ID:', session?.id);
-
-      // 显示专业模式提示
-      const expertModePrompt = `🎯 **专业模式已启动！** 请告诉我你想创建什么类型的Web项目？`
-
-      // 手动添加一个系统提示消息到会话历史
-      if (session) {
-        const expertModeMessage = {
-          id: `msg-${Date.now()}-expertmode`,
-          timestamp: new Date(),
-          type: 'agent_response' as const,
-          agent: 'system',
-          content: expertModePrompt,
-          metadata: {
-            expertMode: true,
-            awaitingUserInput: true
-          }
-        }
-        
-        session.conversationHistory.push(expertModeMessage)
-      }
-
-      console.log('🎯 [专业模式测试] 专业模式准备完成，等待用户输入...');
-
-    } catch (error) {
-      console.error('❌ [专业模式测试] 启动失败:', error)
-    }
-  }
 
   // 返回对话模式
   const handleBackToChat = () => {
@@ -784,6 +841,29 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
       }
     }
   }
+
+  // 🎯 新增：专门用于CodeModeView的消息发送函数
+  const handleCodingModeSendMessage = useCallback(async (content: string, option?: any) => {
+    console.log('🎯 [CodeModeView发送] 强制使用coding agent:', content);
+    
+    // 🎯 强制使用coding agent，无论当前状态如何
+    const codingOptions = {
+      forceAgent: 'coding',
+      context: {
+        mode: 'coding',
+        codingAgent: true,
+        forceAgent: 'coding',
+        currentStage: 'code_generation',
+        fromCodeModeView: true // 标记来源
+      },
+      ...option // 保留其他可能的选项
+    };
+    
+    console.log('🎯 [CodeModeView发送] 使用选项:', codingOptions);
+    
+    // 调用原始sendMessage
+    await sendMessage(content, codingOptions);
+  }, [sendMessage]);
 
   // 🔧 将切换函数暴露到全局，供ChatModeView使用
   useEffect(() => {
@@ -918,7 +998,6 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
         isCodeMode={isCodeMode}
         onNewChat={handleNewChat}
         onSelectSession={selectSession}
-        onGenerateExpertMode={generateTestCode}
         isCollapsed={isSidebarCollapsed}
         onToggleCollapse={handleToggleSidebar}
         onDeleteSession={handleDeleteSession}
@@ -936,10 +1015,39 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
           onBackToChat={handleBackToChat}
           isPrivacyMode={isPrivacyMode}
           onPrivacyModeChange={setIsPrivacyMode}
+          // 🆕 阶段指示器props - 只在开始聊天后显示
+          currentStage={hasStartedChat ? sessionProgress.currentStage : undefined}
+          progress={hasStartedChat ? sessionProgress.progress : undefined}
+          sessionMode={isCodeMode ? 'coding' : 'chat'}
+          hasStartedChat={hasStartedChat}
         />
 
         {/* 🎨 主内容区域 */}
         <div className="flex-1 flex flex-col overflow-hidden">
+          {/* 🆕 Coding模式错误提示 */}
+          {isCodeMode && codingModeError && (
+            <div className="px-4 py-2 bg-red-50 border-b border-red-200">
+              <div className="max-w-4xl mx-auto flex items-center gap-2 text-red-800">
+                <span className="text-sm">⚠️ Coding模式错误: {codingModeError}</span>
+                <button
+                  onClick={() => setCodingModeError(null)}
+                  className="ml-auto text-red-600 hover:text-red-800 text-sm underline"
+                >
+                  清除
+                </button>
+              </div>
+            </div>
+          )}
+          
+          {/* 🆕 活跃工具指示器 */}
+          {isCodeMode && activeTools.length > 0 && (
+            <div className="px-4 py-2 bg-blue-50 border-b border-blue-200">
+              <div className="max-w-4xl mx-auto flex items-center gap-2 text-blue-800">
+                <span className="text-sm">🔧 正在执行工具: {activeTools.join(', ')}</span>
+              </div>
+            </div>
+          )}
+          
           {isCodeMode ? (
             /* 代码模式 */
             <CodeModeView
@@ -947,14 +1055,17 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
               generatedCode={generatedCode}
               isGenerating={isGenerating}
               onBack={handleBackToChat}
-              onSendChatMessage={sendMessage}
-
+              onSendChatMessage={handleCodingModeSendMessage}
               onDownload={handleCodeDownload}
               onDeploy={handleDeploy}
               onEditCode={handleEditCode}
               getReactPreviewData={getReactPreviewData}
               onFileUpload={handleFileUpload}
               deploymentUrl={deploymentUrl}
+              // 🆕 阶段指示器props
+              currentStage={sessionProgress.currentStage}
+              progress={sessionProgress.progress}
+              sessionMode="coding"
             />
           ) : hasStartedChat ? (
             /* 正常对话模式 */
@@ -962,9 +1073,12 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
               currentSession={currentSession}
               isGenerating={isGenerating}
               onSendMessage={sendMessage}
-
               sessionId={currentSession?.id}
               onFileUpload={handleFileUpload}
+              // 🆕 阶段指示器props
+              currentStage={sessionProgress.currentStage}
+              progress={sessionProgress.progress}
+              sessionMode="chat"
             />
           ) : (
             /* 欢迎屏幕 */
@@ -1022,6 +1136,13 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
         isChecking={vercelErrorMonitor.isChecking}
         onCopyToInput={handleCopyErrorToInput}
       />
+
+      {/* Debug 面板 - 开发模式下显示 */}
+      {process.env.NODE_ENV === 'development' && (
+        <SessionDebugPanel 
+          sessionId={currentSession?.id}
+        />
+      )}
     </div>
   )
 }

@@ -9,6 +9,7 @@ import { LoadingText, StreamingText, LoadingDots } from '@/components/ui/loading
 import { UnifiedLoading, ThinkingLoader, GeneratingLoader, SimpleTextLoader } from '@/components/ui/unified-loading';
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer';
 import { FileCreationPanel } from './FileCreationPanel';
+import { ToolCallDisplay, ToolCallList } from './ToolCallDisplay';
 import { cleanTextContent } from '@/lib/utils';
 import { useTheme } from '@/contexts/theme-context';
 
@@ -19,6 +20,8 @@ interface MessageBubbleProps {
   onSendMessage?: (message: string, option?: any) => void;
   sessionId?: string;
   isStreaming?: boolean;
+  isCompactMode?: boolean; // 紧凑模式，用于coding模式的左侧对话框
+  messageIndex?: number; // 消息在会话中的索引，用于计算版本号
 }
 
 /**
@@ -41,9 +44,11 @@ export const MessageBubble = React.memo(function MessageBubble({
   message, 
   isLast, 
   isGenerating, 
-  onSendMessage, 
+  onSendMessage,
   sessionId,
-  isStreaming = false 
+  isStreaming = false,
+  isCompactMode = false,
+  messageIndex = 0
 }: MessageBubbleProps) {
   const { theme } = useTheme();
   
@@ -57,11 +62,45 @@ export const MessageBubble = React.memo(function MessageBubble({
   const [fileCreationStatus, setFileCreationStatus] = useState<Record<string, {
     status: 'pending' | 'streaming' | 'completed' | 'error';
   }>>({});
+
+  // ===== 版本号计算 =====
+  const codeVersion = useMemo(() => {
+    // 如果消息有明确的版本号，使用它
+    if (message.metadata?.codeVersion) {
+      return `V${message.metadata.codeVersion}`;
+    }
+    
+    // 方案1: 基于消息索引生成递增版本号（推荐）
+    if (messageIndex > 0) {
+      // 只为包含代码文件的消息计算版本号
+      const codeMessageCount = Math.floor((messageIndex + 1) / 2); // 假设每两条消息有一条包含代码
+      return `V${Math.max(1, codeMessageCount)}`;
+    }
+    
+    // 方案2: 从消息ID中提取时间戳并转换为简单序号
+    const messageId = message.id || '';
+    const idMatch = messageId.match(/msg-(\d+)/);
+    if (idMatch) {
+      const timestamp = parseInt(idMatch[1]);
+      // 将时间戳转换为更小的递增数字
+      const baseTime = 1700000000000; // 2023年的基准时间戳
+      const relativeTime = Math.max(0, timestamp - baseTime);
+      const version = Math.floor(relativeTime / 10000) % 100 + 1; // 转换为1-100的范围
+      return `V${version}`;
+    }
+    
+    // 方案3: 默认从V1开始
+    return "V1";
+  }, [message.id, message.metadata?.codeVersion, messageIndex]);
   
   // 🎯 用户消息判断
   const { isUser, isSystemMessage, actualIsUser } = useMemo(() => {
     const isUser = message.sender === 'user' || message.agent === 'user';
-    const isSystemMessage = message.agent === 'system' || message.sender === 'assistant' || message.sender === 'system';
+    
+    // 🔧 修复：只有明确标记为 system 的消息才是系统消息
+    // 不应该把所有 assistant 消息都当作系统消息
+    const isSystemMessage = message.agent === 'system' || message.sender === 'system';
+    
     const actualIsUser = isUser && !isSystemMessage;
     
     return { isUser, isSystemMessage, actualIsUser };
@@ -117,26 +156,49 @@ export const MessageBubble = React.memo(function MessageBubble({
     message.content
   ]);
 
-  // 🎯 文件创建状态更新
+  // 🎯 真实文件创建状态监听
   useEffect(() => {
-    if (codeFilesInfo.hasCodeFiles && codeFilesInfo.fileCreationProgress.length > 0) {
-      const newStatus: Record<string, { status: any }> = {};
+    if (!codeFilesInfo.hasCodeFiles || codeFilesInfo.codeFiles.length === 0) return;
+    
+    // 🎯 根据消息的流式状态和文件内容判断创建状态
+    const isStreamingMessage = message.metadata?.streaming === true;
+    const messageContent = message.content || '';
+    
+    console.log('🎯 [MessageBubble] 监听文件状态:', {
+      messageId: message.id,
+      streaming: isStreamingMessage,
+      filesCount: codeFilesInfo.codeFiles.length,
+      hasContent: !!messageContent
+    });
+    
+    const newStatus: Record<string, { status: 'pending' | 'streaming' | 'completed' | 'error' }> = {};
+    
+    codeFilesInfo.codeFiles.forEach((file: any) => {
+      const filename = file.filename;
       
-      codeFilesInfo.fileCreationProgress.forEach((fileProgress: any) => {
-        newStatus[fileProgress.filename] = {
-          status: fileProgress.status || 'streaming'
-        };
-      });
-      
-      setFileCreationStatus(prev => {
-        const hasChanged = Object.keys(newStatus).some(key => 
-          !prev[key] || prev[key].status !== newStatus[key].status
-        );
-        
-        return hasChanged ? newStatus : prev;
-      });
-    }
-  }, [codeFilesInfo.hasCodeFiles, codeFilesInfo.fileCreationProgress]);
+      if (isStreamingMessage) {
+        // 🔄 检查文件是否在当前消息内容中被提及
+        if (messageContent.includes(filename)) {
+          newStatus[filename] = { status: 'streaming' };
+          console.log(`🔧 [MessageBubble] 文件正在生成: ${filename}`);
+        } else {
+          newStatus[filename] = { status: 'pending' };
+        }
+      } else {
+        // ✅ 流式结束，标记为完成
+        newStatus[filename] = { status: 'completed' };
+        console.log(`✅ [MessageBubble] 文件生成完成: ${filename}`);
+      }
+    });
+    
+    setFileCreationStatus(newStatus);
+  }, [
+    codeFilesInfo.hasCodeFiles, 
+    codeFilesInfo.codeFiles.length,
+    message.metadata?.streaming,
+    message.content,
+    message.id
+  ]);
 
   // 🎯 文件创建完成回调
   const handleFileCreated = useCallback((filename: string) => {
@@ -324,25 +386,40 @@ export const MessageBubble = React.memo(function MessageBubble({
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className={`flex gap-4 max-w-4xl mx-auto px-6 py-4 ${
-        actualIsUser ? "flex-row-reverse" : ""
-      }`}
+      className={`flex gap-2 ${
+        isCompactMode 
+          ? "px-2 py-1" // 紧凑模式：更小的内边距，确保头像不超出边界
+          : "max-w-4xl mx-auto px-6 py-4" // 普通模式：原有样式
+      } ${actualIsUser && !isCompactMode ? "flex-row-reverse" : ""}`}
     >
       {/* 头像 */}
       <div className="flex-shrink-0 pt-1">
-        <Avatar className="w-8 h-8">
+        <Avatar className={isCompactMode ? "w-6 h-6" : "w-8 h-8"}>
           <AvatarFallback className={actualIsUser ? "bg-gray-700 dark:bg-gray-600 text-white" : "bg-gray-100 dark:bg-gray-700 text-gray-600 dark:text-gray-300"}>
-            {actualIsUser ? <User className="w-4 h-4" /> : <Sparkles className="w-4 h-4" />}
+            {actualIsUser ? <User className={isCompactMode ? "w-3 h-3" : "w-4 h-4"} /> : <Sparkles className={isCompactMode ? "w-3 h-3" : "w-4 h-4"} />}
           </AvatarFallback>
         </Avatar>
       </div>
 
       {/* 消息内容 */}
-      <div className={`flex-1 ${actualIsUser ? "text-right" : ""}`}>
-        <div className={`inline-block max-w-full ${actualIsUser ? "text-gray-800 dark:text-gray-200" : "text-gray-800 dark:text-gray-200"}`}>
+      <div className={`flex-1 min-w-0 ${actualIsUser && !isCompactMode ? "flex justify-end" : ""}`}>
+        <div className={`inline-block ${isCompactMode ? "w-full" : "max-w-full"} text-left ${
+          isCompactMode && actualIsUser 
+            ? "bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2 border-l-2 border-blue-200 dark:border-blue-700" 
+            : ""
+        } ${actualIsUser ? "text-gray-800 dark:text-gray-200" : "text-gray-800 dark:text-gray-200"}`} style={isCompactMode ? { maxWidth: '100%' } : {}}>
           
+          {/* 🎯 工具调用展示面板 - 优先显示在内容前面 */}
+          {!actualIsUser && message.metadata?.toolCalls && message.metadata.toolCalls.length > 0 && (
+            <div className={isCompactMode ? "px-1 py-1 mb-2" : "mb-3"}>
+              <ToolCallList 
+                toolCalls={message.metadata.toolCalls}
+              />
+            </div>
+          )}
+
           {/* 🎯 消息文本内容渲染 - MessageBubble核心职责 */}
-          <div className="whitespace-pre-wrap break-words">
+          <div className={`whitespace-pre-wrap break-words ${isCompactMode ? "text-sm" : ""} overflow-hidden`}>
             {(() => {
               const cleanedContent = cleanTextContent(message.content || '');
               
@@ -355,8 +432,13 @@ export const MessageBubble = React.memo(function MessageBubble({
                 return <GeneratingLoader text="正在准备个性化选项" size="sm" />;
               }
               
-              // 检测特殊loading文本
-              if (!actualIsUser && cleanedContent && (
+              // 检测特殊loading文本 - 但排除增量编辑消息
+              const isIncrementalEdit = message.metadata?.mode === 'incremental' || 
+                                      message.agent === 'CodingAgent' ||
+                                      cleanedContent.includes('增量编辑') ||
+                                      cleanedContent.includes('工具调用');
+              
+              if (!actualIsUser && cleanedContent && !isIncrementalEdit && (
                 cleanedContent.includes('正在分析') ||
                 cleanedContent.includes('正在为您生成') ||
                 cleanedContent.includes('请稍候')
@@ -371,11 +453,20 @@ export const MessageBubble = React.memo(function MessageBubble({
 
           {/* 🎯 代码文件展示面板 - MessageBubble负责消息内的文件展示 */}
           {!actualIsUser && codeFilesInfo.hasCodeFiles && codeFilesInfo.codeFilesCount > 0 && (
-            <FileCreationPanel 
-              codeFiles={codeFilesInfo.codeFiles}
-              fileCreationStatus={fileCreationStatus}
-            />
+            <div className={isCompactMode ? "px-1 py-2" : ""}>
+              <FileCreationPanel 
+                codeFiles={codeFilesInfo.codeFiles}
+                fileCreationStatus={fileCreationStatus}
+                version={codeVersion} // 使用计算出的正确版本号
+                isActive={true}
+                sessionId={message.metadata?.sessionId || message.metadata?.system_state?.metadata?.message_id}
+                autoDeployEnabled={true}
+                projectName={message.metadata?.projectName || 'HeysMe Project'}
+              />
+            </div>
           )}
+
+
 
           {/* 🎯 消息内交互表单 - MessageBubble核心职责 */}
           {!actualIsUser && 
@@ -383,7 +474,8 @@ export const MessageBubble = React.memo(function MessageBubble({
            (contentComplete || showInteraction) && 
            !(message.metadata?.system_state?.done === true) &&
            !(message.metadata?.system_state?.intent === 'advance_to_next_agent') &&
-           !(message.metadata?.system_state?.intent === 'complete') && (
+           !(message.metadata?.system_state?.intent === 'complete') && 
+           !isCompactMode && (
             <motion.div 
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}

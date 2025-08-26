@@ -333,9 +333,30 @@ export class VercelPreviewService {
           
           // 🔍 获取详细的错误信息
           const errorDetails = await this.getDeploymentErrorDetails(deploymentId);
-          const errorMessage = `部署失败，状态: ${status.state}${errorDetails ? `\n详细错误: ${errorDetails}` : ''}`;
+          
+          // 🔍 获取更详细的部署信息
+          let additionalInfo = '';
+          try {
+            const deploymentInfo = await this.getDeploymentInfo(deploymentId);
+            if (deploymentInfo && deploymentInfo.error) {
+              additionalInfo = `\n部署错误信息: ${JSON.stringify(deploymentInfo.error, null, 2)}`;
+            }
+          } catch (infoError) {
+            this.log(`⚠️ 无法获取额外部署信息: ${infoError}`);
+          }
+          
+          const errorMessage = `部署失败，状态: ${status.state}${errorDetails ? `\n详细错误: ${errorDetails}` : ''}${additionalInfo}`;
           this.log(`❌ ${errorMessage}`);
-          throw new Error(errorMessage);
+          
+          // 🚨 创建包含详细信息的错误对象，便于前端处理
+          const deploymentError = new Error(errorMessage);
+          (deploymentError as any).deploymentId = deploymentId;
+          (deploymentError as any).deploymentState = status.state;
+          (deploymentError as any).errorDetails = errorDetails;
+          (deploymentError as any).deploymentUrl = status.deploymentUrl;
+          (deploymentError as any).isVercelError = true;
+          
+          throw deploymentError;
         }
 
         // ✅ 继续等待 BUILDING, QUEUED 等中间状态
@@ -344,9 +365,27 @@ export class VercelPreviewService {
         attempts++;
 
       } catch (error) {
+        // 如果是Vercel部署错误（包含详细错误信息），直接抛出，不重试
+        if ((error as any).isVercelError) {
+          this.log(`❌ Vercel部署失败，立即停止重试`);
+          throw error;
+        }
+        
         this.log(`⚠️ 检查部署状态时出错: ${error}`);
-        attempts++;
-        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        
+        // 如果是网络错误，可以重试几次
+        if (attempts < 3) {
+          attempts++;
+          await new Promise(resolve => setTimeout(resolve, pollInterval));
+          continue;
+        }
+        
+        // 超过重试次数后，抛出错误并停止重试
+        this.updateStatus('error');
+        const networkError = new Error(`检查部署状态失败，已重试${attempts}次: ${error instanceof Error ? error.message : String(error)}`);
+        (networkError as any).isNetworkError = true;
+        (networkError as any).originalError = error;
+        throw networkError;
       }
     }
 
@@ -490,57 +529,386 @@ export class VercelPreviewService {
   }
 
   /**
-   * 获取部署错误详情
+   * 获取部署错误详情 - 增强版本
    */
   private async getDeploymentErrorDetails(deploymentId: string): Promise<string | null> {
     try {
-      // 尝试获取部署事件来查看详细错误
-      const events = await this.fetchDeploymentEvents(deploymentId);
+      this.log(`🔍 开始获取部署 ${deploymentId} 的详细错误信息...`);
       
-      // 查找错误相关的事件
-      const errorEvents = events.filter(event => 
-        event.type === 'error' || 
-        event.payload?.text?.toLowerCase().includes('error') ||
-        event.payload?.text?.toLowerCase().includes('failed')
+      // 1. 获取部署事件来查看详细错误
+      const events = await this.fetchDeploymentEvents(deploymentId);
+      this.log(`📋 获取到 ${events.length} 个部署事件`);
+      
+      // 2. 分类事件获取更丰富的信息
+      const buildEvents = events.filter(event => 
+        event.type === 'stdout' || 
+        event.type === 'stderr' ||
+        event.type === 'building'
       );
       
+      const errorEvents = events.filter(event => 
+        event.type === 'error' || 
+        (event.payload?.text && (
+          event.payload.text.toLowerCase().includes('error') ||
+          event.payload.text.toLowerCase().includes('failed') ||
+          event.payload.text.toLowerCase().includes('exception') ||
+          event.payload.text.toLowerCase().includes('cannot') ||
+          event.payload.text.toLowerCase().includes('unable to')
+        ))
+      );
+
+      const warningEvents = events.filter(event => 
+        event.type === 'warning' ||
+        (event.payload?.text && event.payload.text.toLowerCase().includes('warning'))
+      );
+
+      // 3. 构建详细错误报告
+      let errorDetails = [];
+      
       if (errorEvents.length > 0) {
-        return errorEvents.map(event => event.payload?.text || event.type).join('\n');
+        errorDetails.push('=== 错误事件 ===');
+        errorEvents.forEach((event, index) => {
+          const timestamp = event.created_at ? new Date(event.created_at).toISOString() : '未知时间';
+          errorDetails.push(`[${index + 1}] ${timestamp} - ${event.type}: ${event.payload?.text || '无详细信息'}`);
+        });
+      }
+
+      if (warningEvents.length > 0) {
+        errorDetails.push('\n=== 警告事件 ===');
+        warningEvents.forEach((event, index) => {
+          const timestamp = event.created_at ? new Date(event.created_at).toISOString() : '未知时间';
+          errorDetails.push(`[${index + 1}] ${timestamp} - ${event.type}: ${event.payload?.text || '无详细信息'}`);
+        });
+      }
+
+      // 4. 获取最后几条构建日志
+      if (buildEvents.length > 0) {
+        errorDetails.push('\n=== 最近构建日志 ===');
+        const recentBuildEvents = buildEvents.slice(-10); // 最后10条
+        recentBuildEvents.forEach((event, index) => {
+          // 🔧 改进时间戳和文本解析
+          const timestamp = this.parseEventTimestamp(event);
+          const text = this.parseEventText(event);
+          errorDetails.push(`[${index + 1}] ${timestamp} - ${event.type}: ${text}`);
+        });
+      } else {
+        // 如果没有构建日志，提供调试建议
+        errorDetails.push('\n=== 构建日志获取失败 ===');
+        errorDetails.push('未能获取到构建日志，可能原因：');
+        errorDetails.push('1. 部署还未开始构建阶段');
+        errorDetails.push('2. API 权限不足');
+        errorDetails.push('3. 部署ID无效');
+      }
+
+      // 5. 如果没有找到具体错误，提供调试建议
+      if (errorDetails.length === 0) {
+        errorDetails.push('未找到具体错误详情，建议：');
+        errorDetails.push('1. 检查 Vercel 控制台：https://vercel.com/dashboard');
+        errorDetails.push(`2. 访问部署日志：https://{deployment-url}/_logs`);
+        errorDetails.push('3. 使用 Vercel CLI: vc logs');
       }
       
-      return null;
+      const result = errorDetails.join('\n');
+      this.log(`📊 错误详情获取完成，共 ${errorDetails.length} 行信息`);
+      return result;
+      
     } catch (error) {
       this.log(`⚠️ 无法获取错误详情: ${error}`);
-      return null;
+      return `获取错误详情失败: ${error instanceof Error ? error.message : String(error)}`;
     }
   }
 
   /**
-   * 获取部署事件
+   * 获取部署详细信息
    */
-  async fetchDeploymentEvents(deploymentId: string): Promise<any[]> {
+  private async getDeploymentInfo(deploymentId: string): Promise<any> {
     try {
-      const result = await this.vercel.deployments.getDeploymentEvents({
+      const result = await this.vercel.deployments.getDeployment({
         idOrUrl: deploymentId,
         teamId: this.config.teamId,
         slug: this.config.teamSlug,
       });
 
       // 处理不同的响应格式
+      if (result && typeof result === 'object') {
+        const responseData = (result as any).value || result;
+        return responseData;
+      }
+      
+      return result;
+    } catch (error) {
+      this.log(`⚠️ 获取部署信息失败: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * 🆕 获取构建日志 - 基于Vercel官方API
+   */
+  async getDeploymentLogs(deploymentId: string): Promise<string[]> {
+    try {
+      this.log(`🔍 获取部署 ${deploymentId} 的构建日志...`);
+      
+      // 方法1: 通过 Vercel API 获取日志
+      const events = await this.fetchDeploymentEvents(deploymentId);
+      
+      // 过滤并格式化构建日志
+      const logEvents = events.filter(event => 
+        event.type === 'stdout' || 
+        event.type === 'stderr' ||
+        event.type === 'building' ||
+        event.type === 'created' ||
+        event.type === 'ready'
+      ).map(event => {
+        const timestamp = event.created_at ? new Date(event.created_at).toISOString() : 'Unknown';
+        const type = event.type.toUpperCase().padEnd(8);
+        const message = event.payload?.text || `Event: ${event.type}`;
+        return `[${timestamp}] ${type} ${message}`;
+      });
+
+      this.log(`📋 获取到 ${logEvents.length} 条构建日志`);
+      return logEvents;
+      
+    } catch (error) {
+      this.log(`⚠️ 获取构建日志失败: ${error}`);
+      return [`获取日志失败: ${error instanceof Error ? error.message : String(error)}`];
+    }
+  }
+
+  /**
+   * 🆕 获取完整的部署分析报告
+   */
+  async getDeploymentAnalysis(deploymentId: string): Promise<{
+    deployment: any;
+    events: any[];
+    buildLogs: string[];
+    errorSummary: string;
+    suggestions: string[];
+  }> {
+    try {
+      this.log(`🔍 开始分析部署 ${deploymentId}...`);
+      
+      // 并行获取所有信息
+      const [deployment, events, buildLogs] = await Promise.all([
+        this.getDeploymentInfo(deploymentId).catch(err => ({ error: err.message })),
+        this.fetchDeploymentEvents(deploymentId).catch(() => []),
+        this.getDeploymentLogs(deploymentId).catch(() => [])
+      ]);
+
+      // 分析错误和警告
+      const errorEvents = events.filter(event => 
+        event.type === 'error' || 
+        (event.payload?.text && event.payload.text.toLowerCase().includes('error'))
+      );
+
+      const warningEvents = events.filter(event => 
+        event.type === 'warning' ||
+        (event.payload?.text && event.payload.text.toLowerCase().includes('warning'))
+      );
+
+      // 生成错误摘要
+      let errorSummary = '';
+      if (errorEvents.length > 0) {
+        errorSummary = errorEvents.map(event => 
+          event.payload?.text || `${event.type} 事件`
+        ).join('\n');
+      } else if (deployment.error) {
+        errorSummary = `部署信息获取失败: ${deployment.error}`;
+      } else {
+        errorSummary = '未发现明确的错误信息';
+      }
+
+      // 生成建议
+      const suggestions = this.generateDeploymentSuggestions(deployment, events, errorEvents, warningEvents);
+
+      return {
+        deployment,
+        events,
+        buildLogs,
+        errorSummary,
+        suggestions
+      };
+      
+    } catch (error) {
+      this.log(`❌ 部署分析失败: ${error}`);
+      throw error;
+    }
+  }
+
+  /**
+   * 🆕 生成部署建议
+   */
+  private generateDeploymentSuggestions(deployment: any, events: any[], errorEvents: any[], warningEvents: any[]): string[] {
+    const suggestions: string[] = [];
+
+    // 基于错误事件的建议
+    if (errorEvents.length > 0) {
+      const errorTexts = errorEvents.map(e => e.payload?.text || '').join(' ').toLowerCase();
+      
+      if (errorTexts.includes('npm') || errorTexts.includes('package')) {
+        suggestions.push('检查 package.json 中的依赖版本是否正确');
+        suggestions.push('尝试删除 node_modules 并重新安装依赖');
+      }
+      
+      if (errorTexts.includes('build') || errorTexts.includes('compile')) {
+        suggestions.push('检查代码中是否有语法错误或类型错误');
+        suggestions.push('确保所有必需的环境变量已设置');
+      }
+      
+      if (errorTexts.includes('memory') || errorTexts.includes('timeout')) {
+        suggestions.push('考虑优化构建脚本以减少内存使用');
+        suggestions.push('检查是否有无限循环或重复的依赖安装');
+      }
+      
+      if (errorTexts.includes('permission') || errorTexts.includes('access')) {
+        suggestions.push('检查 Vercel Token 权限是否正确');
+        suggestions.push('确保项目配置和团队设置正确');
+      }
+    }
+
+    // 基于警告事件的建议
+    if (warningEvents.length > 0) {
+      suggestions.push('查看警告信息，虽然不会导致失败但可能影响性能');
+    }
+
+    // 基于部署状态的建议
+    if (deployment.state === 'ERROR') {
+      suggestions.push('访问 Vercel 控制台查看详细的构建日志');
+      suggestions.push(`如果可用，访问 https://{deployment-url}/_logs 查看在线日志`);
+    }
+
+    // 通用建议
+    if (suggestions.length === 0) {
+      suggestions.push('检查最近的代码更改是否引入了问题');
+      suggestions.push('尝试在本地环境中重现构建过程');
+      suggestions.push('确保本地构建成功后再部署');
+    }
+
+    return suggestions;
+  }
+
+  /**
+   * 🆕 解析事件时间戳
+   */
+  private parseEventTimestamp(event: any): string {
+    // 尝试多种时间戳字段
+    const timeFields = ['created_at', 'createdAt', 'timestamp', 'date'];
+    
+    for (const field of timeFields) {
+      if (event[field]) {
+        try {
+          return new Date(event[field]).toISOString();
+        } catch {
+          continue;
+        }
+      }
+    }
+    
+    // 如果都没有，返回当前时间
+    return new Date().toISOString();
+  }
+
+  /**
+   * 🆕 解析事件文本内容
+   */
+  private parseEventText(event: any): string {
+    // 尝试多种文本字段
+    if (event.payload?.text) {
+      return event.payload.text;
+    }
+    
+    if (event.text) {
+      return event.text;
+    }
+    
+    if (event.message) {
+      return event.message;
+    }
+    
+    if (event.payload?.message) {
+      return event.payload.message;
+    }
+    
+    // 尝试解析其他可能的字段
+    if (event.payload) {
+      const payload = event.payload;
+      if (typeof payload === 'string') {
+        return payload;
+      }
+      
+      // 如果payload是对象，尝试获取有用信息
+      if (typeof payload === 'object') {
+        const possibleFields = ['output', 'log', 'content', 'data'];
+        for (const field of possibleFields) {
+          if (payload[field] && typeof payload[field] === 'string') {
+            return payload[field];
+          }
+        }
+        
+        // 最后尝试stringify
+        try {
+          const jsonStr = JSON.stringify(payload);
+          if (jsonStr !== '{}' && jsonStr !== 'null') {
+            return jsonStr;
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+    
+    // 最后的fallback：使用事件类型作为描述
+    return `${event.type} 事件 (无详细文本内容)`;
+  }
+
+  /**
+   * 获取部署事件 - 增强版本
+   */
+  async fetchDeploymentEvents(deploymentId: string): Promise<any[]> {
+    try {
+      this.log(`🔍 开始获取部署 ${deploymentId} 的事件...`);
+      
+      const result = await this.vercel.deployments.getDeploymentEvents({
+        idOrUrl: deploymentId,
+        teamId: this.config.teamId,
+        slug: this.config.teamSlug,
+      });
+
+      this.log(`📦 API 响应类型: ${typeof result}, 是否为数组: ${Array.isArray(result)}`);
+      
+      // 处理不同的响应格式
       let events: any[] = [];
       
       if (Array.isArray(result)) {
         events = result;
+        this.log(`✅ 直接从数组获取了 ${events.length} 个事件`);
       } else if (result && typeof result === 'object') {
         const responseData = (result as any).value || result;
+        this.log(`🔍 尝试从对象解析事件，responseData 类型: ${typeof responseData}`);
         
         if (Array.isArray(responseData)) {
           events = responseData;
+          this.log(`✅ 从 responseData 数组获取了 ${events.length} 个事件`);
         } else if (responseData.events && Array.isArray(responseData.events)) {
           events = responseData.events;
+          this.log(`✅ 从 responseData.events 获取了 ${events.length} 个事件`);
         } else if (responseData.data && Array.isArray(responseData.data)) {
           events = responseData.data;
+          this.log(`✅ 从 responseData.data 获取了 ${events.length} 个事件`);
+        } else {
+          this.log(`⚠️ 无法解析事件数据，responseData 结构: ${JSON.stringify(responseData, null, 2).slice(0, 500)}`);
         }
+      }
+      
+      // 🔍 调试：打印前几个事件的结构
+      if (events.length > 0) {
+        this.log(`📋 事件样本 (前3个):`);
+        events.slice(0, 3).forEach((event, index) => {
+          this.log(`事件 ${index + 1}: 类型=${event.type}, 时间戳字段=${Object.keys(event).filter(k => k.includes('time') || k.includes('date') || k.includes('created'))}, payload=${typeof event.payload}`);
+          if (event.payload) {
+            this.log(`  payload 字段: ${Object.keys(event.payload || {})}`);
+          }
+        });
       }
       
       return events || [];
