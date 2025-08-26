@@ -15,7 +15,6 @@ import {
   TestimonialsSection,
   FinalCtaSection
 } from "@/components/landing"
-import VisionSection from "./components/sections/vision-section"
 import { Linkedin, Twitter, MessageCircle } from "lucide-react"
 
 // Footer Section Component - 简化版
@@ -170,11 +169,6 @@ function HomePage() {
         {/* Mission Section */}
         <section id="mission">
           <MissionSection />
-        </section>
-
-        {/* Vision Section */}
-        <section id="vision">
-          <VisionSection />
         </section>
 
         {/* Value Section */}

@@ -18,7 +18,6 @@ export interface CollectedInfo {
   use_case?: string;
   style?: string;
   highlight_focus?: string;
-  target_audience?: string;
 }
 
 /**
@@ -483,11 +482,13 @@ export function parseAIResponse(response: string): WelcomeAIResponse {
  * 从文本中提取收集到的信息
  */
 function extractInfoFromText(text: string): CollectedInfo {
-  // 🔧 简化：主要作为回退机制，让AI来解析具体信息
-  // 只在JSON解析完全失败时提供基本的信息提取
   const info: CollectedInfo = {};
   
-  console.log(`🔍 [文本提取] 作为回退机制运行，文本长度: ${text.length}`);
+  // 简单的关键词匹配提取信息
+  if (text.includes('社交媒体') || text.includes('粉丝')) {
+    info.use_case = '分享给社交媒体粉丝';
+  }
+  
   return info;
 }
 
@@ -495,7 +496,7 @@ function extractInfoFromText(text: string): CollectedInfo {
  * 计算收集进度
  */
 export function calculateCollectionProgress(collectedInfo: CollectedInfo): number {
-  const fields = ['user_role', 'use_case', 'style', 'highlight_focus', 'target_audience'];
+  const fields = ['user_role', 'use_case', 'style', 'highlight_focus'];
   const completedFields = fields.filter(field => collectedInfo[field as keyof CollectedInfo]);
   return Math.round((completedFields.length / fields.length) * 100);
 }

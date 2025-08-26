@@ -109,37 +109,20 @@ export class SessionManager {
     console.log(`🔍 [调试] 当前内存中会话总数: ${currentSessionCount} (主存储: ${this.sessions.size}, 临时: ${this.temporarySessions.size})`);
     
     try {
-      // 🔧 关键修复：不要重新初始化，直接从内存获取
-      // await this.initializeSessions(); // 移除：避免覆盖刚更新的会话数据
+      await this.initializeSessions();
       session = this.sessions.get(sessionId);
       
       if (session) {
-        console.log(`✅ [会话管理器] 从内存中找到会话 ${sessionId}`);
+        console.log(`✅ [会话管理器] 成功从数据库恢复会话 ${sessionId}`);
       } else {
-        // 🔧 关键修复：只加载特定会话，不重新初始化所有会话
-        console.log(`🔍 [会话管理器] 内存中未找到，尝试从数据库加载单个会话 ${sessionId}`);
-        try {
-          const loadedSession = await sessionStorage.loadSession(sessionId);
-          session = loadedSession || undefined;
-          if (session) {
-            this.sessions.set(sessionId, session);
-            console.log(`✅ [会话管理器] 成功从数据库加载会话 ${sessionId}`);
-          } else {
-            console.log(`❌ [会话管理器] 数据库中也未找到会话 ${sessionId}`);
-            this.logDebugInfo(sessionId);
-            
-            // 🔧 最后尝试：创建一个基础会话框架，避免完全失败
-            console.log(`🔧 [会话管理器] 尝试创建临时会话框架 ${sessionId}`);
-            const tempSession = this.createSessionData(sessionId);
-            this.temporarySessions.set(sessionId, tempSession);
-            return tempSession;
-          }
-        } catch (loadError) {
-          console.warn(`⚠️ [会话管理器] 加载单个会话失败:`, loadError);
-          const tempSession = this.createSessionData(sessionId);
-          this.temporarySessions.set(sessionId, tempSession);
-          return tempSession;
-        }
+        console.log(`❌ [会话管理器] 会话未找到 ${sessionId}`);
+        this.logDebugInfo(sessionId);
+        
+        // 🔧 最后尝试：创建一个基础会话框架，避免完全失败
+        console.log(`🔧 [会话管理器] 尝试创建临时会话框架 ${sessionId}`);
+        const tempSession = this.createSessionData(sessionId);
+        this.temporarySessions.set(sessionId, tempSession);
+        return tempSession;
       }
     } catch (error) {
       console.warn(`⚠️ [会话管理器] 重新加载会话失败:`, error);

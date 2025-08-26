@@ -47,6 +47,29 @@
   .shadow-message-ai {
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
   }
+  
+  /* 🚀 IME输入法优化样式 */
+  .ime-composing {
+    /* 提供视觉反馈表示正在进行IME输入 */
+    position: relative;
+  }
+  
+  .ime-composing::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, #34D399, #2DD4BF);
+    opacity: 0.6;
+    animation: ime-pulse 1.5s ease-in-out infinite;
+  }
+  
+  @keyframes ime-pulse {
+    0%, 100% { opacity: 0.6; }
+    50% { opacity: 1; }
+  }
 }
 
 @layer base {

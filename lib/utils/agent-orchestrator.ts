@@ -5,9 +5,9 @@
  */
 
 import { ConversationalWelcomeAgent } from '@/lib/agents/welcome';
-import { VercelAIInfoCollectionAgent } from '@/lib/agents/info-collection/vercel-ai-agent';
-import { EnhancedPromptOutputAgent } from '@/lib/agents/prompt-output/enhanced-agent';
-import { CodingAgent } from '@/lib/agents/coding';
+import { OptimizedInfoCollectionAgent } from '@/lib/agents/info-collection';
+import { PromptOutputAgent } from '@/lib/agents/prompt-output-agent';
+import { CodingAgent } from '@/lib/agents/coding-agent';
 import { BaseAgent } from '@/lib/agents/base-agent';
 import { SessionData } from '@/lib/types/session';
 import { StreamableAgentResponse } from '@/lib/types/streaming';
@@ -34,11 +34,11 @@ export class AgentOrchestrator {
    */
   private initializeAgents(): void {
     this.agents.set('welcome', new ConversationalWelcomeAgent());
-    this.agents.set('info_collection', new VercelAIInfoCollectionAgent());
-    this.agents.set('prompt_output', new EnhancedPromptOutputAgent());
+    this.agents.set('info_collection', new OptimizedInfoCollectionAgent());
+    this.agents.set('prompt_output', new PromptOutputAgent());
     this.agents.set('coding', new CodingAgent());
     
-    console.log(`✅ [编排器] 初始化了 ${this.agents.size} 个Agent (使用VercelAI信息收集)`);
+    console.log(`✅ [编排器] 初始化了 ${this.agents.size} 个Agent`);
   }
 
   /**
@@ -213,42 +213,13 @@ export class AgentOrchestrator {
     const sessionData = await sessionManager.getSession(sessionId);
     if (!sessionData) return null;
 
-    // 🔧 修复：返回调试面板需要的完整数据结构
     return {
-      id: sessionId,
       sessionId,
       currentStage: sessionData.metadata.progress.currentStage,
       overallProgress: sessionData.metadata.progress.percentage,
       status: sessionData.status,
       createdAt: sessionData.metadata.createdAt,
-      lastActive: sessionData.metadata.lastActive,
-      
-      // 调试面板需要的额外数据
-      metadata: {
-        ...sessionData.metadata,
-        // 确保包含所有Agent的历史和收集信息
-        welcomeHistory: (sessionData.metadata as any).welcomeHistory || [],
-        infoCollectionHistory: (sessionData.metadata as any).infoCollectionHistory || [],
-        codingHistory: (sessionData.metadata as any).codingHistory || [],
-        collectedInfo: (sessionData.metadata as any).collectedInfo || {},
-        progress: sessionData.metadata.progress,
-        
-        // 🆕 包含调试日志信息
-        roundTracking: (sessionData.metadata as any).roundTracking || [],
-        aiCallHistory: (sessionData.metadata as any).aiCallHistory || [],
-        storageStatus: (sessionData.metadata as any).storageStatus || {},
-        lastAiPrompt: (sessionData.metadata as any).lastAiPrompt,
-        lastAiResponse: (sessionData.metadata as any).lastAiResponse
-      },
-      
-      // 包含完整的对话历史
-      conversationHistory: sessionData.conversationHistory || [],
-      
-      // Agent流程信息
-      agentFlow: {
-        currentAgent: sessionData.metadata.progress.currentStage,
-        agentHistory: sessionData.agentFlow || []
-      }
+      lastActive: sessionData.metadata.lastActive
     };
   }
 
@@ -294,19 +265,13 @@ export class AgentOrchestrator {
       if (!session) {
         console.log(`🆕 [编排器] 未找到会话 ${sessionId}，创建新会话`);
         session = this.createNewSession(sessionId);
-        await sessionManager.updateSession(sessionId, session);
+        sessionManager.updateSession(sessionId, session);
       } else {
         console.log(`✅ [编排器] 找到会话 ${sessionId}`);
-        // 🔧 关键调试：显示从存储中恢复的会话状态
-        const metadata = session.metadata as any;
-        console.log(`📊 [会话恢复] 历史长度: ${metadata.welcomeHistory?.length || 0}, 收集信息: ${JSON.stringify(metadata.collectedInfo || {})}`);
       }
     } else {
       console.log(`✅ [编排器] 使用传入的会话数据 ${sessionId}`);
-      // 🔧 关键调试：显示传入会话的状态
-      const metadata = session.metadata as any;
-      console.log(`📊 [传入会话] 历史长度: ${metadata.welcomeHistory?.length || 0}, 收集信息: ${JSON.stringify(metadata.collectedInfo || {})}`);
-      await sessionManager.updateSession(sessionId, session);
+      sessionManager.updateSession(sessionId, session);
     }
     
     return session;
@@ -378,36 +343,10 @@ export class AgentOrchestrator {
    * 确定当前应该使用的Agent
    */
   private determineCurrentAgent(session: SessionData, userInput: string, context?: Record<string, any>): string {
-    console.log(`🔍 [编排器] determineCurrentAgent 被调用:`, {
-      sessionId: session.id,
-      currentStage: session.metadata.progress.currentStage,
-      context: context,
-      userInputLength: userInput.length
-    });
-    
     // 🔧 优先检查context中的强制Agent指定
     if (context?.forceAgent) {
       console.log(`🎯 [编排器] Context中强制使用Agent: ${context.forceAgent}`);
-      
-      // 🆕 如果强制使用coding Agent，同时更新会话阶段到code_generation
-      if (context.forceAgent === 'coding') {
-        console.log(`🔧 [编排器] 强制使用coding Agent，同时更新会话阶段到code_generation`);
-        session.metadata.progress.currentStage = 'code_generation';
-        session.metadata.progress.percentage = 90;
-        session.metadata.progress.completedStages = ['welcome', 'info_collection', 'page_design'];
-      }
-      
       return context.forceAgent;
-    }
-    
-    // 🆕 检查是否是专业模式coding（通过context判断）
-    if (context?.mode === 'coding' || context?.codingAgent || context?.currentStage === 'coding') {
-      console.log(`🎯 [编排器] 检测到专业模式coding，强制使用coding Agent`);
-      // 更新会话阶段
-      session.metadata.progress.currentStage = 'code_generation';
-      session.metadata.progress.percentage = 90;
-      session.metadata.progress.completedStages = ['welcome', 'info_collection', 'page_design'];
-      return 'coding';
     }
     
     // 检查是否有强制指定的Agent（保留兼容性）
@@ -438,92 +377,8 @@ export class AgentOrchestrator {
     const agentStartTime = new Date();
     console.log(`⏰ [编排器] ${agentName} 开始处理 (${agentStartTime.toISOString()})`);
     
-    // 🆕 为不同Agent准备特殊的输入参数
-    let agentInput = { user_input: userInput };
-    
-    if (agentName === 'prompt_output') {
-      // 🎨 为EnhancedPromptOutputAgent准备输入参数
-      const metadata = session.metadata as any;
-      const toolResults = metadata.toolResults || [];
-      
-      // 转换工具结果格式以匹配 ToolResultData 接口
-      const formattedToolResults = toolResults.map((result: any) => ({
-        source_url: result.data?.url || result.data?.github_url || result.data?.website_url || 'unknown',
-        tool_name: result.tool_name,
-        extracted_data: result.data,
-        content_analysis: {
-          quality_indicators: {
-            completeness: 0.8,
-            relevance: 0.9,
-            freshness: 0.7
-          }
-        },
-        cache_info: {
-          status: 'fresh' as const,
-          cached_at: result.timestamp || new Date().toISOString()
-        },
-        metadata: {
-          extraction_confidence: result.data?.extraction_confidence || 0.8,
-          extracted_at: result.timestamp || new Date().toISOString()
-        }
-      }));
-      
-      agentInput = {
-        collected_data: session.collectedData || {},
-        tool_results: formattedToolResults,
-        user_goal: metadata.collectedInfo?.use_case || '创建个人主页',
-        user_type: metadata.collectedInfo?.user_role || '专业人士'
-      } as any;
-      
-      console.log(`🎨 [编排器] EnhancedPromptOutputAgent输入参数:`, {
-        collectedDataKeys: Object.keys(session.collectedData || {}),
-        toolResultsCount: formattedToolResults.length,
-        userGoal: (agentInput as any).user_goal,
-        userType: (agentInput as any).user_type
-      });
-    } else if (agentName === 'coding') {
-      // 🎯 CodingAgent模式判断逻辑
-      const hasProjectFiles = session.metadata && 
-                             (session.metadata as any).projectFiles && 
-                             (session.metadata as any).projectFiles.length > 0;
-      
-      // 🆕 简化的判断逻辑：核心原则是"有代码就增量，无代码就初始"
-      // 1. 检查是否已经有项目文件（最可靠的指标）
-      // 2. 检查会话历史中是否有成功的代码生成记录
-      const hasSuccessfulCodeGeneration = session.conversationHistory.some(entry => 
-        (entry.agent === 'coding' && entry.metadata?.projectGenerated === true) ||
-        entry.metadata?.intent === 'project_complete' ||
-        entry.metadata?.hasCodeFiles === true
-      );
-      
-      const shouldUseIncremental = hasProjectFiles || hasSuccessfulCodeGeneration;
-      
-      if (shouldUseIncremental) {
-        agentInput = {
-          user_input: userInput,
-          mode: 'incremental'
-        } as any;
-        console.log(`🔧 [编排器] CodingAgent使用增量模式 - 检测到已有代码`, {
-          hasProjectFiles: hasProjectFiles,
-          projectFilesCount: hasProjectFiles ? (session.metadata as any).projectFiles.length : 0,
-          hasSuccessfulCodeGeneration: hasSuccessfulCodeGeneration,
-          reason: hasProjectFiles ? '有项目文件' : '有代码生成历史'
-        });
-      } else {
-        agentInput = {
-          user_input: userInput,
-          mode: 'initial'
-        } as any;
-        console.log(`🔧 [编排器] CodingAgent使用初始模式 - 首次代码生成`, {
-          hasProjectFiles: hasProjectFiles,
-          hasSuccessfulCodeGeneration: hasSuccessfulCodeGeneration,
-          isFirstTimeGeneration: true
-        });
-      }
-    }
-    
     let responseCount = 0;
-    for await (const response of agent.process(agentInput, session, context)) {
+    for await (const response of agent.process({ user_input: userInput }, session, context)) {
       responseCount++;
       console.log(`📤 [编排器] ${agentName} 第${responseCount}个响应:`, {
         hasReply: !!response.immediate_display?.reply,
@@ -533,28 +388,12 @@ export class AgentOrchestrator {
         hasInteraction: !!response.interaction
       });
       
-      // 🔧 移除过早保存：只在Agent完成时保存，避免保存未完成的数据
-      
       // 如果Agent完成，处理后续流程
       if (response.system_state?.done) {
         console.log(`✅ [编排器] ${agentName} 处理完毕`);
         
         // 记录完成情况
         sessionManager.recordAgentCompletion(session, agentName, agentStartTime, response);
-        
-        // 🔧 关键修复：Agent完成后立即强制保存会话数据
-        console.log(`💾 [编排器] 强制保存会话数据: ${session.id}`);
-        
-        // 🔧 关键调试：显示要保存的会话数据状态
-        const debugMetadata = session.metadata as any;
-        console.log(`🔍 [保存前检查] welcomeHistory长度: ${debugMetadata.welcomeHistory?.length || 0}, collectedInfo:`, debugMetadata.collectedInfo || {});
-        
-        await sessionManager.updateSession(session.id, session);
-        
-        // 🔧 验证保存后的状态
-        const savedSession = await sessionManager.getSession(session.id);
-        const savedMetadata = savedSession?.metadata as any;
-        console.log(`🔍 [保存后验证] welcomeHistory长度: ${savedMetadata?.welcomeHistory?.length || 0}, collectedInfo:`, savedMetadata?.collectedInfo || {});
         
         // 🔧 修复：检查是否为静默推进，如果是则不发送空响应
         const isSilentAdvance = response.system_state?.metadata?.silent_advance;
@@ -643,16 +482,46 @@ export class AgentOrchestrator {
 
     // 🆕 特殊处理：info_collection agent前添加引导词
     if (nextAgentName === 'info_collection') {
-      console.log(`🎯 [编排器] 进入信息收集阶段，直接启动agent让其发送自然引导`);
+      console.log(`🎯 [编排器] 进入信息收集阶段，发送引导词`);
       
-      // 直接启动info_collection agent，让它自己发送首次欢迎消息
-      const nextAgent = this.agents.get(nextAgentName);
-      if (!nextAgent) {
-        throw new Error(`Agent "${nextAgentName}" not found`);
-      }
+      // 发送引导词响应
+      const guideResponse: StreamableAgentResponse = {
+        immediate_display: {
+          reply: `我们现在正式进入信息收集阶段 🎯  
+你可以直接发送任何你觉得有用的素材，我会自动识别并提取重点：
+
+🔗 链接（作品集、社交媒体、GitHub、文章等）  
+📄 文档（简历、项目介绍、讲稿等）  
+✍️ 文本描述（项目经历、技能总结、个人介绍等）
+
+无论内容多少，我都会根据你的输入进行智能分析和对话探索，帮你提炼出最具价值的亮点。
+
+如果你希望快速预览一个页面草稿，也可以直接回复"跳过"或"快进" 👇`,
+          agent_name: 'system',
+          timestamp: new Date().toISOString()
+        },
+        system_state: {
+          intent: 'transition_guide',
+          done: false,
+          progress: session.metadata.progress.percentage,
+          current_stage: session.metadata.progress.currentStage,
+          metadata: {
+            transition_type: 'info_collection_guide',
+            waiting_for_user_input: true
+          }
+        }
+      };
       
-      // 🔑 传递空字符串作为初始输入，让agent识别这是首次启动
-      yield* this.executeAgentStreaming(nextAgent, nextAgentName, '', session, undefined);
+      console.log(`📤 [编排器] 发送信息收集引导词: {
+  hasReply: true,
+  replyLength: ${guideResponse.immediate_display?.reply?.length || 0},
+  intent: '${guideResponse.system_state?.intent}',
+  done: ${guideResponse.system_state?.done}
+}`);
+      
+      yield guideResponse;
+      
+      // 不立即启动agent，等待用户输入
       return;
     }
 

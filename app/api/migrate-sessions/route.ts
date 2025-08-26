@@ -1,153 +1,157 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { sessionFilesMigrator } from '@/lib/utils/migrate-session-files';
 import { SessionData } from '@/lib/types/session';
+import { sessionManager } from '@/lib/utils/session-manager';
 
-/**
- * 🔄 会话数据迁移 API
- * POST /api/migrate-sessions
- */
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
+    console.log('🔄 [迁移API] 开始会话数据迁移...');
+
+    // 检查用户认证
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.json({ error: '用户未认证' }, { status: 401 });
+      return NextResponse.json({ 
+        success: false, 
+        error: '用户未登录' 
+      }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { force = false } = body;
+    console.log(`🔍 [迁移API] 用户已登录: ${userId}`);
 
-    console.log('🔄 [迁移API] 开始迁移用户会话:', userId);
-
-    // 这里需要获取用户的会话数据
-    // 由于你的系统架构，我们需要从实际的会话存储中获取数据
-    // 这里是一个示例实现，你需要根据实际情况调整
-    const sessions = await getUserSessions(userId);
-
-    if (sessions.length === 0) {
-          return NextResponse.json({
-      success: true,
-      message: '没有找到需要迁移的会话',
-      total: 0,
-      successCount: 0,
-      failedCount: 0
-    });
+    // 获取前端传来的本地会话数据
+    const { localSessions } = await req.json();
+    
+    if (!Array.isArray(localSessions) || localSessions.length === 0) {
+      return NextResponse.json({
+        success: true,
+        message: '没有需要迁移的会话数据',
+        migratedCount: 0
+      });
     }
 
-    console.log(`📊 [迁移API] 找到 ${sessions.length} 个会话需要处理`);
+    console.log(`📊 [迁移API] 接收到 ${localSessions.length} 个本地会话`);
 
-    // 执行批量迁移
-    const result = await sessionFilesMigrator.migrateBatch(
-      sessions,
-      userId,
-      {
-        force,
-        maxConcurrent: 3,
-        onProgress: (completed, total, current) => {
-          console.log(`📈 [迁移进度] ${completed}/${total} - 当前: ${current.id}`);
-          // 这里可以发送 SSE 事件更新前端进度
+    // 获取已存在的会话，避免重复
+    const existingSessions = await sessionManager.getAllActiveSessions();
+    const existingSessionIds = new Set(existingSessions.map(s => s.id));
+
+    let migratedCount = 0;
+    let skippedCount = 0;
+    const errors: string[] = [];
+
+    // 逐个迁移会话
+    for (const localSession of localSessions) {
+      try {
+        // 检查会话是否已存在
+        if (existingSessionIds.has(localSession.id)) {
+          skippedCount++;
+          console.log(`⚠️ [迁移API] 跳过已存在的会话: ${localSession.id}`);
+          continue;
         }
+
+        // 验证和规范化会话数据
+        const sessionData = validateAndNormalizeSession(localSession, userId);
+        if (!sessionData) {
+          skippedCount++;
+          console.log(`⚠️ [迁移API] 跳过无效会话: ${localSession.id}`);
+          continue;
+        }
+
+        // 保存会话到数据库
+        await sessionManager.updateSession(sessionData.id, sessionData);
+        migratedCount++;
+        console.log(`✅ [迁移API] 会话迁移成功: ${sessionData.id}`);
+
+      } catch (error) {
+        errors.push(`会话 ${localSession.id} 迁移失败: ${error}`);
+        console.error(`❌ [迁移API] 会话迁移失败:`, error);
       }
-    );
+    }
 
-    // 生成迁移报告
-    const report = sessionFilesMigrator.generateReport(result.results);
-
-    console.log('✅ [迁移API] 迁移完成:', {
-      total: result.total,
-      success: result.success,
-      failed: result.failed
-    });
+    console.log(`🎉 [迁移API] 迁移完成: 成功 ${migratedCount} 个，跳过 ${skippedCount} 个，错误 ${errors.length} 个`);
 
     return NextResponse.json({
       success: true,
-      total: result.total,
-      successCount: result.success,
-      failedCount: result.failed,
-      report
+      message: `会话迁移完成！成功迁移 ${migratedCount} 个会话`,
+      migratedCount,
+      skippedCount,
+      errorCount: errors.length,
+      errors: errors.slice(0, 5) // 只返回前5个错误，避免响应过大
     });
 
   } catch (error) {
-    console.error('❌ [迁移API] 迁移失败:', error);
-    
+    console.error('❌ [迁移API] 迁移过程失败:', error);
     return NextResponse.json({
       success: false,
-      error: error instanceof Error ? error.message : '未知错误'
+      error: `迁移失败: ${error instanceof Error ? error.message : '未知错误'}`
     }, { status: 500 });
   }
 }
 
 /**
- * 🔍 获取用户的会话数据
- * 这里需要根据你的实际数据存储方式来实现
+ * 验证和规范化会话数据
  */
-async function getUserSessions(userId: string): Promise<SessionData[]> {
+function validateAndNormalizeSession(rawSession: any, userId: string): SessionData | null {
   try {
-    // 方案1: 如果会话存储在 Supabase chat_sessions 表中
-    // const { createClient } = require('@supabase/supabase-js');
-    // const supabase = createClient(
-    //   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    //   process.env.SUPABASE_SERVICE_ROLE_KEY!
-    // );
-    // 
-    // const { data, error } = await supabase
-    //   .from('chat_sessions')
-    //   .select('*')
-    //   .eq('user_id', userId)
-    //   .not('metadata->projectFiles', 'is', null);
-
-    // 方案2: 如果会话存储在其他地方（文件系统、Redis等）
-    // 你需要根据实际情况实现这个函数
-
-    // 临时示例：返回空数组
-    console.log('⚠️ [会话获取] 需要实现实际的会话数据获取逻辑');
-    
-    // 这里是一个模拟的示例，展示数据格式
-    // 暂时返回空数组，避免复杂的类型定义
-    const mockSessions: SessionData[] = [];
-
-    // TODO: 在这里实现实际的会话数据获取逻辑
-    // 1. 如果使用 Supabase 存储会话：查询 chat_sessions 表
-    // 2. 如果使用文件存储：读取用户的会话文件
-    // 3. 如果使用 Redis：从 Redis 获取会话数据
-    
-    return []; // 暂时返回空数组，避免误操作
-
-  } catch (error) {
-    console.error('❌ [会话获取] 失败:', error);
-    return [];
-  }
-}
-
-/**
- * 📊 获取迁移状态
- * GET /api/migrate-sessions
- */
-export async function GET() {
-  try {
-    const { userId } = await auth();
-    if (!userId) {
-      return NextResponse.json({ error: '用户未认证' }, { status: 401 });
+    // 基本验证
+    if (!rawSession.id || typeof rawSession.id !== 'string') {
+      throw new Error('会话ID无效');
     }
 
-    // 检查用户的迁移状态
-    const sessions = await getUserSessions(userId);
-    const migratedSessions = sessions.filter(s => 
-      (s.metadata as any)?.migratedToSupabase
-    );
+    // 确保有对话历史且不为空
+    if (!rawSession.conversationHistory || 
+        !Array.isArray(rawSession.conversationHistory) || 
+        rawSession.conversationHistory.length === 0) {
+      return null; // 跳过空会话
+    }
 
-    return NextResponse.json({
-      totalSessions: sessions.length,
-      migratedSessions: migratedSessions.length,
-      pendingSessions: sessions.length - migratedSessions.length,
-      needsMigration: sessions.length > migratedSessions.length
-    });
+    // 构建标准化会话数据
+    const sessionData: SessionData = {
+      id: rawSession.id,
+      userId: userId, // 关联到当前用户
+      status: rawSession.status || 'active',
+      title: rawSession.title,
+      titleGeneratedAt: rawSession.titleGeneratedAt,
+      titleModel: rawSession.titleModel,
+      lastTitleMessageCount: rawSession.lastTitleMessageCount,
+      
+      userIntent: rawSession.userIntent || {
+        primary_goal: '恢复的本地会话',
+        context: '从本地存储迁移的会话数据'
+      },
+      
+      personalization: rawSession.personalization || {},
+      collectedData: rawSession.collectedData || {},
+      
+      conversationHistory: rawSession.conversationHistory.map((entry: any) => ({
+        id: entry.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 8)}`,
+        timestamp: new Date(entry.timestamp || Date.now()),
+        type: entry.type || 'user_message',
+        agent: entry.agent,
+        content: entry.content || '',
+        metadata: entry.metadata || {},
+        userInteraction: entry.userInteraction
+      })),
+      
+      agentFlow: rawSession.agentFlow || [],
+      
+      metadata: {
+        createdAt: new Date(rawSession.metadata?.createdAt || rawSession.createdAt || Date.now()),
+        updatedAt: new Date(),
+        lastActive: new Date(rawSession.metadata?.lastActive || Date.now()),
+        progress: rawSession.metadata?.progress || {},
+        migrated: true, // 标记为迁移数据
+        migratedAt: new Date().toISOString(),
+        originalSource: 'localStorage'
+      },
+      
+      generatedContent: rawSession.generatedContent
+    };
 
-  } catch (error) {
-    console.error('❌ [迁移状态] 查询失败:', error);
+    return sessionData;
     
-    return NextResponse.json({
-      error: error instanceof Error ? error.message : '未知错误'
-    }, { status: 500 });
+  } catch (error) {
+    console.error(`❌ [迁移API] 会话验证失败:`, error);
+    return null;
   }
 }

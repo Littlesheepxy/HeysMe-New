@@ -114,21 +114,7 @@ export async function POST(req: NextRequest) {
           let finalContext = context;
           
           // 🔧 修复：优先使用context参数，而不是在消息中添加标记
-          // 🆕 支持从context中获取forceAgent
-          const effectiveForceAgent = forceAgent || context?.forceAgent;
-          // 🆕 检测coding模式
-          const isCodingMode = context?.codingAgent || context?.mode === 'coding' || effectiveForceAgent === 'coding';
-          
-          console.log('🔍 [API检测] 模式判断:', {
-            forceAgent,
-            'context.forceAgent': context?.forceAgent,
-            'context.codingAgent': context?.codingAgent,
-            'context.mode': context?.mode,
-            effectiveForceAgent,
-            isCodingMode
-          });
-          
-          if (effectiveForceAgent || testMode || isCodingMode) {
+          if (forceAgent || testMode) {
             // 获取现有会话数据
             const existingSession = await agentOrchestrator.getSessionData(sessionId);
             
@@ -140,7 +126,7 @@ export async function POST(req: NextRequest) {
                   ...existingSession.metadata,
                   progress: {
                     ...existingSession.metadata.progress,
-                    currentStage: isCodingMode ? 'code_generation' : existingSession.metadata.progress.currentStage
+                    currentStage: forceAgent === 'coding' ? 'code_generation' : existingSession.metadata.progress.currentStage
                   }
                 }
               };
@@ -149,13 +135,10 @@ export async function POST(req: NextRequest) {
             // 🔧 修复：通过context传递模式信息，而不是修改消息
             finalContext = {
               ...context,
-              forceAgent: isCodingMode ? 'coding' : effectiveForceAgent,
+              forceAgent,
               testMode,
               expertMode: testMode || context?.expertMode,
-              forceExpertMode: testMode || context?.forceExpertMode,
-              // 🆕 确保coding模式标记传递到编排器
-              mode: isCodingMode ? 'coding' : context?.mode,
-              codingAgent: isCodingMode || context?.codingAgent
+              forceExpertMode: testMode || context?.forceExpertMode
             };
             
             console.log('🎯 [API] 使用context传递模式信息:', finalContext);

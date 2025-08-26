@@ -1,10 +1,3 @@
-// 这个文件是ChatInterface.tsx，负责处理聊天界面的核心逻辑，包括消息发送、流式数据处理、系统级loading状态等。
-// 它不负责单个消息的内容渲染，也不负责消息内的交互表单，也不负责消息级别的loading状态。
-// 它只负责全局状态管理、流式数据接收和分发、系统级loading状态、工具执行状态管理、错误处理和重试逻辑、输入框和发送逻辑。
-
-//暂时废弃不用
-
-
 'use client';
 
 import { useState, useEffect, useRef, useMemo, useCallback } from 'react';
@@ -55,7 +48,6 @@ import {
   CodeFile,
   CodingAgentMessage
 } from '@/lib/agents/coding/types';
-import { FloatingStageIndicator } from '@/components/ui/stage-indicator';
 
 interface ChatInterfaceProps {
   sessionId?: string;
@@ -326,6 +318,7 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
           try {
             const { UnifiedToolExecutor } = await import('@/lib/agents/coding/streaming-tool-executor');
             const executor = new UnifiedToolExecutor({
+              mode: 'claude',
               onTextUpdate: async (text: string, partial: boolean) => {
                 console.log('📝 [工具文本]', text, partial ? '(部分)' : '(完整)');
               },
@@ -456,6 +449,7 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
       setCurrentSay(null);
       setAwaitingCodingResponse(false);
       if (toolExecutor) {
+        toolExecutor.reset();
         setAccumulatedAIResponse('');
       }
     }
@@ -632,13 +626,7 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
           message: enhancedMessage,
           sessionId,
           mode: 'incremental',
-          currentStage: sessionStatus?.currentStage,
-          // 🔧 修复：添加context来指示coding模式
-          context: {
-            mode: 'coding',
-            codingAgent: true,
-            forceAgent: 'coding'
-          }
+          currentStage: sessionStatus?.currentStage
         };
         
         setCodingContext(prev => ({
@@ -769,10 +757,8 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
             index === prev.length - 1 
               ? {
                   ...msg,
-                  // 🔧 关键修复：根据content_mode决定是追加还是替换内容
-                  content: response.system_state?.metadata?.content_mode === 'complete' 
-                    ? (response.immediate_display?.reply || '')
-                    : (msg.content || '') + (response.immediate_display?.reply || ''),
+                  // 🔧 关键修复：对于CodingAgent，只累积reply内容（已经是分离后的纯文本）
+                  content: (msg.content || '') + (response.immediate_display?.reply || ''),
                   metadata: {
                     ...msg.metadata,
                     streaming: !response.system_state?.done,
@@ -901,7 +887,7 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
     }
   };
 
-  const renderMessage = (message: ConversationEntry, index: number) => {
+  const renderMessage = (message: ConversationEntry) => {
     const isUser = message.type === 'user_message';
     const isLast = messages[messages.length - 1]?.id === message.id;
     
@@ -921,7 +907,6 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
         isStreaming={isLast && isStreaming && !isUser}
         onSendMessage={sendMessage}
         sessionId={sessionId || undefined}
-        messageIndex={index} // 传递消息索引用于版本号计算
       />
     );
   };
@@ -955,13 +940,13 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
               {/* 🎯 Coding模式状态指示器 */}
               {CodingStatusIndicator}
               
-              {/* 🎯 新的悬浮阶段指示器 */}
-              {sessionStatus && (
-                <FloatingStageIndicator
-                  currentStage={sessionStatus.currentStage}
-                  percentage={sessionStatus.overallProgress || 0}
-                  mode={isCodingMode ? 'coding' : 'chat'}
-                />
+              {/* 原有的会话状态 */}
+              {sessionStatus && !isCodingMode && (
+                <div className="flex items-center gap-2 text-sm">
+                  <Activity className="w-4 h-4" />
+                  <span className="text-gray-600">{sessionStatus.currentStage}</span>
+                  <span className="text-blue-600 font-medium">{sessionStatus.overallProgress}%</span>
+                </div>
               )}
             </div>
           </CardTitle>
@@ -979,7 +964,7 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
           )}
           
           {/* 进度条 */}
-          {sessionStatus && (
+          {sessionStatus && !isCodingMode && (
             <ProgressBar 
               progress={sessionStatus.overallProgress} 
               stage={sessionStatus.currentStage}
@@ -990,7 +975,7 @@ export function ChatInterface({ sessionId: initialSessionId, onSessionUpdate, cl
       <CardContent className="flex-1 flex flex-col overflow-hidden">
         {/* 消息列表 */}
         <div className="flex-1 overflow-y-auto space-y-4 mb-4">
-          {messages.map((message, index) => renderMessage(message, index))}
+          {messages.map(renderMessage)}
           
           {/* 🎯 系统级Loading状态 - ChatInterface负责 */}
           {systemLoadingState?.visible && (

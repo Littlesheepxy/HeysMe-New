@@ -5,13 +5,6 @@ import {
 } from '@/lib/types/streaming';
 import { SessionData } from '@/lib/types/session';
 import { CodeFile } from './types';
-import { anthropic } from '@ai-sdk/anthropic';
-import { generateText, tool, stepCountIs } from 'ai';
-import { z } from 'zod';
-// import fs from 'fs/promises'; // 🔒 注释掉本地文件操作
-import path from 'path'; // 🔧 保留 path 用于文件扩展名检测
-// import { DatabaseFileTools } from './database-tools'; // 🔒 注释掉，使用新的数据库工具
-import { databaseFileTools } from './database-file-tools';
 
 
 /**
@@ -28,209 +21,6 @@ export class CodingAgent extends BaseAgent {
     };
     
     super('CodingAgent', capabilities);
-  }
-
-  /**
-   * 🆕 Vercel AI SDK 工具定义 - 使用数据库存储
-   */
-  private getVercelAITools() {
-    // 🔧 注释掉本地文件工具，使用数据库工具
-    return databaseFileTools;
-    
-    /* 🔒 本地文件工具已注释 - 改用数据库存储
-    return {
-      create_file: tool({
-        description: 'Create a new file with specified content. Use this for creating new files in the project.',
-        inputSchema: z.object({
-          file_path: z.string().describe('Relative path for the new file (e.g., "src/components/Button.tsx")'),
-          content: z.string().describe('Complete file content to write'),
-          description: z.string().optional().describe('Brief description of what this file does')
-        }),
-        execute: async ({ file_path, content, description }) => {
-          console.log(`🔧 [创建文件] ${file_path}`);
-          try {
-            // 确保目录存在
-            const dir = path.dirname(file_path);
-            await fs.mkdir(dir, { recursive: true });
-            
-            // 写入文件
-            await fs.writeFile(file_path, content, 'utf8');
-            
-            const stats = await fs.stat(file_path);
-            console.log(`✅ [文件创建成功] ${file_path} (${stats.size} bytes)`);
-            
-            return {
-              success: true,
-              file_path,
-              size: stats.size,
-              description: description || '新创建的文件',
-              action: 'created'
-            };
-          } catch (error) {
-            console.error(`❌ [文件创建失败] ${file_path}:`, error);
-            throw error;
-          }
-        }
-      }),
-
-      edit_file: tool({
-        description: 'Edit an existing file by replacing specific content or adding new content.',
-        inputSchema: z.object({
-          file_path: z.string().describe('Path to the file to edit'),
-          old_content: z.string().optional().describe('Content to replace (if doing replacement)'),
-          new_content: z.string().describe('New content to add or replace with'),
-          operation: z.enum(['replace', 'append', 'prepend']).describe('Type of edit operation'),
-          description: z.string().optional().describe('Brief description of the changes')
-        }),
-        execute: async ({ file_path, old_content, new_content, operation, description }) => {
-          console.log(`🔧 [编辑文件] ${file_path} - ${operation}`);
-          try {
-            let currentContent = '';
-            try {
-              currentContent = await fs.readFile(file_path, 'utf8');
-            } catch (error) {
-              if (operation === 'replace' && old_content) {
-                throw new Error(`文件不存在: ${file_path}`);
-              }
-              // 对于 append/prepend，如果文件不存在就创建
-              currentContent = '';
-            }
-
-            let updatedContent = '';
-            switch (operation) {
-              case 'replace':
-                if (old_content) {
-                  if (!currentContent.includes(old_content)) {
-                    throw new Error(`未找到要替换的内容`);
-                  }
-                  updatedContent = currentContent.replace(old_content, new_content);
-                } else {
-                  updatedContent = new_content;
-                }
-                break;
-              case 'append':
-                updatedContent = currentContent + new_content;
-                break;
-              case 'prepend':
-                updatedContent = new_content + currentContent;
-                break;
-            }
-
-            // 确保目录存在
-            const dir = path.dirname(file_path);
-            await fs.mkdir(dir, { recursive: true });
-            
-            await fs.writeFile(file_path, updatedContent, 'utf8');
-            const stats = await fs.stat(file_path);
-            
-            console.log(`✅ [文件编辑成功] ${file_path} (${stats.size} bytes)`);
-            
-            return {
-              success: true,
-              file_path,
-              operation,
-              size: stats.size,
-              description: description || `执行了 ${operation} 操作`,
-              action: 'modified'
-            };
-          } catch (error) {
-            console.error(`❌ [文件编辑失败] ${file_path}:`, error);
-            throw error;
-          }
-        }
-      }),
-
-      read_file: tool({
-        description: 'Read the content of an existing file to understand its current state.',
-        inputSchema: z.object({
-          file_path: z.string().describe('Path to the file to read'),
-          encoding: z.enum(['utf8', 'base64']).optional().default('utf8').describe('File encoding')
-        }),
-        execute: async ({ file_path, encoding = 'utf8' }) => {
-          console.log(`🔧 [读取文件] ${file_path}`);
-          try {
-            const content = await fs.readFile(file_path, encoding);
-            const stats = await fs.stat(file_path);
-            
-            console.log(`✅ [文件读取成功] ${file_path} (${stats.size} bytes)`);
-            
-            return {
-              success: true,
-              file_path,
-              content,
-              size: stats.size,
-              modified: stats.mtime.toISOString(),
-              action: 'read'
-            };
-          } catch (error) {
-            console.error(`❌ [文件读取失败] ${file_path}:`, error);
-            throw error;
-          }
-        }
-      }),
-
-      list_files: tool({
-        description: 'List files and directories in a specified path to understand project structure.',
-        inputSchema: z.object({
-          directory_path: z.string().describe('Directory path to list (e.g., "src", ".", "components")'),
-          include_hidden: z.boolean().optional().default(false).describe('Whether to include hidden files'),
-          max_depth: z.number().optional().default(2).describe('Maximum depth to traverse')
-        }),
-        execute: async ({ directory_path, include_hidden = false, max_depth = 2 }) => {
-          console.log(`🔧 [列出文件] ${directory_path}`);
-          try {
-            const listDirectory = async (dir: string, currentDepth: number = 0): Promise<any[]> => {
-              if (currentDepth >= max_depth) return [];
-              
-              const items = await fs.readdir(dir);
-              const result = [];
-              
-              for (const item of items) {
-                if (!include_hidden && item.startsWith('.')) continue;
-                
-                const itemPath = path.join(dir, item);
-                const stats = await fs.stat(itemPath);
-                
-                const itemInfo: any = {
-                  name: item,
-                  path: itemPath,
-                  type: stats.isDirectory() ? 'directory' : 'file',
-                  size: stats.size,
-                  modified: stats.mtime.toISOString()
-                };
-                
-                if (stats.isDirectory() && currentDepth < max_depth - 1) {
-                  try {
-                    itemInfo.children = await listDirectory(itemPath, currentDepth + 1);
-                  } catch (error) {
-                    // 忽略无法访问的目录
-                  }
-                }
-                
-                result.push(itemInfo);
-              }
-              
-              return result;
-            };
-
-            const files = await listDirectory(directory_path);
-            console.log(`✅ [文件列表成功] ${directory_path} (${files.length} items)`);
-            
-            return {
-              success: true,
-              directory_path,
-              files,
-              total_items: files.length,
-              action: 'listed'
-            };
-          } catch (error) {
-            console.error(`❌ [文件列表失败] ${directory_path}:`, error);
-            throw error;
-          }
-        }
-      })
-    };
-    */
   }
 
   /**
@@ -448,29 +238,29 @@ export class CodingAgent extends BaseAgent {
       // 🔧 使用BaseAgent的对话历史管理功能
       const sessionId = (sessionData as any)?.sessionId || `coding-${Date.now()}`;
       
-      // 🔧 使用BaseAgent的流式方法，支持对话历史
+      // 🆕 使用callLLM方法以支持对话历史
       const systemPrompt = '你是一个专业的全栈开发工程师，专门生成高质量的代码项目。请按照用户要求生成完整的项目代码，每个文件都要用markdown代码块格式包装，并标明文件名。';
       
-      console.log('🔧 [对话历史] 使用BaseAgent流式历史管理');
+      // 🔧 使用流式AI模型生成，但保留对话历史结构
       
-      // 🔧 关键修复：将session历史同步到BaseAgent（如果存在）
-      const codingHistory = (sessionData?.metadata as any)?.codingHistory || [];
-      if (!this.conversationHistory.has(sessionData.id)) {
-        this.conversationHistory.set(sessionData.id, []);
-      }
-      const baseAgentHistory = this.conversationHistory.get(sessionData.id)!;
-      if (baseAgentHistory.length === 0 && codingHistory.length > 0) {
-        console.log(`🔄 [Coding历史同步] 从session恢复 ${codingHistory.length} 条历史到BaseAgent`);
-        baseAgentHistory.push(...codingHistory);
-      }
-
-      // 🆕 使用BaseAgent的callLLMStreaming方法
-      for await (const chunk of this.callLLMStreaming(prompt, {
-        system: systemPrompt,
-        maxTokens: 64000,
-        sessionId: sessionData.id,
-        useHistory: true
-      })) {
+      // 🆕 构建包含历史的消息数组
+      const messages: Array<{ role: 'system' | 'user' | 'assistant', content: string }> = [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: prompt }
+      ];
+      
+      console.log('🔧 [对话历史] 初始化对话历史管理');
+      
+      // 🆕 使用流式AI模型生成
+      const { generateStreamWithModel } = await import('@/lib/ai-models');
+      
+      // 流式调用AI模型 - 使用消息数组格式支持历史
+      for await (const chunk of generateStreamWithModel(
+        'claude',
+        'claude-sonnet-4-20250514',
+        messages,
+        { maxTokens: 64000 }
+      )) {
         chunkCount++;
         fullAccumulatedText += chunk;
         
@@ -613,7 +403,7 @@ export class CodingAgent extends BaseAgent {
           intent: 'project_complete',
           done: true,
           progress: 100,
-          current_stage: 'code_generation', // 🆕 确保设置为code_generation阶段
+          current_stage: '项目生成完成',
           metadata: {
             streaming: false,
             message_id: messageId,
@@ -642,7 +432,7 @@ export class CodingAgent extends BaseAgent {
       this.saveConversationHistory(sessionData, prompt, `AI代码生成完成！已为您创建了一个完整的项目，包含 ${finalFiles.length} 个文件。`);
       
       // 更新会话数据
-      await this.updateSessionWithProject(sessionData, finalFiles);
+      this.updateSessionWithProject(sessionData, finalFiles);
       
     } catch (error) {
       console.error('❌ [流式AI生成错误]:', error);
@@ -653,227 +443,154 @@ export class CodingAgent extends BaseAgent {
   /**
    * 📊 增量AI生成处理 - 用于已有项目的修改
    */
-  /**
-   * 🆕 基于 Vercel AI SDK 的增量编辑处理 - 替换有 bug 的旧实现
-   */
   private async* handleIncrementalAIGeneration(
     userInput: string, 
     sessionData: SessionData,
     context?: Record<string, any>
   ): AsyncGenerator<StreamableAgentResponse, void, unknown> {
-    const messageId = `incremental-vercel-ai-${Date.now()}`;
-    
     try {
-      console.log('🚀 [Vercel AI 增量编辑] 开始处理增量修改...');
-
-      // 发送开始处理的响应
-      yield this.createResponse({
-        immediate_display: {
-          reply: '🔄 正在分析您的修改需求，准备执行相关操作...',
-          agent_name: this.name,
-          timestamp: new Date().toISOString()
-        },
-        system_state: {
-          intent: 'incremental_analyzing',
-          done: false,
-          progress: 10,
-          current_stage: '需求分析',
-          metadata: { message_id: messageId, mode: 'incremental' }
-        }
-      });
-
+      console.log('📊 [增量AI调用] 开始增量修改处理...');
+      
+      // 动态导入
+      const { generateStreamWithModel } = await import('@/lib/ai-models');
+      const { getIncrementalEditPrompt, INCREMENTAL_EDIT_TOOLS } = await import('@/lib/prompts/coding/incremental-edit');
+      
       // 🔧 获取当前项目文件信息
       const existingFiles = (sessionData?.metadata as any)?.projectFiles || [];
-      console.log(`📊 [项目上下文] 现有文件数量: ${existingFiles.length}`);
-
-      // 构建项目上下文信息
-      const projectContext = existingFiles.length > 0 
-        ? `当前项目包含 ${existingFiles.length} 个文件:\n${existingFiles.map((f: any) => `- ${f.filename} (${f.type || 'file'})`).join('\n')}`
-        : '这是一个新项目，暂无现有文件。';
-
-      // 构建对话历史
-      const conversationHistory = this.conversationHistory.get(sessionData.id) || [];
-      const messages = [
-        {
-          role: 'system' as const,
-          content: `你是一个专业的编程助手，专门处理项目的增量修改和文件操作。
-
-## 当前项目状态：
-${projectContext}
-
-## 你的任务：
-1. **需求理解**: 分析用户的修改需求
-2. **智能操作**: 根据需求执行适当的文件操作
-3. **质量保证**: 确保代码质量和项目结构合理
-4. **用户指导**: 提供清晰的说明和建议
-
-## 可用工具：
-- read_file: 读取现有文件内容
-- create_file: 创建新文件
-- edit_file: 编辑现有文件（支持替换、追加、前置）
-- list_files: 列出文件和目录结构
-
-请根据用户需求智能选择和组合使用这些工具。始终确保代码质量和项目的一致性。用中文回复。`
-        },
-        ...conversationHistory.map(msg => ({
-          role: msg.role as 'user' | 'assistant',
-          content: msg.content
-        })),
-        {
-          role: 'user' as const,
-          content: userInput
-        }
-      ];
-
-      // 🆕 发送初始分析阶段的响应
-      yield this.createResponse({
-        immediate_display: {
-          reply: '🔍 正在分析您的需求...',
-          agent_name: this.name,
-          timestamp: new Date().toISOString()
-        },
-        system_state: {
-          intent: 'incremental_analyzing',
-          done: false,
-          progress: 10,
-          current_stage: '需求分析',
-          metadata: { 
-            message_id: messageId,
-            content_mode: 'complete',
-            stream_type: 'start',
-            mode: 'incremental',
-            toolCalls: []
-          }
-        }
-      });
-
-      // 🆕 创建累积的工具调用状态
-      let allToolCallsForUI: any[] = [];
-      let stepCount = 0;
+      const projectContext = {
+        projectType: (sessionData?.metadata as any)?.projectType || 'react',
+        framework: (sessionData?.metadata as any)?.framework || 'Next.js',
+        totalFiles: existingFiles.length,
+        lastModified: new Date().toISOString()
+      };
       
-      // 🔧 创建一个队列来存储需要发送的更新
-      const pendingUpdates: any[] = [];
-
-      // 使用 Vercel AI SDK 的多步骤工具调用
-      const result = await generateText({
-        model: anthropic('claude-3-5-sonnet-20241022'),
-        messages,
-        tools: this.getVercelAITools(),
-        stopWhen: stepCountIs(6), // 允许最多6步：分析 + 多个文件操作
-        temperature: 0.3, // 编程任务使用较低温度
-        onStepFinish: async ({ toolCalls, toolResults }) => {
-          stepCount++;
-          console.log(`📊 [增量编辑步骤 ${stepCount}] 执行了 ${toolResults.length} 个工具`);
-          
-          // 🆕 实时发送工具调用状态更新
-          if (toolCalls && toolCalls.length > 0) {
-            const currentStepToolCalls = toolCalls.map((toolCall, index) => {
-              const toolResult = toolResults[index];
-              return {
-                toolName: toolCall.toolName,
-                toolCallId: toolCall.toolCallId,
-                state: toolResult ? ((toolResult as any).isError ? 'output-error' : 'output-available') : 'input-available',
-                input: (toolCall as any).args || (toolCall as any).input,
-                output: toolResult ? ((toolResult as any)?.result || (toolResult as any)?.output) : undefined,
-                errorText: toolResult && (toolResult as any)?.isError ? String((toolResult as any).result || (toolResult as any).output) : undefined
-              };
-            });
-            
-            // 累积所有工具调用
-            allToolCallsForUI.push(...currentStepToolCalls);
-            
-            console.log(`🔧 [工具调用状态] 步骤 ${stepCount} 工具调用:`, currentStepToolCalls);
-            console.log(`📋 [累积工具调用] 总计: ${allToolCallsForUI.length} 个工具调用`);
-            
-            // 🔧 将更新添加到队列中，稍后发送
-            pendingUpdates.push({
-              stepCount,
-              toolCalls: [...allToolCallsForUI], // 创建副本
-              currentStepToolCalls
-            });
-          }
-        }
-      });
+      console.log('📊 [项目上下文] 文件数量:', existingFiles.length);
       
-      // 🔧 发送所有待处理的工具调用更新
-      for (const update of pendingUpdates) {
-        yield this.createResponse({
-          immediate_display: {
-            reply: `🔧 执行步骤 ${update.stepCount}：${update.currentStepToolCalls.map((tc: any) => tc.toolName).join(', ')}`,
-            agent_name: this.name,
-            timestamp: new Date().toISOString()
-          },
-          system_state: {
-            intent: 'incremental_analyzing',
-            done: false,
-            progress: Math.min(20 + (update.stepCount * 15), 85),
-            current_stage: `执行工具 (${update.stepCount}/${6})`,
-            metadata: {
-              message_id: messageId,
-              content_mode: 'append',
-              stream_type: 'tool_update',
-              mode: 'incremental',
-              toolCalls: update.toolCalls,
-              currentStep: update.stepCount,
-              totalSteps: 6
-            }
-          }
-        });
-      }
-
-      console.log(`✅ [Vercel AI 增量编辑] 完成，执行了 ${result.steps.length} 个步骤`);
-
-      // 提取所有工具调用结果
-      const allToolCalls = result.steps.flatMap(step => step.toolCalls);
-      const allToolResults = result.steps.flatMap(step => step.toolResults);
-
-      // 统计文件操作
-      const fileOperations = allToolResults.filter(tr => 
-        ['create_file', 'edit_file', 'read_file'].includes(
-          allToolCalls[allToolResults.indexOf(tr)]?.toolName
-        )
+      // 🎯 使用新的增量编辑prompt
+      const fileStructure = existingFiles.map((f: any) => `${f.filename}: ${f.type || 'file'}`).join('\n');
+      const targetFiles = existingFiles.map((f: any) => f.filename).join(', ');
+      const contextInfo = JSON.stringify(projectContext, null, 2);
+      
+      const incrementalPrompt = getIncrementalEditPrompt(
+        fileStructure,
+        userInput,
+        targetFiles,
+        contextInfo
       );
+      
+      console.log('📊 [增量Prompt] 长度:', incrementalPrompt.length);
 
-      // 🔧 更新项目文件列表（如果有新的文件操作）
-      const modifiedFiles: CodeFile[] = [];
-      for (const toolResult of allToolResults) {
-        const toolCall = allToolCalls[allToolResults.indexOf(toolResult)];
-        if (toolCall && ['create_file', 'edit_file'].includes(toolCall.toolName)) {
-          // 修复：直接访问 toolResult 的属性，而不是 result 子属性
-          const result = toolResult as any;
-          if (result.success && result.file_path) {
-            modifiedFiles.push({
-              filename: result.file_path,
-              content: '', // 内容已经写入文件，这里不需要存储
-              language: this.detectLanguage(result.file_path),
-              type: toolCall.toolName === 'create_file' ? 'page' : 'component',
-              description: result.description || `${toolCall.toolName === 'create_file' ? '创建' : '修改'}的文件`
-            });
-          }
+      const messageId = `incremental-${Date.now()}`;
+      let chunkCount = 0;
+      let accumulatedResponse = '';
+      // 🆕 增加增量模式的文本累积器
+      let lastSentTextLength = 0;
+
+      // 🔧 使用专门的增量编辑系统prompt
+      const systemPrompt = `你是一个专业的全栈开发工程师和代码助手，专门处理已有项目的增量修改。
+
+## 重要指令：
+1. 仔细分析用户的真实意图
+2. 基于现有项目状态提供建议和执行工具调用
+3. 使用提供的工具来执行文件操作
+4. 每次工具调用都要提供清晰的说明
+
+## 工作模式：
+- 当前处于项目增量修改模式
+- 用户已有一个正在开发的项目
+- 你需要分析需求并执行适当的工具调用
+
+## 工具使用指南：
+- write_to_file: 创建或更新文件
+- read_file: 读取文件内容
+- execute_command: 执行命令
+- list_files: 列出文件
+
+请基于用户请求执行适当的操作。`;
+
+      // 🔧 创建工具执行器来处理AI的工具调用
+      const { UnifiedToolExecutor } = await import('./streaming-tool-executor');
+      
+      let modifiedFiles: CodeFile[] = [];
+      let toolExecutor: any;
+      
+      // 创建响应发送器
+      const sendResponse = (response: any) => {
+        // 这里我们需要用不同的方式处理响应
+        console.log('📊 [响应] 工具执行中:', response.immediate_display.reply);
+      };
+
+      // 初始化工具执行器
+      toolExecutor = new UnifiedToolExecutor({
+        mode: 'claude',
+        onTextUpdate: async (text: string, partial: boolean) => {
+          console.log(`📊 [工具执行器] 文本更新: ${text.substring(0, 100)}...`);
+        },
+        onToolExecute: async (toolName: string, params: Record<string, any>) => {
+          console.log(`🔧 [工具调用] 执行: ${toolName}`, params);
+          
+          // 执行实际的文件操作
+          return await this.executeIncrementalTool(toolName, params, existingFiles, modifiedFiles);
+        },
+        onToolResult: async (result: string) => {
+          console.log(`✅ [工具结果] ${result}`);
         }
-      }
-
-      // 🔧 使用累积的工具调用信息，如果没有则构建
-      const toolCallsForUI = allToolCallsForUI.length > 0 ? allToolCallsForUI : allToolCalls.map((toolCall, index) => {
-        const toolResult = allToolResults[index];
-        return {
-          toolName: toolCall.toolName,
-          toolCallId: toolCall.toolCallId,
-          state: toolResult ? ((toolResult as any).isError ? 'output-error' : 'output-available') : 'output-error',
-          input: (toolCall as any).args || (toolCall as any).input,
-          output: (toolResult as any)?.result || (toolResult as any)?.output,
-          errorText: (toolResult as any)?.isError ? String((toolResult as any).result || (toolResult as any).output) : undefined
-        };
       });
 
-      // 发送最终结果
-      const completionMessage = modifiedFiles.length > 0
-        ? `✅ **增量修改完成**\n\n📁 **操作的文件**：\n${modifiedFiles.map(f => `• ${f.filename}`).join('\n')}\n\n如需进一步修改，请告诉我具体需求。`
-        : result.text;
+      // 🔧 获取会话历史以保持对话连续性
+      const sessionId = (sessionData as any)?.sessionId || `incremental-${Date.now()}`;
+      
+      // 🆕 构建包含历史的消息数组
+      let messages: Array<{ role: 'system' | 'user' | 'assistant', content: string }> = [];
+      
+      // 🔧 从会话数据中获取对话历史
+      const conversationHistory = (sessionData?.metadata as any)?.codingHistory || [];
+      console.log(`🔧 [增量历史] 找到 ${conversationHistory.length} 条历史对话`);
+      
+      // 添加系统提示词
+      messages.push({ role: 'system', content: systemPrompt });
+      
+      // 🆕 添加历史对话（最近的5轮对话以保持上下文）
+      const recentHistory = conversationHistory.slice(-10); // 保留最近5轮对话（用户+助手=10条消息）
+      messages.push(...recentHistory);
+      
+      // 添加当前用户请求
+      messages.push({ role: 'user', content: incrementalPrompt });
+      
+      console.log(`💬 [增量对话] 构建消息数组，总消息数: ${messages.length}`);
+      messages.forEach((msg, index) => {
+        const roleIcon = msg.role === 'user' ? '👤' : msg.role === 'assistant' ? '🤖' : '📝';
+        console.log(`  ${roleIcon} [${index}] ${msg.content.substring(0, 100)}...`);
+      });
 
+      // 🆕 流式调用AI模型，支持工具定义和对话历史
+      for await (const chunk of generateStreamWithModel(
+        'claude',
+        'claude-sonnet-4-20250514',
+        messages,
+        { 
+          maxTokens: 8000,
+          // 🆕 添加工具定义支持
+          tools: INCREMENTAL_EDIT_TOOLS
+        }
+      )) {
+        chunkCount++;
+        accumulatedResponse += chunk;
+        
+        console.log(`📊 [增量流式] 第${chunkCount}个块，新增长度: ${chunk.length}`);
+        
+        // 🔧 关键修复：使用工具执行器处理工具调用
+        await toolExecutor.processStreamChunk(accumulatedResponse);
+      }
+      
+      console.log('📊 [增量AI调用] 流式修改完成，总块数:', chunkCount);
+      
+      // 🔧 发送完成响应 - 包含修改后的文件
+      const finalProjectFiles = modifiedFiles.length > 0 ? modifiedFiles : existingFiles;
+      
       yield this.createResponse({
         immediate_display: {
-          reply: completionMessage,
+          reply: `✅ **增量修改完成**\n\n${modifiedFiles.length > 0 ? `已修改 ${modifiedFiles.length} 个文件：\n${modifiedFiles.map(f => `• ${f.filename}`).join('\n')}` : '已完成分析和处理。'}\n\n如需进一步修改，请告诉我具体需求。`, 
           agent_name: this.name,
           timestamp: new Date().toISOString()
         },
@@ -883,113 +600,36 @@ ${projectContext}
           progress: 100,
           current_stage: '增量修改完成',
           metadata: {
+            streaming: false,
             message_id: messageId,
-            content_mode: 'complete', // 🔧 修复：最终消息使用完整替换模式
-            stream_type: 'complete',
-            steps_executed: result.steps.length,
-            tools_used: Array.from(new Set(allToolCalls.map(tc => tc.toolName))),
-            files_modified: fileOperations.length,
-            total_tokens: result.usage?.totalTokens,
+            is_final: true,
             mode: 'incremental',
+            totalChunks: chunkCount,
             // 🔧 返回修改后的文件信息
-            hasCodeFiles: modifiedFiles.length > 0,
-            codeFilesReady: modifiedFiles.length > 0,
-            projectFiles: [...existingFiles, ...modifiedFiles],
-            totalFiles: existingFiles.length + modifiedFiles.length,
+            hasCodeFiles: finalProjectFiles.length > 0,
+            codeFilesReady: finalProjectFiles.length > 0,
+            projectFiles: finalProjectFiles,
+            totalFiles: finalProjectFiles.length,
             incrementalComplete: true,
+            // 🆕 工具调用结果
             modifiedFiles: modifiedFiles,
             modifiedFilesCount: modifiedFiles.length,
-            toolCallsExecuted: fileOperations.length > 0,
-            incrementalSuccess: true,
-            // 🆕 工具调用信息用于UI显示
-            toolCalls: toolCallsForUI
+            toolCallsExecuted: modifiedFiles.length > 0,
+            incrementalSuccess: true
           }
         }
       });
-
-      // 🔧 更新会话中的项目文件列表
-      if (modifiedFiles.length > 0) {
-        try {
-          const updatedProjectFiles = [...existingFiles, ...modifiedFiles];
-          await this.updateSessionWithProject(sessionData, updatedProjectFiles);
-          console.log(`💾 [会话更新] 已更新项目文件列表，总计 ${updatedProjectFiles.length} 个文件`);
-        } catch (error) {
-          console.error('❌ [会话更新失败]:', error);
-        }
-      }
-
-      // 更新对话历史
-      this.updateConversationHistory(sessionData, userInput, completionMessage);
-
-    } catch (error) {
-      console.error('❌ [Vercel AI 增量编辑] 处理失败:', error);
       
-      yield this.createResponse({
-        immediate_display: {
-          reply: '抱歉，处理您的增量修改请求时遇到了问题。请检查您的需求描述或稍后重试。',
-          agent_name: this.name,
-          timestamp: new Date().toISOString()
-        },
-        system_state: {
-          intent: 'incremental_error',
-          done: true,
-          progress: 0,
-          current_stage: '处理失败',
-          metadata: {
-            message_id: messageId,
-            error: error instanceof Error ? error.message : '未知错误',
-            mode: 'incremental'
-          }
-        }
-      });
+      // 🔧 保存增量对话历史
+      this.saveConversationHistory(sessionData, userInput, `增量修改完成${modifiedFiles.length > 0 ? `，已修改 ${modifiedFiles.length} 个文件` : ''}`);
+      
+    } catch (error) {
+      console.error('❌ [增量AI生成错误]:', error);
+      
+      // 🔧 重新抛出错误，让上层处理
+      throw error;
     }
   }
-
-  /**
-   * 🆕 辅助方法：检测文件语言类型
-   */
-  private detectLanguage(filename: string): string {
-    const ext = path.extname(filename).toLowerCase();
-    const languageMap: Record<string, string> = {
-      '.ts': 'typescript',
-      '.tsx': 'typescript',
-      '.js': 'javascript',
-      '.jsx': 'javascript',
-      '.py': 'python',
-      '.css': 'css',
-      '.scss': 'scss',
-      '.html': 'html',
-      '.json': 'json',
-      '.md': 'markdown',
-      '.yml': 'yaml',
-      '.yaml': 'yaml'
-    };
-    return languageMap[ext] || 'text';
-  }
-
-  /**
-   * 🆕 辅助方法：更新对话历史
-   */
-  private updateConversationHistory(sessionData: SessionData, userInput: string, assistantResponse: string) {
-    if (!this.conversationHistory.has(sessionData.id)) {
-      this.conversationHistory.set(sessionData.id, []);
-    }
-
-    const history = this.conversationHistory.get(sessionData.id)!;
-    history.push(
-      { role: 'user', content: userInput },
-      { role: 'assistant', content: assistantResponse }
-    );
-
-    // 保持历史记录在合理范围内
-    if (history.length > 20) {
-      history.splice(0, history.length - 20);
-    }
-  }
-
-  /**
-   * 🔧 保留原有的复杂增量编辑逻辑的其余部分（临时注释掉）
-   */
 
   /**
    * 🆕 分离文本和代码的核心方法
@@ -1808,161 +1448,19 @@ module.exports = {
   }
 
   /**
-   * 更新会话数据 - 🚀 现在使用Supabase存储和同步机制
+   * 更新会话数据
    */
-  private async updateSessionWithProject(sessionData: SessionData, files: CodeFile[]): Promise<void> {
-    try {
-      // 🚀 新方案：保存到Supabase项目存储
-      const { projectFileStorage } = await import('@/lib/services/project-file-storage');
-      const { safeCheckAuthStatus } = await import('@/lib/utils/auth-helper');
+  private updateSessionWithProject(sessionData: SessionData, files: CodeFile[]): void {
+    if (sessionData.metadata) {
+      (sessionData.metadata as any).generatedProject = {
+        files,
+        generatedAt: new Date().toISOString(),
+        totalFiles: files.length
+      };
       
-      const { userId, isAuthenticated } = await safeCheckAuthStatus();
-      
-      if (isAuthenticated && userId) {
-        console.log('💾 [Supabase存储] 保存项目文件到Supabase:', files.length);
-        
-        // 转换文件格式
-        const projectFiles = files.map(file => ({
-          filename: file.filename,
-          content: file.content,
-          language: file.language,
-          file_type: this.mapFileType(file.filename),
-          description: file.description
-        }));
-        
-        // 保存到Supabase
-        const result = await projectFileStorage.saveIncrementalEdit(
-          sessionData.id,
-          userId,
-          '项目文件更新',
-          projectFiles,
-          this.name
-        );
-        
-        // 🔄 同步到 chat_sessions 表
-        const { chatSessionSync } = await import('@/lib/agents/coding/database-file-tools');
-        const generatedContent = {
-          codeProject: {
-            files: files.map(file => ({
-              filename: file.filename,
-              content: file.content,
-              language: file.language,
-              description: file.description
-            }))
-          },
-          metadata: {
-            projectId: result.projectId,
-            commitId: result.commitId,
-            syncedAt: new Date().toISOString(),
-            storageType: 'supabase'
-          }
-        };
-        
-        // 同步到 chat_sessions
-        const syncResult = await chatSessionSync.syncSessionToProject(
-          sessionData.id,
-          userId,
-          generatedContent
-        );
-        
-        console.log('🔄 [会话同步] 同步结果:', syncResult);
-
-        // 更新会话元数据
-        if (sessionData.metadata) {
-          (sessionData.metadata as any).generatedProject = {
-            projectId: result.projectId,
-            commitId: result.commitId,
-            files,
-            generatedAt: new Date().toISOString(),
-            totalFiles: files.length,
-            storageType: 'supabase' // 🎯 标记存储类型
-          };
-          
-          // 🆕 保留兼容性，但标记为已迁移
-          (sessionData.metadata as any).projectFiles = files;
-          (sessionData.metadata as any).migratedToSupabase = true;
-          (sessionData.metadata as any).syncedToSession = syncResult.success;
-          
-          // 🆕 确保currentStage设置为code_generation
-          if (sessionData.metadata.progress) {
-            sessionData.metadata.progress.currentStage = 'code_generation';
-            sessionData.metadata.progress.percentage = 90;
-            if (!sessionData.metadata.progress.completedStages.includes('code_generation')) {
-              sessionData.metadata.progress.completedStages.push('code_generation');
-            }
-          }
-        }
-        
-        console.log('✅ [Supabase存储] 项目文件保存成功:', result);
-      } else {
-        // 🔄 降级到原有方案（未登录用户）
-        console.log('⚠️ [会话存储] 用户未登录，使用会话存储');
-        
-        if (sessionData.metadata) {
-          (sessionData.metadata as any).generatedProject = {
-            files,
-            generatedAt: new Date().toISOString(),
-            totalFiles: files.length,
-            storageType: 'session' // 🎯 标记存储类型
-          };
-          
-          (sessionData.metadata as any).projectFiles = files;
-          
-          // 🆕 确保currentStage设置为code_generation
-          if (sessionData.metadata.progress) {
-            sessionData.metadata.progress.currentStage = 'code_generation';
-            sessionData.metadata.progress.percentage = 90;
-            if (!sessionData.metadata.progress.completedStages.includes('code_generation')) {
-              sessionData.metadata.progress.completedStages.push('code_generation');
-            }
-          }
-        }
-      }
-      
-    } catch (error) {
-      console.error('❌ [存储失败] Supabase存储失败，降级到会话存储:', error);
-      
-      // 🛡️ 错误处理：降级到原有方案
-      if (sessionData.metadata) {
-        (sessionData.metadata as any).generatedProject = {
-          files,
-          generatedAt: new Date().toISOString(),
-          totalFiles: files.length,
-          storageType: 'session',
-          storageError: error instanceof Error ? error.message : '未知错误'
-        };
-        
-        (sessionData.metadata as any).projectFiles = files;
-        
-        // 🆕 确保currentStage设置为code_generation
-        if (sessionData.metadata.progress) {
-          sessionData.metadata.progress.currentStage = 'code_generation';
-          sessionData.metadata.progress.percentage = 90;
-          if (!sessionData.metadata.progress.completedStages.includes('code_generation')) {
-            sessionData.metadata.progress.completedStages.push('code_generation');
-          }
-        }
-      }
+      // 🆕 同时保存到projectFiles字段，用于增量编辑
+      (sessionData.metadata as any).projectFiles = files;
     }
-  }
-
-  /**
-   * 🛠️ 映射文件类型
-   */
-  private mapFileType(filename: string): 'page' | 'component' | 'config' | 'styles' | 'data' {
-    if (filename.includes('/pages/') || filename.includes('/app/') && filename.endsWith('page.tsx')) {
-      return 'page';
-    }
-    if (filename.includes('/components/')) {
-      return 'component';
-    }
-    if (filename.includes('.config.') || filename.includes('package.json') || filename.includes('.json')) {
-      return 'config';
-    }
-    if (filename.includes('.css') || filename.includes('.scss') || filename.includes('.module.')) {
-      return 'styles';
-    }
-    return 'data';
   }
 
   /**
@@ -1975,20 +1473,6 @@ module.exports = {
     modifiedFiles: CodeFile[]
   ): Promise<string> {
     console.log(`🔧 [增量工具] 执行 ${toolName}`, params);
-    
-    // 🔍 验证工具输入参数
-    // 🔧 临时替代：简单的工具输入验证
-    const validateToolInput = (toolName: string, input: any) => {
-      console.log(`🔧 [工具验证] ${toolName}:`, input);
-      return { valid: true, input, errors: [] };
-    };
-    const validation = validateToolInput(toolName, params);
-    
-    if (!validation.valid) {
-      const errorMsg = `工具 ${toolName} 参数验证失败: ${validation.errors.join(', ')}`;
-      console.error(`❌ [参数验证]`, errorMsg);
-      return errorMsg;
-    }
     
     try {
       switch (toolName) {
@@ -2003,18 +1487,6 @@ module.exports = {
           
         case 'append_to_file':
           return await this.handleAppendToFile(params, existingFiles, modifiedFiles);
-          
-        case 'delete_file':
-          return await this.handleDeleteFile(params, existingFiles, modifiedFiles);
-          
-        case 'search_code':
-          return await this.handleSearchCode(params, existingFiles);
-          
-        case 'get_file_structure':
-          return await this.handleGetFileStructure(params, existingFiles);
-          
-        case 'run_command':
-          return await this.handleRunCommand(params);
           
         case 'list_files':
           return await this.handleListFiles(existingFiles);
@@ -2173,145 +1645,6 @@ module.exports = {
   }
   
   /**
-   * 处理文件删除
-   */
-  private async handleDeleteFile(
-    params: any, 
-    existingFiles: CodeFile[], 
-    modifiedFiles: CodeFile[]
-  ): Promise<string> {
-    const filePath = params.file_path;
-    
-    // 从现有文件中移除
-    const existingIndex = existingFiles.findIndex(f => f.filename === filePath);
-    const modifiedIndex = modifiedFiles.findIndex(f => f.filename === filePath);
-    
-    if (existingIndex === -1 && modifiedIndex === -1) {
-      return `文件 ${filePath} 不存在，无法删除`;
-    }
-    
-    // 标记为删除（通过创建一个特殊的删除标记文件）
-    const deleteMarker: CodeFile = {
-      filename: filePath,
-      content: '// 此文件已被删除',
-      language: 'text',
-      description: '删除标记'
-    };
-    
-    // 如果在修改列表中，直接替换；否则添加删除标记
-    if (modifiedIndex >= 0) {
-      modifiedFiles[modifiedIndex] = deleteMarker;
-    } else {
-      modifiedFiles.push(deleteMarker);
-    }
-    
-    return `文件 ${filePath} 已标记为删除`;
-  }
-
-  /**
-   * 处理代码搜索
-   */
-  private async handleSearchCode(params: any, existingFiles: CodeFile[]): Promise<string> {
-    const query = params.query;
-    const filePattern = params.file_pattern;
-    
-    const results: Array<{filename: string, lineNumber: number, content: string}> = [];
-    
-    for (const file of existingFiles) {
-      // 如果指定了文件模式，先过滤文件
-      if (filePattern && !file.filename.includes(filePattern)) {
-        continue;
-      }
-      
-      const lines = file.content.split('\n');
-      lines.forEach((line, index) => {
-        if (line.toLowerCase().includes(query.toLowerCase())) {
-          results.push({
-            filename: file.filename,
-            lineNumber: index + 1,
-            content: line.trim()
-          });
-        }
-      });
-    }
-    
-    if (results.length === 0) {
-      return `未找到包含 "${query}" 的代码`;
-    }
-    
-    const resultStr = results
-      .slice(0, 20) // 限制结果数量
-      .map(r => `${r.filename}:${r.lineNumber}: ${r.content}`)
-      .join('\n');
-    
-    return `找到 ${results.length} 个匹配项${results.length > 20 ? '（显示前20个）' : ''}:\n${resultStr}`;
-  }
-
-  /**
-   * 处理获取文件结构
-   */
-  private async handleGetFileStructure(params: any, existingFiles: CodeFile[]): Promise<string> {
-    const directory = params.directory || '';
-    
-    // 按目录组织文件
-    const filesByDir: Record<string, string[]> = {};
-    
-    existingFiles.forEach(file => {
-      // 如果指定了目录，只显示该目录下的文件
-      if (directory && !file.filename.startsWith(directory)) {
-        return;
-      }
-      
-      const pathParts = file.filename.split('/');
-      const dir = pathParts.length > 1 ? pathParts.slice(0, -1).join('/') : 'root';
-      const fileName = pathParts[pathParts.length - 1];
-      
-      if (!filesByDir[dir]) {
-        filesByDir[dir] = [];
-      }
-      filesByDir[dir].push(fileName);
-    });
-    
-    // 构建树状结构字符串
-    let structure = `项目文件结构${directory ? ` (${directory})` : ''}:\n`;
-    
-    Object.keys(filesByDir).sort().forEach(dir => {
-      structure += `📁 ${dir}/\n`;
-      filesByDir[dir].sort().forEach(file => {
-        structure += `  📄 ${file}\n`;
-      });
-    });
-    
-    return structure;
-  }
-
-  /**
-   * 处理运行命令
-   */
-  private async handleRunCommand(params: any): Promise<string> {
-    const command = params.command;
-    const directory = params.directory;
-    
-    // 出于安全考虑，这里只是模拟命令执行
-    // 在实际环境中，您可能需要更严格的安全控制
-    
-    console.log(`🔧 [模拟命令执行] ${command}${directory ? ` (在 ${directory})` : ''}`);
-    
-    // 模拟一些常见命令的响应
-    if (command.includes('npm install')) {
-      return '模拟执行 npm install - 依赖安装完成';
-    } else if (command.includes('npm run build')) {
-      return '模拟执行 npm run build - 构建成功';
-    } else if (command.includes('npm test')) {
-      return '模拟执行 npm test - 测试通过';
-    } else if (command.includes('git')) {
-      return `模拟执行 git 命令: ${command} - 执行成功`;
-    } else {
-      return `模拟执行命令: ${command} - 执行完成`;
-    }
-  }
-
-  /**
    * 处理文件列表
    */
   private async handleListFiles(existingFiles: CodeFile[]): Promise<string> {
@@ -2324,271 +1657,5 @@ module.exports = {
    */
   protected delay(ms: number): Promise<void> {
     return new Promise(resolve => setTimeout(resolve, ms));
-  }
-
-  /**
-   * 🎯 分析用户需求，智能推断需要的工具
-   */
-  private analyzeUserNeed(userInput: string): {
-    requiresTools: boolean;
-    tools: string[];
-    actions: Array<{
-      name: string;
-      params: Record<string, any>;
-    }>;
-  } {
-    const input = userInput.toLowerCase();
-    const actions: Array<{ name: string; params: Record<string, any> }> = [];
-    
-    // 检测颜色修改需求
-    if (input.includes('修改') && (input.includes('颜色') || input.includes('标题'))) {
-      console.log('🎯 [需求分析] 检测到颜色修改需求');
-      
-      // 推断目标颜色
-      const targetColor = input.includes('红色') ? 'red' : 
-                         input.includes('绿色') ? 'green' :
-                         input.includes('蓝色') ? 'blue' :
-                         input.includes('黄色') ? 'yellow' :
-                         'green'; // 默认绿色
-      
-      actions.push({
-        name: 'read_file',
-        params: { file_path: 'app/page.tsx' }
-      });
-      
-      actions.push({
-        name: 'edit_file',
-        params: {
-          file_path: 'app/page.tsx',
-          old_content: 'text-gray-900',
-          new_content: `text-${targetColor}-600`
-        }
-      });
-      
-      return {
-        requiresTools: true,
-        tools: ['read_file', 'edit_file'],
-        actions
-      };
-    }
-    
-    // 默认不需要工具
-    return {
-      requiresTools: false,
-      tools: [],
-      actions: []
-    };
-  }
-
-  /**
-   * 🚀 按照Claude官方文档实现正确的工具调用流程
-   */
-  private async *callLLMWithProperToolHandling(
-    prompt: string,
-    systemPrompt: string,
-    tools: any[],
-    sessionData: SessionData,
-    existingFiles: CodeFile[],
-    modifiedFiles: CodeFile[]
-  ): AsyncGenerator<any, void, unknown> {
-    try {
-      console.log('🤖 [Claude工具调用] 发起带工具的AI请求');
-      
-      // 第一步：发送带工具的请求
-      const response = await this.callLLM(prompt, {
-        system: systemPrompt,
-        maxTokens: 8000,
-        sessionId: sessionData.id,
-        useHistory: true
-      });
-      
-      console.log('🔍 [Claude响应分析] 响应类型:', typeof response);
-      
-      // 第二步：解析工具调用请求
-      const toolUseRequests = this.parseToolUseFromResponse(response);
-      
-      if (toolUseRequests.length > 0) {
-        console.log(`🔧 [工具执行] 解析到 ${toolUseRequests.length} 个工具调用请求`);
-        
-        // 第三步：执行工具
-        for (const toolRequest of toolUseRequests) {
-          try {
-            yield this.createResponse({
-              immediate_display: {
-                reply: `🔧 正在执行: ${toolRequest.name}`,
-                agent_name: this.name,
-                timestamp: new Date().toISOString()
-              },
-              system_state: {
-                intent: 'tool_execution_start',
-                done: false,
-                metadata: { toolName: toolRequest.name, params: toolRequest.input }
-              }
-            });
-            
-            const result = await this.executeIncrementalTool(
-              toolRequest.name,
-              toolRequest.input,
-              existingFiles,
-              modifiedFiles
-            );
-            
-            yield this.createResponse({
-              immediate_display: {
-                reply: `✅ ${toolRequest.name} 执行完成: ${result}`,
-                agent_name: this.name,
-                timestamp: new Date().toISOString()
-              },
-              system_state: {
-                intent: 'tool_execution_result',
-                done: false,
-                metadata: { toolName: toolRequest.name, result, success: true }
-              }
-            });
-            
-          } catch (error) {
-            console.error(`❌ [工具执行失败] ${toolRequest.name}:`, error);
-            
-            yield this.createResponse({
-              immediate_display: {
-                reply: `❌ ${toolRequest.name} 执行失败: ${error instanceof Error ? error.message : '未知错误'}`,
-                agent_name: this.name,
-                timestamp: new Date().toISOString()
-              },
-              system_state: {
-                intent: 'tool_execution_error',
-                done: false,
-                metadata: { toolName: toolRequest.name, error: error instanceof Error ? error.message : '未知错误' }
-              }
-            });
-          }
-        }
-        
-      } else {
-        console.log('💬 [无工具调用] Claude选择直接回应');
-        
-        // 如果没有工具调用，流式输出Claude的直接回应
-        for await (const chunk of this.callLLMStreaming(prompt, {
-          system: systemPrompt,
-          maxTokens: 2000,
-          sessionId: sessionData.id,
-          useHistory: true
-        })) {
-          yield this.createResponse({
-            immediate_display: {
-              reply: chunk,
-              agent_name: this.name,
-              timestamp: new Date().toISOString()
-            },
-            system_state: {
-              intent: 'text_response',
-              done: false,
-              metadata: { streaming: true }
-            }
-          });
-        }
-      }
-      
-    } catch (error) {
-      console.error('❌ [Claude工具调用失败]:', error);
-      yield this.createResponse({
-        immediate_display: {
-          reply: `❌ 工具调用过程出错: ${error instanceof Error ? error.message : '未知错误'}`,
-          agent_name: this.name,
-          timestamp: new Date().toISOString()
-        },
-        system_state: {
-          intent: 'error',
-          done: true,
-          metadata: { error: error instanceof Error ? error.message : '未知错误' }
-        }
-      });
-    }
-  }
-
-  /**
-   * 🔧 将内部工具格式转换为Claude API格式
-   */
-  private convertToClaudeToolFormat(tools: any[]): any[] {
-    return tools.map(tool => ({
-      name: tool.name,
-      description: tool.description,
-      input_schema: tool.parameters || tool.input_schema || {
-        type: "object",
-        properties: {},
-        required: []
-      }
-    }));
-  }
-
-  /**
-   * 🔍 从Claude响应中解析工具调用请求
-   */
-  private parseToolUseFromResponse(response: any): Array<{
-    id: string;
-    name: string;
-    input: Record<string, any>;
-  }> {
-    try {
-      const toolUseRequests: Array<{
-        id: string;
-        name: string;
-        input: Record<string, any>;
-      }> = [];
-      
-      console.log('📝 [响应解析] 分析Claude响应:', typeof response, String(response).substring(0, 200));
-      
-      // 智能推断工具调用（基于常见需求模式）
-      if (typeof response === 'string') {
-        const responseText = response.toLowerCase();
-        
-        if (responseText.includes('修改') && (responseText.includes('颜色') || responseText.includes('标题'))) {
-          console.log('🎯 [智能推断] 检测到颜色修改需求');
-          
-          toolUseRequests.push({
-            id: `smart_read_${Date.now()}`,
-            name: 'read_file',
-            input: { file_path: 'app/page.tsx' }
-          });
-          
-          toolUseRequests.push({
-            id: `smart_edit_${Date.now()}`,
-            name: 'edit_file', 
-            input: {
-              file_path: 'app/page.tsx',
-              old_content: 'text-gray-900',
-              new_content: 'text-green-600'
-            }
-          });
-        }
-      }
-      
-      console.log(`🔧 [工具解析] 推断出 ${toolUseRequests.length} 个工具调用:`, 
-        toolUseRequests.map(req => `${req.name}(${Object.keys(req.input).join(', ')})`));
-      
-      return toolUseRequests;
-      
-    } catch (error) {
-      console.error('❌ [工具解析失败]:', error);
-      return [];
-    }
-  }
-
-  /**
-   * 🎯 获取工具描述
-   */
-  private getToolDescription(toolName: string, params: Record<string, any>): string {
-    switch (toolName) {
-      case 'read_file':
-        return `读取文件 ${params.file_path}`;
-      case 'edit_file':
-        return `修改文件 ${params.file_path}`;
-      case 'write_file':
-        return `创建文件 ${params.file_path}`;
-      case 'delete_file':
-        return `删除文件 ${params.file_path}`;
-      default:
-        return `执行 ${toolName}`;
-    }
   }
 } 

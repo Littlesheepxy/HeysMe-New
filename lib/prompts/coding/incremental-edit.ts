@@ -2,17 +2,11 @@
  * 增量编辑专用Agent - 专门处理代码的增量修改和工具调用
  */
 
-// 导入AI SDK工具定义
-import { tool } from 'ai';
-import { z } from 'zod';
-
 export const INCREMENTAL_EDIT_PROMPT = `你是HeysMe平台的代码增量编辑专家，专门处理现有项目的修改、优化和功能扩展。
 
 ## 🎯 增量编辑核心理念
 
-**🚨 重要规则：你必须且只能使用工具调用来执行文件操作！**
-**❌ 禁止直接输出代码块（如 \`\`\`typescript 等格式）**
-**✅ 必须使用 read_file、edit_file、write_file 等工具**
+**重要：你必须使用工具调用来执行文件操作，不要直接输出代码块！**
 
 ### 📋 输入信息：
 - **现有文件结构**：{file_structure}
@@ -233,83 +227,158 @@ export const INCREMENTAL_EDIT_CONFIG = {
 };
 
 /**
- * 增量编辑工具定义 - 使用Anthropic标准JSON格式
- * @deprecated 请使用 ANTHROPIC_STANDARD_TOOLS 获取最新的标准化工具定义
+ * 增量编辑工具定义 - Claude标准JSON格式
  */
-// 创建ai-sdk标准格式的工具定义
-export const INCREMENTAL_EDIT_TOOLS = {
-  read_file: tool({
-    description: "读取项目文件内容进行分析。支持读取完整文件或指定行号范围。用于理解现有代码结构、分析文件内容或检查特定代码段。",
-    inputSchema: z.object({
-      file_path: z.string().describe("要读取的文件路径，支持相对路径和绝对路径"),
-      start_line: z.number().optional().describe("起始行号（可选），从1开始计数"),
-      end_line: z.number().optional().describe("结束行号（可选），必须大于等于start_line")
-    })
-  }),
-  
-  write_file: tool({
-    description: "创建新文件或完全重写现有文件。用于生成全新的代码文件、配置文件或文档。",
-    inputSchema: z.object({
-      file_path: z.string().describe("要写入的文件路径"),
-      content: z.string().describe("要写入的完整文件内容")
-    })
-  }),
-  
-  edit_file: tool({
-    description: "对现有文件进行精确的部分修改。用于修改特定的代码行、函数、组件或配置项。",
-    inputSchema: z.object({
-      file_path: z.string().describe("要编辑的文件路径"),
-      old_content: z.string().describe("需要替换的原内容"),
-      new_content: z.string().describe("新内容"),
-      line_number: z.number().optional().describe("行号（可选）")
-    })
-  }),
-  
-  append_to_file: tool({
-    description: "在现有文件末尾添加新内容。用于向文件添加新的函数、组件、样式规则等。",
-    inputSchema: z.object({
-      file_path: z.string().describe("要追加内容的文件路径"),
-      content: z.string().describe("要追加的内容")
-    })
-  }),
-  
-  delete_file: tool({
-    description: "安全删除不再需要的文件。用于清理过时的组件、临时文件等。",
-    inputSchema: z.object({
-      file_path: z.string().describe("要删除的文件路径")
-    })
-  }),
-  
-  search_code: tool({
-    description: "在项目代码库中搜索特定的代码内容、函数名、变量名或文本模式。",
-    inputSchema: z.object({
-      query: z.string().describe("搜索查询字符串"),
-      file_pattern: z.string().optional().describe("文件模式（可选）")
-    })
-  }),
-  
-  get_file_structure: tool({
-    description: "获取项目的文件和目录结构树状视图。用于了解项目组织结构。",
-    inputSchema: z.object({
-      directory: z.string().optional().describe("目录路径（可选，默认为根目录）")
-    })
-  }),
-  
-  run_command: tool({
-    description: "执行项目构建、测试或开发相关的shell命令。用于安装依赖、运行构建脚本等。",
-    inputSchema: z.object({
-      command: z.string().describe("要执行的命令"),
-      directory: z.string().optional().describe("执行目录（可选）")
-    })
-  }),
-  
-  list_files: tool({
-    description: "列出项目中所有文件的简洁清单，包括文件类型信息。",
-    inputSchema: z.object({
-      directory: z.string().optional().describe("目录路径（可选）")
-    })
-  })
-};
+export const INCREMENTAL_EDIT_TOOLS = [
+  {
+    name: "read_file",
+    description: "读取文件内容进行分析",
+    input_schema: {
+      type: "object",
+      properties: {
+        file_path: {
+          type: "string",
+          description: "要读取的文件路径"
+        },
+        start_line: {
+          type: "number",
+          description: "起始行号（可选）"
+        },
+        end_line: {
+          type: "number", 
+          description: "结束行号（可选）"
+        }
+      },
+      required: ["file_path"]
+    }
+  },
+  {
+    name: "write_file",
+    description: "写入文件内容",
+    input_schema: {
+      type: "object",
+      properties: {
+        file_path: {
+          type: "string",
+          description: "要写入的文件路径"
+        },
+        content: {
+          type: "string",
+          description: "文件内容"
+        }
+      },
+      required: ["file_path", "content"]
+    }
+  },
+  {
+    name: "edit_file",
+    description: "编辑现有文件的特定部分",
+    input_schema: {
+      type: "object",
+      properties: {
+        file_path: {
+          type: "string",
+          description: "要编辑的文件路径"
+        },
+        old_content: {
+          type: "string",
+          description: "需要替换的原内容"
+        },
+        new_content: {
+          type: "string",
+          description: "新内容"
+        },
+        line_number: {
+          type: "number",
+          description: "行号（可选）"
+        }
+      },
+      required: ["file_path", "old_content", "new_content"]
+    }
+  },
+  {
+    name: "append_to_file",
+    description: "在文件末尾追加内容",
+    input_schema: {
+      type: "object",
+      properties: {
+        file_path: {
+          type: "string",
+          description: "要追加内容的文件路径"
+        },
+        content: {
+          type: "string",
+          description: "要追加的内容"
+        }
+      },
+      required: ["file_path", "content"]
+    }
+  },
+  {
+    name: "delete_file",
+    description: "删除文件",
+    input_schema: {
+      type: "object",
+      properties: {
+        file_path: {
+          type: "string",
+          description: "要删除的文件路径"
+        }
+      },
+      required: ["file_path"]
+    }
+  },
+  {
+    name: "search_code",
+    description: "在代码库中搜索特定内容",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "搜索查询"
+        },
+        file_pattern: {
+          type: "string",
+          description: "文件模式（可选）"
+        }
+      },
+      required: ["query"]
+    }
+  },
+  {
+    name: "get_file_structure",
+    description: "获取项目文件结构",
+    input_schema: {
+      type: "object",
+      properties: {
+        directory: {
+          type: "string",
+          description: "目录路径（可选，默认为根目录）"
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: "run_command",
+    description: "执行shell命令",
+    input_schema: {
+      type: "object",
+      properties: {
+        command: {
+          type: "string",
+          description: "要执行的命令"
+        },
+        directory: {
+          type: "string",
+          description: "执行目录（可选）"
+        }
+      },
+      required: ["command"]
+    }
+  }
+];
 
 /**
  * 获取增量编辑提示词
