@@ -461,7 +461,7 @@ export function CodeEditorPanel({
             description={description}
             isLoading={isLoading}
             previewUrl={previewUrl}
-
+            enableVercelDeploy={!isStreaming} // 🎯 生成期间禁用部署
             onPreviewReady={setPreviewUrl}
             onLoadingChange={setIsLoading}
             onRefresh={() => {

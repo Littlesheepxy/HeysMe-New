@@ -90,7 +90,7 @@ export default function TestVisualEditPage() {
             description="测试可视化编辑功能"
             isLoading={false}
             previewUrl={null}
-
+            enableVercelDeploy={true}
             isEditMode={true}
             onContentChange={handleSendMessage}
             onPreviewReady={() => {}}

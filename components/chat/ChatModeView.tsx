@@ -11,7 +11,6 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { useTheme } from '@/contexts/theme-context';
 import { motion } from 'framer-motion';
 import { EnhancedInputBox } from '@/components/ui/enhanced-input-box';
-import { FloatingStageIndicator } from '@/components/ui/stage-indicator';
 
 interface ChatModeViewProps {
   currentSession: any;
@@ -19,10 +18,6 @@ interface ChatModeViewProps {
   onSendMessage: (message: string, option?: any) => void;
   sessionId?: string;
   onFileUpload?: (file: File) => void;
-  // 🆕 阶段指示器相关props
-  currentStage?: string;
-  progress?: number;
-  sessionMode?: string;
 }
 
 // 🔧 优化：使用React.memo减少不必要的重新渲染
@@ -31,10 +26,7 @@ export const ChatModeView = memo(function ChatModeView({
   isGenerating,
   onSendMessage,
   sessionId,
-  onFileUpload,
-  currentStage,
-  progress,
-  sessionMode
+  onFileUpload
 }: ChatModeViewProps) {
   const { theme } = useTheme();
   
@@ -152,7 +144,6 @@ export const ChatModeView = memo(function ChatModeView({
                     isGenerating={isGenerating && index === currentMessages.length - 1}
                     onSendMessage={onSendMessage}
                     sessionId={sessionId}
-                    messageIndex={index} // 传递消息索引用于版本号计算
                   />
                 ))}
                 

@@ -8,7 +8,6 @@ import { useTheme } from '@/contexts/theme-context';
 import { motion } from 'framer-motion';
 import { PrivacyToggle } from '@/components/ui/privacy-toggle';
 import { ThemeToggle } from '@/components/navigation/theme-toggle';
-import { FloatingStageIndicator } from '@/components/ui/stage-indicator';
 
 interface ChatHeaderProps {
   chatMode?: 'normal' | 'professional';
@@ -17,11 +16,6 @@ interface ChatHeaderProps {
   onBackToChat?: () => void;
   isPrivacyMode?: boolean;
   onPrivacyModeChange?: (enabled: boolean) => void;
-  // 🆕 阶段指示器相关
-  currentStage?: string;
-  progress?: number;
-  sessionMode?: string;
-  hasStartedChat?: boolean;
 }
 
 export function ChatHeader({ 
@@ -30,11 +24,7 @@ export function ChatHeader({
   isCodeMode = false,
   onBackToChat,
   isPrivacyMode = false,
-  onPrivacyModeChange,
-  currentStage,
-  progress,
-  sessionMode,
-  hasStartedChat = false
+  onPrivacyModeChange
 }: ChatHeaderProps) {
   const { theme } = useTheme();
 
@@ -52,7 +42,6 @@ export function ChatHeader({
     >
       <div className="px-4 py-3">
         <div className="flex items-center justify-between">
-          {/* 左侧区域 */}
           <div className="flex items-center gap-4">
             {/* 代码模式下显示返回按钮 */}
             {isCodeMode && onBackToChat && (
@@ -126,18 +115,6 @@ export function ChatHeader({
             )}
           </div>
           
-          {/* 中间区域 - 悬浮阶段指示器 (已开始聊天时显示) */}
-          {currentStage && progress !== undefined && progress >= 0 && hasStartedChat && (
-            <div className="flex-1 flex justify-center ml-[200px]">
-              <FloatingStageIndicator
-                currentStage={currentStage}
-                percentage={progress}
-                mode={sessionMode || (isCodeMode ? 'coding' : 'chat')}
-              />
-            </div>
-          )}
-          
-          {/* 右侧区域 */}
           <div className="flex items-center gap-3">
             {/* 隐私模式开关 */}
             {onPrivacyModeChange && (

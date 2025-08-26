@@ -67,8 +67,6 @@ interface CodePreviewToggleProps {
   // 🆕 自动部署相关
   autoDeployEnabled?: boolean;
   isProjectComplete?: boolean;
-  // 🆕 版本管理相关
-  sessionId?: string;
   onAutoDeployStatusChange?: (enabled: boolean) => void;
   deploymentUrl?: string;
 }
@@ -325,8 +323,7 @@ export function CodePreviewToggle({
   autoDeployEnabled = false,
   isProjectComplete = false,
   onAutoDeployStatusChange,
-  deploymentUrl,
-  sessionId
+  deploymentUrl
 }: CodePreviewToggleProps) {
   const { theme } = useTheme();
   const [viewMode, setViewMode] = useState<ViewMode>('preview');
@@ -335,7 +332,6 @@ export function CodePreviewToggle({
   const [hasAutoDeployed, setHasAutoDeployed] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [showAiTip, setShowAiTip] = useState(true);
-  const [isAutoDeploying, setIsAutoDeploying] = useState(false);
 
   // 🚀 自动部署逻辑：项目完成后自动触发部署（但要检查是否已有保存的URL）
   React.useEffect(() => {
@@ -357,22 +353,15 @@ export function CodePreviewToggle({
       console.log('🚀 [自动部署] 触发自动部署，项目已完成');
       console.log(`📊 [自动部署] 检测到 ${files.length} 个文件，开始部署流程`);
       
-      // 🔧 修复：立即设置标志，防止重复触发
-      setHasAutoDeployed(true);
-      
       // 延迟一秒后自动部署，确保所有文件都已准备就绪
       const deployTimer = setTimeout(async () => {
         try {
           console.log('🎯 [自动部署] 调用部署函数...');
-          setIsAutoDeploying(true);
           await onDeploy();
+          setHasAutoDeployed(true);
           console.log('✅ [自动部署] 部署函数调用完成');
         } catch (error) {
           console.error('❌ [自动部署] 部署失败:', error);
-          // 部署失败时重置标志，允许重试
-          setHasAutoDeployed(false);
-        } finally {
-          setIsAutoDeploying(false);
         }
       }, 1000);
       
@@ -685,20 +674,23 @@ export function CodePreviewToggle({
                 files={files}
                 projectName={previewData?.projectName || '项目预览'}
                 description={previewData?.description}
-                isLoading={isAutoDeploying}
+                isLoading={false}
                 previewUrl={deploymentUrl || previewUrl}
-                sessionId={sessionId}
+                enableVercelDeploy={true}
                 onPreviewReady={handlePreviewReady}
                 onLoadingChange={(loading: boolean) => console.log('Loading:', loading)}
                 isEditMode={editMode === 'ai'}
                 onContentChange={handleContentChange}
-                isGeneratingCode={isAutoDeploying}
-                generationProgress={isAutoDeploying ? 50 : 0}
-                generationStatus={isAutoDeploying ? '正在自动部署预览...' : ''}
                 onRefresh={async () => {
-                  console.log('🔄 [CodePreviewToggle] 刷新请求...');
-                  // 🔧 修复：不要重复调用外部onDeploy，让VercelPreview内部处理刷新
-                  // VercelPreview会根据情况选择iframe刷新或重新部署
+                  console.log('🔄 [CodePreviewToggle] 刷新请求，重新部署...');
+                  if (onDeploy) {
+                    try {
+                      await onDeploy();
+                      console.log('✅ [CodePreviewToggle] 重新部署完成');
+                    } catch (error) {
+                      console.error('❌ [CodePreviewToggle] 重新部署失败:', error);
+                    }
+                  }
                 }}
               />
             </motion.div>

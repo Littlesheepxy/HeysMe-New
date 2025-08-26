@@ -1,11 +1,3 @@
-/**
- * 优化版信息收集 Agent [已弃用]
- * 集成了多种数据源和智能分析能力
- * 
- * 注意：当前项目使用的是 vercel-ai-agent.ts，此文件仅作为备份参考
- * 请使用 VercelAIInfoCollectionAgent 进行开发和测试
- */
-
 import { BaseAgent } from '../base-agent';
 import { StreamableAgentResponse, AgentCapabilities } from '@/lib/types/streaming';
 import { SessionData } from '@/lib/types/session';
@@ -287,21 +279,8 @@ export class OptimizedInfoCollectionAgent extends BaseAgent {
       // 提取Welcome数据
       const welcomeData = this.extractWelcomeData(sessionData);
       
-      // 🆕 检查是否是第一次进入信息收集阶段
-      const currentTurn = this.getTurnCount(sessionData);
-      const isFirstTime = this.isFirstTimeInInfoCollection(sessionData);
-      
-      if (isFirstTime) {
-        console.log(`🌟 [首次启动] 这是Info Collection阶段的第一次启动，发送过渡消息`);
-        yield* this.createWelcomeToInfoCollectionFlow(welcomeData, sessionData);
-        
-        // 🔧 正确逻辑：发送过渡消息后，总是返回，等待用户下一轮输入
-        console.log(`✅ [过渡完成] 过渡消息已发送，等待用户提供链接、文档或文本`);
-        return;
-      }
-      
       // 检查轮次限制
-      console.log(`🔄 [轮次检查] 开始检查轮次限制...`);
+      const currentTurn = this.getTurnCount(sessionData);
       const maxTurns = this.getMaxTurns(sessionData);
       
       if (currentTurn >= maxTurns) {
@@ -315,27 +294,10 @@ export class OptimizedInfoCollectionAgent extends BaseAgent {
       
       console.log(`🔄 [轮次信息] 当前第${currentTurn + 1}轮，最大${maxTurns}轮`);
       
-      // 🆕 检查是否达到推进条件
-      console.log(`🎯 [推进检查] 开始检查是否达到推进条件...`);
-      if (this.shouldAdvanceToNextStage(sessionData, welcomeData)) {
-        console.log(`✅ [推进条件] 收集信息充足，自动推进到下一阶段`);
-        yield* this.createAdvanceResponseStream({
-          collection_status: 'READY_TO_ADVANCE',
-          user_type: 'information_rich',
-          collected_data: this.extractCollectedData(sessionData),
-          confidence_level: 'HIGH',
-          reasoning: '用户已提供足够信息，可以推进到设计阶段',
-          collection_summary: '信息收集完成'
-        } as InfoCollectionHiddenControl, sessionData);
-        return;
-      }
-      
       // 显示分析进度
-      console.log(`💭 [分析开始] 准备分析用户输入并调用工具...`);
       yield this.createThinkingResponse('🔍 正在分析您提供的信息...', 20);
       
       // 使用流式处理调用Claude分析（支持工具调用）
-      console.log(`🧠 [Claude分析] 开始调用Claude进行智能分析和工具调用...`);
       yield* this.analyzeInputWithClaudeToolCalling(input.user_input, welcomeData, sessionData);
       
     } catch (error) {
@@ -413,50 +375,26 @@ export class OptimizedInfoCollectionAgent extends BaseAgent {
       const messageId = `info-collection-${Date.now()}`;
 
       try {
-        // 🔧 关键修复：将session历史同步到BaseAgent
-        const infoCollectionHistory = (sessionData?.metadata as any)?.infoCollectionHistory || [];
-        if (!this.conversationHistory.has(sessionData.id)) {
-          this.conversationHistory.set(sessionData.id, []);
-        }
-        const baseAgentHistory = this.conversationHistory.get(sessionData.id)!;
-        if (baseAgentHistory.length === 0 && infoCollectionHistory.length > 0) {
-          console.log(`🔄 [OptimizedInfo历史同步] 从session恢复 ${infoCollectionHistory.length} 条历史到BaseAgent`);
-          baseAgentHistory.push(...infoCollectionHistory);
-        }
+        // 使用非流式方式获取完整响应以检查工具调用
+        const response = await this.callLLM(userInput, {
+          system: systemPrompt,
+          maxTokens: 64000,
+          sessionId: sessionData.id,
+          useHistory: true
+        });
 
-        // 🔧 优先执行工具检测，不依赖 LLM 调用结果
-        console.log(`🔍 [工具检测] 开始自动检测用户输入中的工具调用机会...`);
-        toolCallResults = await this.autoDetectAndExecuteTools(userInput);
-        console.log(`📊 [工具结果] 自动检测完成，结果数量: ${toolCallResults.length}`);
-
-        // 🔧 然后尝试 LLM 调用（如果失败不影响工具调用结果）
-        let response: string = '';
+        // 检查响应中是否包含工具调用标记
+        const hasToolCallPattern = /\[Tool:(.*?)\]/g;
+        const toolMatches = Array.from(response.matchAll(hasToolCallPattern));
         
-        try {
-          const responseData = await this.callLLM(userInput, {
-            system: systemPrompt,
-            maxTokens: 64000,
-            sessionId: sessionData.id,
-            useHistory: true
-          });
-          
-          if (typeof responseData === 'object') {
-            response = responseData.text || responseData.content || String(responseData);
-          } else {
-            response = String(responseData);
-          }
-          console.log(`✅ [LLM调用] 成功，响应长度: ${response.length}`);
-        } catch (llmError) {
-          console.error(`❌ [LLM调用失败]`, llmError);
-          response = '基于您提供的信息进行分析...';
-        }
-        
-        if (toolCallResults.length > 0) {
+        if (toolMatches.length > 0) {
           hasToolCalls = true;
-          console.log(`🔧 [自动工具执行] 检测到 ${toolCallResults.length} 个工具调用`);
-          console.log(`📋 [工具结果详情]`, toolCallResults.map(r => ({ tool: r.tool_name, success: r.success })));
+          console.log(`🔧 [工具调用检测] 检测到 ${toolMatches.length} 个工具调用`);
           
           yield this.createThinkingResponse('🛠️ 正在执行智能工具分析...', 80);
+          
+          // 解析并执行工具调用
+          toolCallResults = await this.parseAndExecuteTools(response, userInput);
           
           if (toolCallResults.length > 0) {
             // 更新会话数据
@@ -492,73 +430,10 @@ export class OptimizedInfoCollectionAgent extends BaseAgent {
             this.updateConversationHistory(sessionData, userInput, finalResponse);
           }
         } else {
-          // 🔧 关键修复：没有工具调用时，使用流式方式重新生成响应
-          console.log(`💬 [流式响应] 无工具调用，使用流式方式生成AI分析结果`);
-          
-          let accumulatedResponse = '';
-          for await (const chunk of this.callLLMStreaming(userInput, {
-            system: systemPrompt,
-            maxTokens: 64000,
-            sessionId: sessionData.id,
-            useHistory: true
-          })) {
-            accumulatedResponse += chunk;
-            
-            // 发送流式响应块
-            yield this.createResponse({
-              immediate_display: {
-                reply: chunk,
-                agent_name: this.name,
-                timestamp: new Date().toISOString()
-              },
-              system_state: {
-                intent: 'collecting',
-                done: false,
-                progress: 80,
-                current_stage: '分析中',
-                metadata: {
-                  streaming: true,
-                  message_id: messageId,
-                  stream_type: 'chunk',
-                  has_tool_calls: false
-                }
-              }
-            });
-          }
-          
-          console.log(`✅ [流式分析完成] 流式分析响应生成完毕，总长度: ${accumulatedResponse.length}`);
-          
-          // 🔧 流式模式：历史已由BaseAgent自动管理，无需手动更新
-        }
-      } catch (error) {
-        console.error(`❌ [工具调用失败] 回退到普通模式:`, error);
-        
-        // 🔧 回退模式也需要历史同步（如果前面没有同步）
-        const baseAgentHistory = this.conversationHistory.get(sessionData.id)!;
-        if (baseAgentHistory.length === 0) {
-          const infoCollectionHistory = (sessionData?.metadata as any)?.infoCollectionHistory || [];
-          if (infoCollectionHistory.length > 0) {
-            console.log(`🔄 [回退模式历史同步] 从session恢复 ${infoCollectionHistory.length} 条历史到BaseAgent`);
-            baseAgentHistory.push(...infoCollectionHistory);
-          }
-        }
-
-        // 🔧 关键修复：回退到流式普通模式
-        console.log(`🌊 [流式回退] 使用流式方式生成回退响应...`);
-        
-        let accumulatedFallbackResponse = '';
-        for await (const chunk of this.callLLMStreaming(userInput, {
-          system: systemPrompt,
-          maxTokens: 64000,
-          sessionId: sessionData.id,
-          useHistory: true
-        })) {
-          accumulatedFallbackResponse += chunk;
-          
-          // 发送流式回退响应块
+          // 没有工具调用，直接发送响应
           yield this.createResponse({
             immediate_display: {
-              reply: chunk,
+              reply: response,
               agent_name: this.name,
               timestamp: new Date().toISOString()
             },
@@ -566,20 +441,51 @@ export class OptimizedInfoCollectionAgent extends BaseAgent {
               intent: 'collecting',
               done: false,
               progress: 80,
-              current_stage: '分析中',
+              current_stage: '分析完成',
               metadata: {
-                streaming: true,
+                streaming: false,
                 message_id: messageId,
-                stream_type: 'chunk',
-                fallback_mode: true
+                stream_type: 'complete'
               }
             }
           });
+          
+          // 更新对话历史
+          this.updateConversationHistory(sessionData, userInput, response);
         }
+      } catch (error) {
+        console.error(`❌ [工具调用失败] 回退到普通模式:`, error);
         
-        console.log(`✅ [流式回退完成] 流式回退响应生成完毕，总长度: ${accumulatedFallbackResponse.length}`);
+        // 回退到普通模式
+        const fallbackResponse = await this.callLLM(userInput, {
+          system: systemPrompt,
+          maxTokens: 64000,
+          sessionId: sessionData.id,
+          useHistory: true
+        });
         
-        // 🔧 流式模式：历史已由BaseAgent自动管理，无需手动更新
+        yield this.createResponse({
+          immediate_display: {
+            reply: fallbackResponse,
+            agent_name: this.name,
+            timestamp: new Date().toISOString()
+          },
+          system_state: {
+            intent: 'collecting',
+            done: false,
+            progress: 80,
+            current_stage: '分析完成',
+            metadata: {
+              streaming: false,
+              message_id: messageId,
+              stream_type: 'complete',
+              fallback_mode: true
+            }
+          }
+        });
+        
+        // 更新对话历史
+        this.updateConversationHistory(sessionData, userInput, fallbackResponse);
       }
       
       // 检查是否应该推进到下一阶段
@@ -603,225 +509,8 @@ export class OptimizedInfoCollectionAgent extends BaseAgent {
       
     } catch (error) {
       console.error(`❌ [Claude工具调用分析失败]:`, error);
-      console.log(`🔄 [降级处理] Claude分析失败，尝试直接工具检测...`);
-      
-      // 🔧 不抛出异常，而是降级到直接工具检测
-      const fallbackToolResults = await this.autoDetectAndExecuteTools(userInput);
-      
-      if (fallbackToolResults.length > 0) {
-        console.log(`✅ [降级成功] 工具检测找到 ${fallbackToolResults.length} 个可用工具`);
-        
-        yield this.createThinkingResponse('🛠️ 正在分析您提供的链接...', 60);
-        
-        // 直接处理工具结果
-        this.updateSessionWithToolResults(sessionData, fallbackToolResults);
-        
-        const summary = fallbackToolResults.map(r => 
-          r.success ? `✅ ${r.tool_name}` : `❌ ${r.tool_name}`
-        ).join(', ');
-        
-        yield this.createResponse({
-          immediate_display: {
-            reply: `我已经分析了您提供的信息 (${summary})。基于这些资料，我发现了一些有价值的内容。您还希望补充其他信息吗？`,
-            agent_name: this.name,
-            timestamp: new Date().toISOString()
-          },
-          system_state: {
-            intent: 'collecting',
-            done: false,
-            progress: 70,
-            current_stage: '信息收集中',
-            metadata: {
-              collection_status: 'CONTINUE',
-              tool_results: fallbackToolResults,
-              fallback_mode: false,
-              claude_analysis_failed: true
-            }
-          }
-        });
-        
-        return;
-      }
-      
-      // 如果工具检测也失败，则抛出异常进入真正的fallback
-      throw new Error('Claude工具调用分析失败，且无法自动检测工具');
+      throw new Error('Claude工具调用分析失败');
     }
-  }
-
-  /**
-   * 自动检测用户输入并执行相应工具
-   */
-  private async autoDetectAndExecuteTools(userInput: string): Promise<any[]> {
-    const results: any[] = [];
-    const input = userInput.toLowerCase();
-    
-    try {
-      // 检测 GitHub 链接
-      const githubMatches = userInput.match(/github\.com\/([^\/\s]+)/gi);
-      if (githubMatches) {
-        console.log(`🔧 [GitHub检测] 发现 ${githubMatches.length} 个 GitHub 链接`);
-        console.log(`🔧 [工具检查] TOOL_EXECUTORS.analyze_github 存在:`, typeof TOOL_EXECUTORS.analyze_github);
-        
-        for (const match of githubMatches.slice(0, 2)) { // 最多处理2个
-          try {
-            console.log(`🚀 [GitHub调用] 开始调用 analyze_github，参数:`, { username_or_url: match, include_repos: true });
-            
-            // 🔧 临时：使用模拟数据来测试流程
-            const result = {
-              username: match.replace('github.com/', ''),
-              profile: {
-                name: 'Test User',
-                bio: 'Software Engineer',
-                public_repos: 10,
-                followers: 50
-              },
-              repositories: [
-                { name: 'repo1', description: 'Test repo', language: 'JavaScript' },
-                { name: 'repo2', description: 'Another repo', language: 'Python' }
-              ],
-              skills: ['JavaScript', 'Python', 'React'],
-              summary: `基于 GitHub 分析，这是一位活跃的开发者，拥有 ${10} 个公开仓库。`
-            };
-            
-            console.log(`✅ [GitHub成功] 使用模拟数据，结果长度:`, JSON.stringify(result).length);
-            results.push({
-              tool_name: 'analyze_github',
-              success: true,
-              data: result,
-              confidence: 0.9,
-              metadata: { detected_url: match, mock_data: true }
-            });
-          } catch (error) {
-            console.error(`❌ [GitHub分析失败] ${match}:`, error);
-            console.error(`❌ [错误详情] Stack:`, error instanceof Error ? error.stack : 'No stack');
-            results.push({
-              tool_name: 'analyze_github',
-              success: false,
-              error: error instanceof Error ? error.message : String(error),
-              confidence: 0,
-              metadata: { detected_url: match }
-            });
-          }
-        }
-      }
-
-      // 检测普通网页链接（排除 GitHub）
-      const urlMatches = userInput.match(/https?:\/\/[^\s]+/gi);
-      if (urlMatches) {
-        const webUrls = urlMatches.filter(url => !url.includes('github.com'));
-        if (webUrls.length > 0) {
-          console.log(`🔧 [网页检测] 发现 ${webUrls.length} 个网页链接`);
-          for (const url of webUrls.slice(0, 2)) { // 最多处理2个
-            try {
-              const result = await TOOL_EXECUTORS.scrape_webpage({
-                url,
-                target_sections: ['all']
-              });
-              results.push({
-                tool_name: 'scrape_webpage',
-                success: true,
-                data: result,
-                confidence: 0.8,
-                metadata: { detected_url: url }
-              });
-            } catch (error) {
-              console.error(`❌ [网页抓取失败] ${url}:`, error);
-              results.push({
-                tool_name: 'scrape_webpage',
-                success: false,
-                error: error instanceof Error ? error.message : String(error),
-                confidence: 0,
-                metadata: { detected_url: url }
-              });
-            }
-          }
-        }
-      }
-
-      // 检测 LinkedIn 链接
-      const linkedinMatches = userInput.match(/linkedin\.com\/in\/[^\s]+/gi);
-      if (linkedinMatches) {
-        console.log(`🔧 [LinkedIn检测] 发现 ${linkedinMatches.length} 个 LinkedIn 链接`);
-        for (const url of linkedinMatches.slice(0, 1)) { // 最多处理1个
-          try {
-            const result = await TOOL_EXECUTORS.extract_linkedin({
-              profile_url: url
-            });
-            results.push({
-              tool_name: 'extract_linkedin',
-              success: true,
-              data: result,
-              confidence: 0.8,
-              metadata: { detected_url: url }
-            });
-          } catch (error) {
-            console.error(`❌ [LinkedIn提取失败] ${url}:`, error);
-            results.push({
-              tool_name: 'extract_linkedin',
-              success: false,
-              error: error instanceof Error ? error.message : String(error),
-              confidence: 0,
-              metadata: { detected_url: url }
-            });
-          }
-        }
-      }
-
-    } catch (error) {
-      console.error(`❌ [自动工具检测失败]:`, error);
-    }
-
-    return results;
-  }
-
-  /**
-   * 执行 Claude 原生工具调用
-   */
-  private async executeClaudeToolCalls(toolCalls: any[]): Promise<any[]> {
-    const results: any[] = [];
-    
-    for (const toolCall of toolCalls) {
-      try {
-        const { function: func } = toolCall;
-        const toolName = func.name;
-        const params = JSON.parse(func.arguments || '{}');
-        
-        console.log(`🔧 [原生工具执行] ${toolName}:`, params);
-        
-        // 使用现有的工具执行器
-        const executor = TOOL_EXECUTORS[toolName as keyof typeof TOOL_EXECUTORS];
-        if (executor) {
-          const result = await executor(params);
-          results.push({
-            tool_name: toolName,
-            success: true,
-            data: result,
-            confidence: result?.confidence || 0.8,
-            metadata: { source: 'claude_native_call' }
-          });
-        } else {
-          console.warn(`⚠️ [工具执行器缺失] ${toolName}`);
-          results.push({
-            tool_name: toolName,
-            success: false,
-            error: `工具执行器 ${toolName} 不存在`,
-            confidence: 0,
-            metadata: { source: 'claude_native_call' }
-          });
-        }
-      } catch (error) {
-        console.error(`❌ [原生工具执行失败] ${toolCall.function?.name}:`, error);
-        results.push({
-          tool_name: toolCall.function?.name || 'unknown',
-          success: false,
-          error: error instanceof Error ? error.message : String(error),
-          confidence: 0,
-          metadata: { source: 'claude_native_call' }
-        });
-      }
-    }
-    
-    return results;
   }
 
   /**
@@ -938,22 +627,11 @@ ${toolResultsText}
 
 请基于工具结果提供有价值的分析和建议。`;
 
-    const responseData = await this.callLLM(finalPrompt, {
+    const response = await this.callLLM(finalPrompt, {
       maxTokens: 4000,
       sessionId: sessionData.id,
       useHistory: false
     });
-
-    // 🔧 关键修复：提取实际的文本内容
-    let response: string;
-    if (typeof responseData === 'object' && responseData?.text) {
-      response = responseData.text;
-    } else if (typeof responseData === 'string') {
-      response = responseData;
-    } else {
-      console.warn(`⚠️ [工具结果响应格式异常] 期望文本，实际收到:`, typeof responseData);
-      response = "已基于您提供的信息进行分析，我会为您准备详细的展示方案。";
-    }
 
     return response;
   }
@@ -999,55 +677,18 @@ ${toolResultsText}
   private shouldAdvanceToNextStage(sessionData: SessionData, welcomeData: any): boolean {
     const metadata = sessionData.metadata as any;
     const collectedInfo = metadata.collectedInfo || {};
-    const conversationHistory = this.conversationHistory.get(sessionData.id) || [];
     
     // 基于收集到的信息量和用户承诺级别判断
     const infoCount = Object.keys(collectedInfo).length;
-    const conversationTurns = Math.floor(conversationHistory.length / 2);
     const commitmentLevel = welcomeData.commitment_level || '认真制作';
     
     const thresholds: Record<string, number> = {
       '试一试': 1,
-      '快速体验': 1,
-      '认真制作': 3,
-      '专业制作': 4
+      '认真制作': 2
     };
     
     const threshold = thresholds[commitmentLevel] || 2;
-    
-    // 多维度判断推进条件
-    const hasEnoughInfo = infoCount >= threshold;
-    const hasEnoughConversation = conversationTurns >= 2;
-    const hasToolResults = metadata.toolResults && metadata.toolResults.length > 0;
-    
-    // 至少满足其中两个条件才推进
-    const conditionsMet = [hasEnoughInfo, hasEnoughConversation, hasToolResults].filter(Boolean).length;
-    
-    console.log(`📊 [推进判断] 信息量: ${infoCount}/${threshold}, 对话轮次: ${conversationTurns}, 工具结果: ${hasToolResults}, 满足条件: ${conditionsMet}/3`);
-    
-    return conditionsMet >= 2;
-  }
-
-  /**
-   * 提取已收集的数据摘要
-   */
-  private extractCollectedData(sessionData: SessionData): any {
-    const metadata = sessionData.metadata as any;
-    const collectedInfo = metadata.collectedInfo || {};
-    const toolResults = metadata.toolResults || [];
-    
-    return {
-      core_identity: collectedInfo.role || collectedInfo.profession || '专业人士',
-      key_skills: collectedInfo.skills || [],
-      achievements: collectedInfo.achievements || [],
-      values: collectedInfo.values || [],
-      goals: collectedInfo.goals || [],
-      tool_extractions: toolResults.map((result: any) => ({
-        type: result.tool_name,
-        status: result.success ? 'success' : 'failed',
-        summary: result.data?.summary || result.error
-      }))
-    };
+    return infoCount >= threshold;
   }
 
   /**
@@ -1233,47 +874,11 @@ ${toolResultsText}
   }
 
   /**
-   * 获取收集优先级
-   */
-  private getCollectionPriority(userRole: string): string {
-    const priorities: Record<string, string> = {
-      '软件工程师': 'github_focused',
-      '产品经理': 'portfolio_focused', 
-      '设计师': 'portfolio_focused',
-      '学生': 'general',
-      '创业者': 'business_focused',
-      '专业人士': 'balanced'
-    };
-    
-    return priorities[userRole] || 'balanced';
-  }
-
-  /**
    * 提取Welcome数据
    */
   private extractWelcomeData(sessionData: SessionData): any {
     const metadata = sessionData.metadata as any;
     const welcomeSummary = metadata.welcomeSummary;
-    
-    // 🔧 优先检查测试模式下直接传递的 welcomeData
-    if (metadata.testMode && metadata.welcomeData) {
-      console.log('✅ [测试模式] 使用直接传递的 Welcome 数据');
-      const testWelcomeData = metadata.welcomeData;
-      return {
-        user_role: testWelcomeData.user_role || '专业人士',
-        use_case: testWelcomeData.use_case || '个人展示',
-        style: testWelcomeData.style || '简约现代',
-        highlight_focus: '综合展示',
-        commitment_level: testWelcomeData.commitment_level || '认真制作',
-        reasoning: '测试模式分析',
-        should_use_samples: false,
-        sample_reason: '测试环境',
-        collection_priority: this.getCollectionPriority(testWelcomeData.user_role || '专业人士'),
-        current_collected_data: metadata.collectedInfo || {},
-        available_tools: ['analyze_github', 'scrape_webpage', 'parse_document', 'extract_linkedin'],
-        context_for_next_agent: '基于用户画像进行深度信息收集'
-      };
-    }
     
     if (!welcomeSummary) {
       console.warn('⚠️ [Welcome数据缺失] 使用默认数据');
@@ -1433,78 +1038,6 @@ ${toolResultsText}
     return links.map((link, index) => 
       `链接${index + 1}: ${link}`
     ).join('\n');
-  }
-
-  /**
-   * 检查是否是第一次进入信息收集阶段
-   */
-  private isFirstTimeInInfoCollection(sessionData: SessionData): boolean {
-    const metadata = sessionData.metadata as any;
-    // 🔧 修复：检查欢迎消息是否已发送，而不是历史记录
-    return !metadata.infoCollectionWelcomeSent;
-  }
-
-  /**
-   * 🌟 创建信息收集阶段的简单过渡消息
-   */
-  private async* createWelcomeToInfoCollectionFlow(
-    welcomeData: any, 
-    sessionData: SessionData
-  ): AsyncGenerator<StreamableAgentResponse, void, unknown> {
-    
-    const userRole = welcomeData.user_role || '专业人士';
-    const useCase = welcomeData.use_case || '个人展示';
-    const commitmentLevel = welcomeData.commitment_level || '认真制作';
-
-    console.log(`🌟 [简单过渡] 发送过渡性欢迎消息，不调用AI`);
-    
-    // 🔧 明确的过渡消息，引导用户提供具体资料
-    const welcomeMessage = `很好！现在让我们开始收集信息来打造您的${useCase}。
-
-请提供以下任一类型的资料，我会智能分析：
-• GitHub 链接 (如: https://github.com/username)
-• LinkedIn 个人资料链接
-• 个人网站或作品集链接  
-• 简历文档或其他相关文件
-• 或者直接描述您的经历和技能
-
-我支持链接解析和文档分析，请随意分享！`;
-    
-    yield this.createResponse({
-      immediate_display: {
-        reply: welcomeMessage,
-        agent_name: this.name,
-        timestamp: new Date().toISOString()
-      },
-      system_state: {
-        intent: 'welcome_to_info_collection',
-        done: false,
-        progress: 30,
-        current_stage: '等待资料提供',
-        metadata: {
-          first_time_welcome: true,
-          user_commitment_level: commitmentLevel,
-          simple_transition: true,
-          waiting_for_user_input: true,
-          expected_input: ['links', 'documents', 'text_description']
-        }
-      }
-    });
-
-    // 🔧 标记已经发送过欢迎消息，避免重复发送
-    const metadata = sessionData.metadata as any;
-    if (!metadata.infoCollectionHistory) {
-      metadata.infoCollectionHistory = [];
-    }
-    metadata.infoCollectionWelcomeSent = true;
-    metadata.infoCollectionHistory.push({
-      type: 'welcome_sent_simple',
-      timestamp: new Date().toISOString(),
-      user_role: welcomeData.user_role,
-      use_case: welcomeData.use_case
-    });
-    
-    console.log(`✅ [简单过渡完成] 已发送过渡消息，标记 infoCollectionWelcomeSent = true`);
   }
 
   /**

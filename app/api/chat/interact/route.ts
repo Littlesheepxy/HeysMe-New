@@ -102,20 +102,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 获取会话数据 - 先尝试同步获取，失败则异步加载
+    // 获取会话数据
     console.log(`🔍 [会话查找] 查找会话 ${sessionId}`);
-    let sessionData = agentOrchestrator.getSessionDataSync(sessionId);
-    
-    if (!sessionData) {
-      console.log(`⚠️ [会话查找] 同步查找失败，尝试异步加载会话 ${sessionId}`);
-      
-      // 尝试异步加载会话
-      try {
-        sessionData = await agentOrchestrator.getSessionData(sessionId);
-      } catch (loadError) {
-        console.warn(`⚠️ [会话加载] 异步加载失败:`, loadError);
-      }
-    }
+    const sessionData = agentOrchestrator.getSessionDataSync(sessionId);
     
     if (!sessionData) {
       console.error(`❌ [会话错误] 会话 ${sessionId} 未找到`);

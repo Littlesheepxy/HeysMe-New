@@ -19,20 +19,10 @@ export interface DeploymentError {
   details?: string;
 }
 
-export interface VercelErrorInfo {
-  message: string;
-  deploymentId?: string;
-  deploymentState?: string;
-  errorDetails?: string;
-  deploymentUrl?: string;
-  timestamp?: string;
-}
-
 export interface UseVercelDeploymentOptions {
   onStatusChange?: (status: string) => void;
   onLog?: (log: string) => void;
   onDeploymentReady?: (deployment: DeploymentResult) => void;
-  onVercelError?: (errorInfo: VercelErrorInfo) => void;
 }
 
 export function useVercelDeployment(options?: UseVercelDeploymentOptions) {
@@ -73,30 +63,10 @@ export function useVercelDeployment(options?: UseVercelDeploymentOptions) {
       options?.onLog?.(`📋 响应数据: ${JSON.stringify(data, null, 2)}`);
 
       if (!response.ok) {
-        // 🚨 处理详细的Vercel部署错误信息
-        if (response.status === 422 && data.errorInfo) {
-          const errorInfo = data.errorInfo;
-          const detailedError = new Error(data.details || data.error || 'Vercel deployment failed');
-          (detailedError as any).isVercelError = true;
-          (detailedError as any).errorInfo = errorInfo;
-          (detailedError as any).shouldShowDialog = true; // 标记需要弹窗显示
-          throw detailedError;
-        }
-        
         throw new Error(data.details || data.error || `HTTP ${response.status}`);
       }
 
       if (!data.success) {
-        // 🚨 处理成功=false但响应码200的情况
-        if (data.errorInfo) {
-          const errorInfo = data.errorInfo;
-          const detailedError = new Error(data.details || data.error || 'Deployment failed');
-          (detailedError as any).isVercelError = true;
-          (detailedError as any).errorInfo = errorInfo;
-          (detailedError as any).shouldShowDialog = true;
-          throw detailedError;
-        }
-        
         throw new Error(data.error || 'Deployment failed');
       }
 
@@ -117,23 +87,6 @@ export function useVercelDeployment(options?: UseVercelDeploymentOptions) {
       
       options?.onStatusChange?.('error');
       options?.onLog?.(`❌ 部署失败: ${errorMessage}`);
-      
-      // 🚨 如果是需要弹窗显示的Vercel错误，调用专门的错误处理
-      if ((err as any)?.shouldShowDialog && (err as any)?.isVercelError) {
-        const errorInfo = (err as any).errorInfo;
-        
-        // 显示详细错误弹窗的回调
-        if (options?.onVercelError) {
-          options.onVercelError({
-            message: errorMessage,
-            deploymentId: errorInfo?.deploymentId,
-            deploymentState: errorInfo?.deploymentState,
-            errorDetails: errorInfo?.errorDetails,
-            deploymentUrl: errorInfo?.deploymentUrl,
-            timestamp: errorInfo?.timestamp
-          });
-        }
-      }
       
       throw err;
     } finally {

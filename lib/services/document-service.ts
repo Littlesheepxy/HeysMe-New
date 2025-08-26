@@ -106,31 +106,7 @@ export class DocumentService {
     const pdfData = await pdfParse(buffer);
     
     if (!pdfData.text || pdfData.text.trim().length === 0) {
-      console.warn('⚠️ [PDF] 无法提取文本内容，可能是扫描版PDF或加密PDF');
-      
-      // 返回基础信息而不是抛出错误
-      return {
-        type: 'pdf',
-        extract_mode: extractMode,
-        success: false,
-        error: 'PDF文件无法提取文本内容',
-        suggestion: '可能是扫描版PDF，建议使用OCR工具处理',
-        metadata: {
-          pages: pdfData.numpages || 0,
-          text_length: 0,
-          has_text: false
-        },
-        content: {
-          raw_text: '',
-          structured_data: {},
-          analysis: {
-            content_type: 'unknown',
-            confidence: 0,
-            sections: []
-          }
-        },
-        message: 'PDF解析完成，但无法提取文本内容'
-      };
+      throw new Error('PDF 文件为空或无法提取文本内容');
     }
     
     // 分析PDF文本内容

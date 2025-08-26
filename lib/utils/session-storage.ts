@@ -30,45 +30,6 @@ export class SessionStorageManager {
   }
 
   /**
-   * 从Supabase加载单个会话数据
-   * @param sessionId 会话ID
-   * @returns 会话数据，不存在则返回null
-   */
-  async loadSession(sessionId: string): Promise<SessionData | null> {
-    try {
-      const { userId, isAuthenticated } = await safeCheckAuthStatus();
-      if (!isAuthenticated) {
-        console.warn('⚠️ [存储] 用户未登录，无法加载会话');
-        return null;
-      }
-
-      const { data: chatSession, error } = await this.supabase
-        .from('chat_sessions')
-        .select(`
-          *,
-          conversation_entries(*),
-          agent_flows(*)
-        `)
-        .eq('user_id', userId)
-        .eq('id', sessionId)
-        .single();
-
-      if (error || !chatSession) {
-        console.log(`🔍 [存储-Supabase] 会话 ${sessionId} 不存在或加载失败`);
-        return null;
-      }
-
-      const sessionData = this.convertFromSupabase(chatSession);
-      console.log(`✅ [存储-Supabase] 加载单个会话 ${sessionId}`);
-      return sessionData;
-      
-    } catch (error) {
-      console.warn(`⚠️ [存储] 从Supabase加载会话 ${sessionId} 失败:`, error);
-      return null;
-    }
-  }
-
-  /**
    * 从Supabase加载所有会话数据
    * @returns 会话数据Map
    */
@@ -165,8 +126,6 @@ export class SessionStorageManager {
         ...sessionData.metadata,
         title: sessionData.title, // 将标题存储在metadata中
       };
-
-      // 保存会话元数据到Supabase
 
       const { error: sessionError } = await this.supabase
         .from('chat_sessions')
@@ -483,8 +442,6 @@ export class SessionStorageManager {
     } else if (!title) {
       title = '新对话';
     }
-
-    // 从Supabase数据转换为SessionData格式
 
     return {
       id: supabaseSession.id,
