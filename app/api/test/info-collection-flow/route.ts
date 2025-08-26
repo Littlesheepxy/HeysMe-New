@@ -4,10 +4,10 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { InfoCollectionAgentV3 } from '@/lib/agents/v2/info-collection-agent-v3';
+import { VercelAIInfoCollectionAgent } from '@/lib/agents/info-collection/vercel-ai-agent';
 
 // 全局存储 Agent 实例（仅用于测试）
-const agentInstances = new Map<string, InfoCollectionAgentV3>();
+const agentInstances = new Map<string, VercelAIInfoCollectionAgent>();
 
 export async function POST(req: NextRequest) {
   try {
@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
 
     // 重置或创建新的 Agent 实例
     if (reset || !agentInstances.has(sessionKey)) {
-      agentInstances.set(sessionKey, new InfoCollectionAgentV3());
+      agentInstances.set(sessionKey, new VercelAIInfoCollectionAgent());
       console.log(`🔄 [测试] 创建新的 Agent 实例: ${sessionKey}`);
     }
 

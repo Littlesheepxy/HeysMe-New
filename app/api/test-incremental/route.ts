@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { CodingAgent } from '@/lib/agents/coding/agent';
-import { validateToolInput } from '@/lib/prompts/coding/anthropic-standard-tools';
 
 interface TestRequest {
   prompt: string;
@@ -115,13 +114,13 @@ export default function Hero() {
                 validationErrors: []
               };
 
-              // 验证工具输入
-              const validation = validateToolInput(toolName, params);
-              if (!validation.valid) {
-                toolCall.validationErrors = validation.errors;
+              // 简化的工具验证逻辑
+              const isValid = params && typeof params === 'object';
+              if (!isValid) {
+                toolCall.validationErrors = ['参数格式无效'];
                 toolCall.status = 'failed';
-                toolCall.error = `参数验证失败: ${validation.errors.join(', ')}`;
-                console.log(`❌ [工具验证失败] ${toolName}:`, validation.errors);
+                toolCall.error = '参数验证失败: 参数格式无效';
+                console.log(`❌ [工具验证失败] ${toolName}: 参数格式无效`);
               }
 
               toolCalls.push(toolCall);

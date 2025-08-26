@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { InfoCollectionAgentV3 } from '@/lib/agents/v2/info-collection-agent-v3';
+import { OptimizedInfoCollectionAgent } from '@/lib/agents/info-collection/optimized-agent';
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     console.log(`🚀 [优化版测试] 开始处理: ${message.substring(0, 100)}...`);
     console.log(`📊 [优化版测试] 轮次: ${round}, 会话: ${sessionId}`);
 
-    const agent = new InfoCollectionAgentV3();
+    const agent = new OptimizedInfoCollectionAgent();
     const sessionData = {
       id: sessionId || `optimized-session-${Date.now()}`,
       userId: 'test-user',

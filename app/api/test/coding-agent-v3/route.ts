@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { CodingAgentV3 } from '@/lib/agents/v2/coding-agent-v3';
+import { CodingAgent } from '@/lib/agents/coding/agent';
 
 export async function POST(req: NextRequest) {
   try {
@@ -18,7 +18,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 创建 Agent 实例
-    const agent = new CodingAgentV3();
+    const agent = new CodingAgent();
 
     // 设置工作目录（测试环境）
     const testWorkingDir = '/tmp/coding-test';
