@@ -330,9 +330,9 @@ DECLARE
   commit_id TEXT;
   file_record jsonb;
   new_file_id TEXT;
-  files_added INTEGER := 0;
-  files_modified INTEGER := 0;
-  files_deleted INTEGER := 0;
+  var_files_added INTEGER := 0;
+  var_files_modified INTEGER := 0;
+  var_files_deleted INTEGER := 0;
   current_hash TEXT;
 BEGIN
   -- 生成提交ID
@@ -373,17 +373,17 @@ BEGIN
     
     -- 统计变更
     CASE file_record->>'change_type'
-      WHEN 'added' THEN files_added := files_added + 1;
-      WHEN 'modified' THEN files_modified := files_modified + 1;
-      WHEN 'deleted' THEN files_deleted := files_deleted + 1;
+      WHEN 'added' THEN var_files_added := var_files_added + 1;
+      WHEN 'modified' THEN var_files_modified := var_files_modified + 1;
+      WHEN 'deleted' THEN var_files_deleted := var_files_deleted + 1;
     END CASE;
   END LOOP;
   
-  -- 更新提交统计
-  UPDATE public.project_commits SET
-    files_added = create_commit.files_added,
-    files_modified = create_commit.files_modified,
-    files_deleted = create_commit.files_deleted
+  -- 更新提交统计 (使用局部变量值)
+  UPDATE public.project_commits 
+  SET files_added = var_files_added,
+      files_modified = var_files_modified,
+      files_deleted = var_files_deleted
   WHERE id = commit_id;
   
   RETURN commit_id;

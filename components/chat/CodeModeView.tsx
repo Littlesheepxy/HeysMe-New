@@ -157,6 +157,7 @@ export function CodeModeView({
                     isGenerating={isGenerating}
                     isCompactMode={true}
                     messageIndex={index} // 传递消息索引用于版本号计算
+                    sessionId={currentSession?.sessionId || currentSession?.id || (typeof window !== 'undefined' ? window.location.pathname.split('/chat/')[1] : null)} // 🔧 修复sessionId传递
                   />
                 ))}
                 

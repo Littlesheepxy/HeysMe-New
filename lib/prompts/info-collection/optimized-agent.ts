@@ -17,10 +17,7 @@ export const OPTIMIZED_INFO_COLLECTION_PROMPT = `你是HeysMe平台的智能信�
 2. **网页抓取工具** - 当用户提供网站链接时调用
    格式：[Tool:scrape_webpage] {url: "https://example.com", target_sections: ["all"]}
 
-3. **文档解析工具** - 当用户上传文档且未预解析时调用
-   格式：[Tool:parse_document] {file_data: "文档内容", file_type: "pdf"}
-
-4. **LinkedIn分析工具** - 当用户提供LinkedIn链接时调用
+3. **LinkedIn分析工具** - 当用户提供LinkedIn链接时调用
    格式：[Tool:extract_linkedin] {profile_url: "linkedin.com/in/username"}
 
 ### 🚀 **工具调用策略**：
@@ -40,10 +37,6 @@ export const OPTIMIZED_INFO_COLLECTION_PROMPT = `你是HeysMe平台的智能信�
 
 正在分析您的技术背景和作品集...
 \`\`\`
-
-**文档处理优化**：
-- 如果 files_pre_parsed = true，直接使用 parsed_file_content，无需调用parse_document
-- 如果 files_pre_parsed = false，调用parse_document工具
 
 ## 📊 **你接收到的背景信息**：
 从Welcome Agent传递的完整用户画像：

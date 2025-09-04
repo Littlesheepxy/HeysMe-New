@@ -32,10 +32,14 @@ export class CodingAgent extends BaseAgent {
 
   /**
    * 🆕 Vercel AI SDK 工具定义 - 使用数据库存储
+   * 🔧 支持会话上下文传递
    */
-  private getVercelAITools() {
+  private getVercelAITools(sessionData?: SessionData) {
     // 🔧 注释掉本地文件工具，使用数据库工具
-    return databaseFileTools;
+    const { DatabaseFileTools } = require('@/lib/agents/coding/database-file-tools');
+    return DatabaseFileTools.getAllDatabaseTools({ 
+      sessionId: sessionData?.id 
+    });
     
     /* 🔒 本地文件工具已注释 - 改用数据库存储
     return {
@@ -467,7 +471,7 @@ export class CodingAgent extends BaseAgent {
       // 🆕 使用BaseAgent的callLLMStreaming方法
       for await (const chunk of this.callLLMStreaming(prompt, {
         system: systemPrompt,
-        maxTokens: 64000,
+        maxTokens: 128000,
         sessionId: sessionData.id,
         useHistory: true
       })) {
@@ -758,7 +762,7 @@ ${projectContext}
       const result = await generateText({
         model: anthropic('claude-3-5-sonnet-20241022'),
         messages,
-        tools: this.getVercelAITools(),
+        tools: this.getVercelAITools(sessionData),
         stopWhen: stepCountIs(6), // 允许最多6步：分析 + 多个文件操作
         temperature: 0.3, // 编程任务使用较低温度
         onStepFinish: async ({ toolCalls, toolResults }) => {

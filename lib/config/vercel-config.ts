@@ -158,7 +158,7 @@ export function generateGitMetadata(projectName: string, customMessage?: string)
   return {
     remoteUrl: "https://github.com/heysme/project",
     commitAuthorName: "HeysMe User",
-    commitAuthorEmail: "noreply@heysme.com",
+    commitAuthorEmail: "812241569@qq.com",
     commitMessage: customMessage || `Deploy ${projectName} from HeysMe`,
     commitRef: "main",
     dirty: false,

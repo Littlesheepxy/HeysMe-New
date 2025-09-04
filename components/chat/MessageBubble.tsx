@@ -10,6 +10,9 @@ import { UnifiedLoading, ThinkingLoader, GeneratingLoader, SimpleTextLoader } fr
 import { MarkdownRenderer } from '@/components/ui/markdown-renderer';
 import { FileCreationPanel } from './FileCreationPanel';
 import { ToolCallDisplay, ToolCallList } from './ToolCallDisplay';
+import { VersionSelectionItem } from '@/components/editor/VersionSelectionItem';
+import { useSessionVersions } from '@/hooks/use-session-versions';
+import { useAuthCheck } from '@/hooks/use-auth-check';
 import { cleanTextContent } from '@/lib/utils';
 import { useTheme } from '@/contexts/theme-context';
 
@@ -51,6 +54,7 @@ export const MessageBubble = React.memo(function MessageBubble({
   messageIndex = 0
 }: MessageBubbleProps) {
   const { theme } = useTheme();
+  const { userId } = useAuthCheck();
   
   // ===== 消息内交互状态 =====
   const [formData, setFormData] = useState<Record<string, any>>({});
@@ -93,6 +97,91 @@ export const MessageBubble = React.memo(function MessageBubble({
     return "V1";
   }, [message.id, message.metadata?.codeVersion, messageIndex]);
   
+  // ===== 版本管理 =====
+  const {
+    versions,
+    currentVersion,
+    selectVersion,
+    previewVersion
+  } = useSessionVersions(sessionId || null, userId || null);
+  
+  // ===== 代码文件信息提取 =====
+  const codeFilesInfo = useMemo(() => {
+    const projectFiles = message.metadata?.projectFiles || 
+                        message.metadata?.system_state?.metadata?.projectFiles || 
+                        [];
+    const codeBlocks = message.metadata?.codeBlocks || [];
+    
+    // 优先使用 projectFiles，如果没有则使用 codeBlocks
+    const codeFiles = projectFiles.length > 0 ? projectFiles : codeBlocks;
+    
+    console.log(`🔍 [MessageBubble] 检测文件状态:`, {
+      messageId: message.id,
+      hasProjectFiles: projectFiles.length > 0,
+      hasCodeBlocks: codeBlocks.length > 0,
+      finalCodeFiles: codeFiles.length,
+      streaming: message.metadata?.streaming
+    });
+
+    return {
+      hasCodeFiles: codeFiles.length > 0,
+      codeFiles: codeFiles || [],
+      codeFilesCount: codeFiles?.length || 0
+    };
+  }, [
+    message.metadata?.projectFiles,
+    message.metadata?.system_state?.metadata?.projectFiles,
+    message.metadata?.codeBlocks,
+    message.metadata?.streaming,
+    message.id
+  ]);
+
+  // ===== 找到当前消息对应的版本信息 =====
+  const messageVersionInfo = useMemo(() => {
+    console.log('🔍 [MessageVersionInfo] 检查版本信息:', {
+      messageId: message.id,
+      hasCodeFiles: codeFilesInfo.hasCodeFiles,
+      filesCount: codeFilesInfo.codeFiles.length,
+      codeVersion,
+      currentVersion,
+      sessionId,
+      userId,
+      versionsLength: versions.length
+    });
+    
+    if (!codeFilesInfo.hasCodeFiles) {
+      console.log('❌ [MessageVersionInfo] 无代码文件，跳过版本信息生成');
+      return null;
+    }
+    
+    const filesTypes: string[] = Array.from(new Set(codeFilesInfo.codeFiles.map((f: any) => f.language || 'TypeScript')));
+    
+    const versionInfo = {
+      version: codeVersion.toLowerCase(),
+      timestamp: message.timestamp || Date.now(),
+      filesCount: codeFilesInfo.codeFiles.length,
+      filesTypes,
+      commitMessage: `生成${codeFilesInfo.codeFiles.length}个文件`,
+      isActive: codeVersion.toLowerCase() === currentVersion,
+      isDeployed: false, // 这里可以从versions中查找
+      deploymentUrl: undefined
+    };
+    
+    console.log('✅ [MessageVersionInfo] 生成版本信息:', versionInfo);
+    return versionInfo;
+  }, [codeVersion, codeFilesInfo, currentVersion, message.timestamp, message.id, sessionId, userId, versions]);
+  
+  // 版本操作处理
+  const handleVersionSelect = useCallback((version: string) => {
+    console.log(`🔄 [MessageBubble] 选择版本: ${version}`);
+    selectVersion(version);
+  }, [selectVersion]);
+  
+  const handleVersionPreview = useCallback((version: string) => {
+    console.log(`👁️ [MessageBubble] 预览版本: ${version}`);
+    previewVersion(version);
+  }, [previewVersion]);
+  
   // 🎯 用户消息判断
   const { isUser, isSystemMessage, actualIsUser } = useMemo(() => {
     const isUser = message.sender === 'user' || message.agent === 'user';
@@ -106,23 +195,6 @@ export const MessageBubble = React.memo(function MessageBubble({
     return { isUser, isSystemMessage, actualIsUser };
   }, [message.sender, message.agent]);
 
-  // 🎯 代码文件信息提取
-  const codeFilesInfo = useMemo(() => {
-    const hasCodeFiles = message.metadata?.hasCodeFiles || false;
-    const codeFiles = message.metadata?.projectFiles || [];
-    const fileCreationProgress = message.metadata?.fileCreationProgress || [];
-    
-    return {
-      hasCodeFiles,
-      codeFiles,
-      fileCreationProgress,
-      codeFilesCount: codeFiles.length
-    };
-  }, [
-    message.metadata?.hasCodeFiles, 
-    message.metadata?.projectFiles?.length,
-    message.metadata?.fileCreationProgress?.length
-  ]);
 
   // 🎯 消息级loading状态检测 - 仅用于消息内容状态
   const messageLoadingState = useMemo(() => {
@@ -463,6 +535,21 @@ export const MessageBubble = React.memo(function MessageBubble({
                 autoDeployEnabled={true}
                 projectName={message.metadata?.projectName || 'HeysMe Project'}
               />
+              
+              {/* 🆕 版本选择器 - 在文件创建面板下方显示 */}
+              {messageVersionInfo && (
+                <div className="mt-3">
+                  <VersionSelectionItem
+                    versionInfo={messageVersionInfo}
+                    isCurrentVersion={messageVersionInfo.isActive}
+                    onVersionSelect={handleVersionSelect}
+                    onVersionPreview={handleVersionPreview}
+                    showDeployButton={false} // 在消息中不显示部署按钮
+                    isCompactMode={isCompactMode} // 传递紧凑模式标识
+                    isDeploying={false}
+                  />
+                </div>
+              )}
             </div>
           )}
 

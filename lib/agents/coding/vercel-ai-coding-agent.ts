@@ -26,44 +26,22 @@ export class VercelAICodingAgent extends BaseAgent {
   }
 
   /**
-   * 定义编程工具集
+   * 定义编程工具集 - 使用数据库存储
    */
-  private getTools() {
-    return {
-      create_file: tool({
-        description: 'Create a new file with specified content. Use this for creating new files in the project.',
-        inputSchema: z.object({
-          file_path: z.string().describe('Relative path for the new file (e.g., "src/components/Button.tsx")'),
-          content: z.string().describe('Complete file content to write'),
-          description: z.string().optional().describe('Brief description of what this file does')
-        }),
-        execute: async ({ file_path, content, description }) => {
-          console.log(`🔧 [创建文件] ${file_path}`);
-          try {
-            // 确保目录存在
-            const dir = path.dirname(file_path);
-            await fs.mkdir(dir, { recursive: true });
-            
-            // 写入文件
-            await fs.writeFile(file_path, content, 'utf8');
-            
-            const stats = await fs.stat(file_path);
-            console.log(`✅ [文件创建成功] ${file_path} (${stats.size} bytes)`);
-            
-            return {
-              success: true,
-              file_path,
-              size: stats.size,
-              description: description || '新创建的文件',
-              action: 'created'
-            };
-          } catch (error) {
-            console.error(`❌ [文件创建失败] ${file_path}:`, error);
-            throw error;
-          }
-        }
-      }),
+  private getTools(sessionData?: any) {
+    // 🎯 使用统一的数据库文件工具
+    const { DatabaseFileTools } = require('@/lib/agents/coding/database-file-tools');
+    
+    return DatabaseFileTools.getAllDatabaseTools({ 
+      sessionId: sessionData?.id || sessionData?.sessionId 
+    });
+  }
 
+  /**
+   * 暂时保留的本地文件工具 (备用)
+   */
+  private getLocalTools() {
+    return {
       edit_file: tool({
         description: 'Edit an existing file by replacing specific content or adding new content.',
         inputSchema: z.object({
@@ -455,7 +433,7 @@ export class VercelAICodingAgent extends BaseAgent {
       const result = await generateText({
         model: anthropic('claude-3-5-sonnet-20241022'),
         messages,
-        tools: this.getTools(),
+        tools: this.getTools(sessionData),
         stopWhen: stepCountIs(8), // 允许最多8步：分析 + 多个文件操作
         temperature: 0.3, // 编程任务使用较低温度
         onStepFinish: async ({ toolResults }) => {

@@ -435,7 +435,7 @@ export class OptimizedInfoCollectionAgent extends BaseAgent {
         try {
           const responseData = await this.callLLM(userInput, {
             system: systemPrompt,
-            maxTokens: 64000,
+            maxTokens: 128000,
             sessionId: sessionData.id,
             useHistory: true
           });
@@ -498,7 +498,7 @@ export class OptimizedInfoCollectionAgent extends BaseAgent {
           let accumulatedResponse = '';
           for await (const chunk of this.callLLMStreaming(userInput, {
             system: systemPrompt,
-            maxTokens: 64000,
+            maxTokens: 128000,
             sessionId: sessionData.id,
             useHistory: true
           })) {

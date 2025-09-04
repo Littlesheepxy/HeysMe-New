@@ -107,3 +107,5 @@ const prompt = formatPrompt(DESIGN_AGENT_PROMPT, {
 4. **功能完整**: AI 能够基于完整信息生成详细的个性化设计方案
 
 用户现在可以确信系统正确使用了完整的 design prompt 文档！
+
+

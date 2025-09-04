@@ -110,7 +110,7 @@ export async function POST(request: NextRequest) {
       const vercelError = error as any;
       
       // 🔍 使用增强的错误分析功能
-      let troubleshootingTips: string[] = [];
+      let troubleshootingTips: string[] = vercelError.suggestions || [];
       let detailedAnalysis: any = null;
       
       // 尝试获取详细的部署分析
@@ -185,6 +185,44 @@ export async function POST(request: NextRequest) {
           })
         },
         { status: 422 } // 部署失败用422状态码
+      );
+    }
+    
+    // 🔧 处理网络错误，但可能包含构建日志
+    if ((error as any)?.isNetworkError) {
+      const networkError = error as any;
+      
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Network error during deployment',
+          details: errorMessage,
+          troubleshooting: [
+            '网络连接问题导致无法完全获取部署状态',
+            '但已尽力获取构建日志，请查看下方详情',
+            '建议检查网络连接后重试'
+          ],
+          errorInfo: {
+            deploymentId: networkError.deploymentId,
+            buildLogs: networkError.buildLogs || [],
+            errorDetails: networkError.errorDetails,
+            timestamp: new Date().toISOString(),
+            isNetworkError: true,
+            // 🆕 包含构建日志信息
+            ...(networkError.buildLogs && networkError.buildLogs.length > 0 && {
+              buildLogsAnalysis: {
+                totalLogs: networkError.buildLogs.length,
+                hasErrorLogs: networkError.buildLogs.some((log: string) => 
+                  log.toLowerCase().includes('error') || 
+                  log.toLowerCase().includes('failed') ||
+                  log.toLowerCase().includes('module not found')
+                ),
+                lastFewLogs: networkError.buildLogs.slice(-5)
+              }
+            })
+          }
+        },
+        { status: 503 } // Service Unavailable for network errors
       );
     }
     

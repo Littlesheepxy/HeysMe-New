@@ -136,7 +136,7 @@ ${context}
       body: JSON.stringify({
         prompt: titlePrompt,
         options: {
-          maxTokens: 100,
+          maxTokens: 500,
           temperature: 0.7,
           model: model,
         }
@@ -144,22 +144,9 @@ ${context}
     });
 
     const aiResult = await aiResponse.json();
-    console.log('🔍 [标题生成] AI返回结果:', JSON.stringify(aiResult, null, 2));
 
-    if (!aiResponse.ok) {
-      console.error('❌ [标题生成] HTTP请求失败:', aiResponse.status, aiResult);
-      return NextResponse.json(
-        {
-          success: false,
-          error: "AI标题生成请求失败",
-          details: aiResult,
-        },
-        { status: 500 }
-      );
-    }
-
-    if (!aiResult.success) {
-      console.error('❌ [标题生成] AI处理失败:', aiResult.error);
+    if (!aiResponse.ok || !aiResult.success) {
+      console.error('AI标题生成失败:', aiResult.error);
       return NextResponse.json(
         {
           success: false,
@@ -170,30 +157,19 @@ ${context}
       );
     }
 
-    // 提取并清理标题 - 更灵活的数据提取
+    // 提取并清理标题
     let generatedTitle = '';
-    
-    // 尝试多种数据结构
-    if (aiResult.data) {
-      if (typeof aiResult.data === 'string') {
-        generatedTitle = aiResult.data;
-      } else if (typeof aiResult.data === 'object') {
-        // 尝试各种可能的字段
-        generatedTitle = aiResult.data.text || 
-                        aiResult.data.content || 
-                        aiResult.data.message ||
-                        aiResult.data.result ||
-                        (aiResult.data.choices?.[0]?.message?.content) ||
-                        '';
+    if (aiResult.data && typeof aiResult.data === 'object') {
+      if ('text' in aiResult.data) {
+        generatedTitle = aiResult.data.text;
+      } else if ('content' in aiResult.data) {
+        generatedTitle = aiResult.data.content;
+      } else if ('choices' in aiResult.data && aiResult.data.choices?.[0]?.message?.content) {
+        generatedTitle = aiResult.data.choices[0].message.content;
       }
+    } else if (typeof aiResult.data === 'string') {
+      generatedTitle = aiResult.data;
     }
-    
-    // 如果data为空，尝试直接从result获取
-    if (!generatedTitle && aiResult.result) {
-      generatedTitle = typeof aiResult.result === 'string' ? aiResult.result : '';
-    }
-    
-    console.log('📝 [标题生成] 提取的原始标题:', generatedTitle);
 
     // 清理标题
     const cleanTitle = generatedTitle

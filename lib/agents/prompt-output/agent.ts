@@ -1,3 +1,5 @@
+//弃用
+
 import { BaseAgent } from '../base-agent';
 import { 
   StreamableAgentResponse, 
@@ -168,7 +170,7 @@ export class PromptOutputAgent extends BaseAgent {
       // 调用 AI API
       const result = await this.callLLM(prompt, {
         schema: designStrategySchema,
-        maxTokens: 64000,
+        maxTokens: 128000,
         system: "你是一个专业的页面设计策略专家，严格按照要求的JSON格式返回设计方案。"
       });
 

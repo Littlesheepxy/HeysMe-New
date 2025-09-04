@@ -132,6 +132,8 @@ export default function ChatPage() {
 
   // 监听当前会话变化，检查是否进入代码生成阶段
   useEffect(() => {
+    console.log('🔍 [useEffect触发] currentSession存在:', !!currentSession, 'conversationHistory长度:', currentSession?.conversationHistory?.length || 0);
+    
     if (currentSession && currentSession.conversationHistory && currentSession.conversationHistory.length > 0) {
       setHasStartedChat(true)
       
@@ -146,9 +148,13 @@ export default function ChatPage() {
         // 🔧 检查不同的intent状态
         message.metadata?.intent === 'project_complete' ||
         message.metadata?.intent === 'test_project_complete' ||
+        message.metadata?.intent === 'incremental_complete' ||
         // 🔧 添加更多检查条件
         message.metadata?.hasCodeFiles ||
         message.metadata?.codeFilesReady ||
+        message.metadata?.incrementalComplete ||
+        message.metadata?.system_state?.metadata?.hasCodeFiles ||
+        message.metadata?.system_state?.metadata?.codeFilesReady ||
         // 🔧 修复：只有当expertMode有实际代码文件时才切换，等待用户输入时不切换
         (message.metadata?.expertMode && !message.metadata?.awaitingUserInput)
       )
@@ -167,42 +173,74 @@ export default function ChatPage() {
         // 提取生成的代码 - 支持多种数据源
         let extractedCode: any[] = []
         
-        // 1. 优先检查最新的项目文件（专业模式）
+        // 1. 优先检查最新的项目文件（支持多种数据结构）
         const projectMessages = currentSession.conversationHistory.filter(msg => 
-          msg.metadata?.projectFiles && Array.isArray(msg.metadata.projectFiles)
+          (msg.metadata?.projectFiles && Array.isArray(msg.metadata.projectFiles)) ||
+          (msg.metadata?.system_state?.metadata?.projectFiles && Array.isArray(msg.metadata.system_state.metadata.projectFiles))
         );
         
         console.log('🔍 [调试] 总对话历史长度:', currentSession.conversationHistory.length);
         console.log('🔍 [调试] 包含projectFiles的消息数量:', projectMessages.length);
+        console.log('🔍 [调试] 当前generatedCode长度:', generatedCode.length);
         
         // 🔧 调试：打印所有消息的metadata信息
         currentSession.conversationHistory.forEach((msg, index) => {
           if (msg.metadata) {
             const hasProjectFiles = msg.metadata.projectFiles && Array.isArray(msg.metadata.projectFiles);
+            const hasSystemStateProjectFiles = msg.metadata.system_state?.metadata?.projectFiles && Array.isArray(msg.metadata.system_state.metadata.projectFiles);
             const hasCodeBlocks = msg.metadata.codeBlocks;
             const hasCodeGeneration = msg.metadata.projectGenerated || msg.metadata.hasCodeFiles;
             
-            if (hasProjectFiles || hasCodeBlocks || hasCodeGeneration) {
+            if (hasProjectFiles || hasSystemStateProjectFiles || hasCodeBlocks || hasCodeGeneration) {
               console.log(`🔍 [调试] 消息${index}:`, {
                 hasProjectFiles,
                 projectFilesCount: hasProjectFiles ? msg.metadata.projectFiles.length : 0,
+                hasSystemStateProjectFiles,
+                systemStateProjectFilesCount: hasSystemStateProjectFiles ? msg.metadata.system_state.metadata.projectFiles.length : 0,
                 hasCodeBlocks,
                 hasCodeGeneration,
-                intent: msg.metadata.intent,
-                agent: msg.agent
+                intent: msg.metadata.intent || msg.metadata.system_state?.intent,
+                agent: msg.agent,
+                timestamp: msg.timestamp
               });
             }
           }
         });
         
         if (projectMessages.length > 0) {
-          const latestProjectMessage = projectMessages[projectMessages.length - 1];
-          extractedCode = latestProjectMessage.metadata?.projectFiles || [];
-          console.log('🎯 [代码提取] 从projectFiles提取到', extractedCode.length, '个文件');
+          // 🔧 修复：合并所有消息中的文件，支持增量模式
+          const allFiles = new Map<string, any>(); // 使用Map来去重和覆盖同名文件
           
-          // 🔧 调试：打印文件信息
+          // 按时间顺序处理所有包含项目文件的消息
+          projectMessages.forEach((msg, msgIndex) => {
+            const files = msg.metadata?.projectFiles || 
+                         msg.metadata?.system_state?.metadata?.projectFiles || 
+                         [];
+            
+            if (files.length > 0) {
+              console.log(`🔧 [文件合并] 处理消息${currentSession.conversationHistory.indexOf(msg)}，包含${files.length}个文件`);
+              
+              files.forEach((file: any) => {
+                if (file.filename && file.content) {
+                  // 新文件覆盖旧文件（支持增量更新）
+                  allFiles.set(file.filename, {
+                    ...file,
+                    messageIndex: currentSession.conversationHistory.indexOf(msg),
+                    lastUpdated: msg.timestamp || Date.now()
+                  });
+                  console.log(`📄 [文件更新] ${file.filename} (${file.language || file.type}) - 内容长度: ${file.content?.length || 0}`);
+                }
+              });
+            }
+          });
+          
+          // 转换为数组
+          extractedCode = Array.from(allFiles.values());
+          console.log(`🎯 [代码提取] 合并所有消息后共得到${extractedCode.length}个文件`);
+          
+          // 🔧 调试：打印最终文件信息
           extractedCode.forEach((file, index) => {
-            console.log(`📄 [文件${index + 1}] ${file.filename} (${file.language}) - 内容长度: ${file.content?.length || 0}`);
+            console.log(`📄 [最终文件${index + 1}] ${file.filename} (${file.language || file.type}) - 内容长度: ${file.content?.length || 0} - 来自消息${file.messageIndex}`);
           });
         } else {
           // 2. 回退到传统的codeBlocks
@@ -227,6 +265,64 @@ export default function ChatPage() {
           if (isDifferent) {
             setGeneratedCode(extractedCode);
             console.log('✅ [代码设置] 成功设置生成的代码，共', extractedCode.length, '个文件');
+            
+            // 🆕 保存文件到会话项目（完整版本保存）
+            console.log('🔍 [文件保存] 检查保存条件:', {
+              userId: !!userId,
+              sessionId: currentSession?.id,
+              extractedCodeLength: extractedCode.length,
+              generatedCodeLength: generatedCode.length,
+              isDifferent
+            });
+            
+            if (userId && currentSession?.id) {
+              console.log(`💾 [文件保存] 保存${extractedCode.length}个文件到会话项目，sessionId: ${currentSession.id}`);
+              
+              // 异步保存到数据库 - 保存完整的文件列表
+              const filePayload = extractedCode.map(file => ({
+                filename: file.filename,
+                content: file.content,
+                language: file.language || 'typescript',
+                change_type: 'modified' as const // 改为 modified，因为是完整保存
+              }));
+              
+              console.log('📦 [文件保存] 准备保存的文件列表:', filePayload.map(f => ({ 
+                filename: f.filename, 
+                language: f.language, 
+                contentLength: f.content.length 
+              })));
+              
+              import('@/lib/services/session-project-manager').then(({ sessionProjectManager }) => {
+                console.log('📨 [文件保存] 调用SessionProjectManager，参数:', {
+                  sessionId: currentSession.id,
+                  userId,
+                  filesCount: filePayload.length,
+                  commitMessage: `更新项目：包含${extractedCode.length}个文件`
+                });
+                
+                return sessionProjectManager.addFilesToSessionProject(
+                  currentSession.id,
+                  userId,
+                  filePayload,
+                  `更新项目：包含${extractedCode.length}个文件`
+                );
+              }).then(({ projectId, commitId }) => {
+                console.log('✅ [文件保存] 文件保存成功:', { projectId, commitId });
+                
+                // 触发版本更新事件
+                window.dispatchEvent(new CustomEvent('newVersionCreated', {
+                  detail: { projectId, commitId }
+                }));
+              }).catch((error) => {
+                console.error('❌ [文件保存] 保存失败:', error);
+                console.error('❌ [文件保存] 错误详情:', error.stack);
+              });
+            }
+            
+            // 🔧 立即检查设置后的状态
+            setTimeout(() => {
+              console.log('🔍 [状态检查] setGeneratedCode后的实际状态:', generatedCode.length);
+            }, 100);
           } else {
             console.log('ℹ️ [代码设置] 代码内容未变化，跳过更新');
           }
@@ -487,7 +583,22 @@ export default function ChatPage() {
         const storageKey = `deployment-url-${currentSession.id}`;
         localStorage.setItem(storageKey, result.deployment.url);
         
-        // 2. 更新当前会话数据，准备同步到数据库
+        // 2. 更新会话项目的部署状态（使用会话项目管理器）
+        if (userId) {
+          import('@/lib/services/session-project-manager').then(({ sessionProjectManager }) => {
+            sessionProjectManager.updateSessionProjectDeployment(
+              currentSession.id,
+              userId,
+              result.deployment.url
+            ).then(() => {
+              console.log('✅ [部署保存] 项目部署状态更新成功');
+            }).catch((error) => {
+              console.error('❌ [部署保存] 项目部署状态更新失败:', error);
+            });
+          });
+        }
+        
+        // 3. 更新当前会话数据，准备同步到数据库
         const updatedSession = {
           ...currentSession,
           generatedContent: {
@@ -512,7 +623,7 @@ export default function ChatPage() {
           }
         };
         
-        // 3. 立即同步到数据库（关键时机）
+        // 4. 立即同步到数据库（关键时机）
         try {
           const syncResponse = await fetch('/api/session/sync', {
             method: 'POST',
@@ -546,11 +657,95 @@ export default function ChatPage() {
       const errorMessage = error instanceof Error ? error.message : String(error)
       console.error('❌ 部署失败:', errorMessage)
       
+      // 🔍 尝试从响应中获取详细错误信息
+      let detailedError = errorMessage;
+      let suggestions: string[] = [];
+      let buildLogs: string[] = [];
+      
+      // 🔧 检查是否是包含构建日志的部署错误
+      if (error instanceof Error) {
+        try {
+          // 尝试解析错误信息中的构建日志
+          const errorText = error.message;
+          
+          // 检查是否包含构建错误日志
+          if (errorText.includes('📋 构建错误日志:') || errorText.includes('📋 构建日志')) {
+            const logStart = errorText.indexOf('📋 构建');
+            if (logStart !== -1) {
+              const logSection = errorText.substring(logStart);
+              const logLines = logSection.split('\n').slice(1); // 跳过标题行
+              buildLogs = logLines.filter(line => line.trim() && !line.includes('🔍 错误详情'));
+              
+              // 更新详细错误，只显示构建日志部分
+              if (buildLogs.length > 0) {
+                detailedError = `构建失败:\n${buildLogs.join('\n')}`;
+              }
+            }
+          }
+          
+          // 检查错误中的建议
+          if (errorText.includes('Module not found')) {
+            suggestions.push('发现缺失的模块，请检查文件路径和导入语句');
+            suggestions.push('确保所有引用的文件都已生成');
+          }
+          
+          if (errorText.includes('Failed to compile')) {
+            suggestions.push('编译失败，请检查代码语法');
+            suggestions.push('查看上方构建日志了解具体错误');
+          }
+        } catch (parseError) {
+          console.warn('解析错误信息失败:', parseError);
+        }
+      }
+      
+      // 🔍 根据错误内容生成本地建议
+      if (errorMessage.toLowerCase().includes('git author') && errorMessage.toLowerCase().includes('access')) {
+        suggestions.push('Git作者邮箱权限问题 - 已尝试修复，请重新部署');
+        suggestions.push('如果问题持续，请检查Vercel团队设置');
+      }
+      
+      if (errorMessage.toLowerCase().includes('token')) {
+        suggestions.push('Vercel Token可能有问题');
+        suggestions.push('请检查环境变量配置');
+      }
+      
+      // 显示主要错误信息
       toast({
         title: "部署失败",
-        description: errorMessage,
+        description: detailedError,
         variant: "destructive",
       })
+      
+      // 🔧 如果有构建日志，在控制台输出详细信息供开发者查看
+      if (buildLogs.length > 0) {
+        console.group('📋 完整构建日志:');
+        buildLogs.forEach((log, index) => {
+          console.log(`${index + 1}. ${log}`);
+        });
+        console.groupEnd();
+      }
+      
+      // 如果有建议，显示额外的信息Toast
+      if (suggestions.length > 0) {
+        setTimeout(() => {
+          toast({
+            title: "解决建议",
+            description: suggestions.join(' • '),
+            variant: "default",
+          });
+        }, 2000);
+      }
+      
+      // 🔧 如果包含构建错误，显示特殊的建议Toast
+      if (buildLogs.some(log => log.includes('Module not found'))) {
+        setTimeout(() => {
+          toast({
+            title: "检测到模块缺失",
+            description: "请检查AI是否生成了所有必要的文件，或尝试重新生成项目",
+            variant: "default",
+          });
+        }, 3000);
+      }
     }
   }
 
@@ -906,6 +1101,34 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
       }
     }
   }, [currentSession, isCodeMode, generatedCode.length]);
+
+  // 🆕 监听版本切换事件
+  useEffect(() => {
+    const handleVersionChanged = (event: CustomEvent) => {
+      const { version, files } = event.detail;
+      console.log(`🔄 [版本切换] 切换到版本${version}，包含${files.length}个文件`);
+      
+      // 更新右侧代码预览
+      setGeneratedCode(files);
+    };
+
+    const handleVersionPreviewed = (event: CustomEvent) => {
+      const { version, files } = event.detail;
+      console.log(`👁️ [版本预览] 预览版本${version}，包含${files.length}个文件`);
+      
+      // 可以在这里显示预览界面或更新预览状态
+      // 暂时也更新右侧代码预览
+      setGeneratedCode(files);
+    };
+
+    window.addEventListener('versionChanged', handleVersionChanged as EventListener);
+    window.addEventListener('versionPreviewed', handleVersionPreviewed as EventListener);
+
+    return () => {
+      window.removeEventListener('versionChanged', handleVersionChanged as EventListener);
+      window.removeEventListener('versionPreviewed', handleVersionPreviewed as EventListener);
+    };
+  }, []);
 
   // 🆕 处理会话删除
   const handleDeleteSession = async (sessionId: string) => {

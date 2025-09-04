@@ -238,7 +238,7 @@ export class VercelPreviewService {
         gitMetadata: deploymentConfig.gitMetadata && {
           remoteUrl: deploymentConfig.gitMetadata.remoteUrl || "https://github.com/heysme/project",
           commitAuthorName: deploymentConfig.gitMetadata.commitAuthorName || "HeysMe User",
-          commitAuthorEmail: deploymentConfig.gitMetadata.commitAuthorEmail || "noreply@heysme.com",
+          commitAuthorEmail: deploymentConfig.gitMetadata.commitAuthorEmail || "812241569@qq.com",
           commitMessage: deploymentConfig.gitMetadata.commitMessage || `Deploy ${deploymentConfig.projectName}`,
           commitRef: deploymentConfig.gitMetadata.commitRef || "main",
           commitSha: deploymentConfig.gitMetadata.commitSha,
@@ -272,8 +272,18 @@ export class VercelPreviewService {
     } catch (error: any) {
       this.log(`❌ 创建部署失败: ${error.message || error}`);
       
+      // 🔍 详细分析创建阶段的错误
+      let detailedErrorInfo = {
+        message: error.message || error,
+        status: error.status,
+        code: error.code,
+        response: null as any,
+        suggestions: [] as string[]
+      };
+      
       // 尝试解析更详细的错误信息
       if (error.response?.data) {
+        detailedErrorInfo.response = error.response.data;
         this.log(`🔍 错误详情: ${JSON.stringify(error.response.data, null, 2)}`);
       }
       
@@ -281,7 +291,35 @@ export class VercelPreviewService {
         this.log(`📊 HTTP 状态码: ${error.status}`);
       }
       
-      throw new Error(`创建部署失败: ${error.message || error}`);
+      // 🔍 根据错误类型生成建议
+      const errorMessage = (error.message || error).toLowerCase();
+      if (errorMessage.includes('git author') && errorMessage.includes('must have access')) {
+        detailedErrorInfo.suggestions.push('Git作者邮箱权限问题：请确保邮箱在Vercel团队中有权限');
+        detailedErrorInfo.suggestions.push('检查VERCEL_TOKEN对应的用户是否有项目访问权限');
+      }
+      
+      if (errorMessage.includes('invalid') && errorMessage.includes('token')) {
+        detailedErrorInfo.suggestions.push('Token无效：请检查VERCEL_TOKEN是否正确');
+        detailedErrorInfo.suggestions.push('尝试重新生成Vercel API Token');
+      }
+      
+      if (errorMessage.includes('rate limit')) {
+        detailedErrorInfo.suggestions.push('API调用频率超限：请稍后重试');
+      }
+      
+      if (errorMessage.includes('project not found')) {
+        detailedErrorInfo.suggestions.push('项目不存在：Vercel将自动创建新项目');
+      }
+      
+      // 🚨 创建包含详细信息的错误对象
+      const enhancedError = new Error(`创建部署失败: ${error.message || error}`);
+      (enhancedError as any).isVercelError = true;
+      (enhancedError as any).isCreationError = true;
+      (enhancedError as any).errorDetails = JSON.stringify(detailedErrorInfo, null, 2);
+      (enhancedError as any).rawError = error;
+      (enhancedError as any).suggestions = detailedErrorInfo.suggestions;
+      
+      throw enhancedError;
     }
   }
 
@@ -331,8 +369,17 @@ export class VercelPreviewService {
         } else if (status.state === 'ERROR' || status.state === 'CANCELED') {
           this.updateStatus('error');
           
-          // 🔍 获取详细的错误信息
-          const errorDetails = await this.getDeploymentErrorDetails(deploymentId);
+          // 🔍 获取详细的构建日志和错误信息
+          const [errorDetails, buildLogs] = await Promise.all([
+            this.getDeploymentErrorDetails(deploymentId).catch(err => {
+              this.log(`⚠️ 获取错误详情失败: ${err}`);
+              return null;
+            }),
+            this.getDeploymentLogs(deploymentId).catch(err => {
+              this.log(`⚠️ 获取构建日志失败: ${err}`);
+              return [];
+            })
+          ]);
           
           // 🔍 获取更详细的部署信息
           let additionalInfo = '';
@@ -345,14 +392,59 @@ export class VercelPreviewService {
             this.log(`⚠️ 无法获取额外部署信息: ${infoError}`);
           }
           
-          const errorMessage = `部署失败，状态: ${status.state}${errorDetails ? `\n详细错误: ${errorDetails}` : ''}${additionalInfo}`;
-          this.log(`❌ ${errorMessage}`);
+          // 🔧 组合详细的错误信息，优先显示构建日志
+          let detailedErrorMessage = `部署失败，状态: ${status.state}`;
+          
+          // 添加构建日志（最重要）
+          if (buildLogs && buildLogs.length > 0) {
+            // 🔧 过滤掉无用的 stdout 事件，专注于实际的错误信息
+            const meaningfulLogs = buildLogs.filter(log => {
+              const logText = log.toLowerCase();
+              return !logText.includes('stdout 事件 (无详细文本内容)') && 
+                     !logText.includes('event: stdout') &&
+                     log.trim().length > 10; // 过滤掉太短的无用日志
+            });
+            
+            const buildErrors = meaningfulLogs.filter(log => 
+              log.toLowerCase().includes('error') || 
+              log.toLowerCase().includes('failed') ||
+              log.toLowerCase().includes('module not found') ||
+              log.toLowerCase().includes('build failed') ||
+              log.toLowerCase().includes('syntaxerror') ||
+              log.toLowerCase().includes('typeerror') ||
+              log.toLowerCase().includes('cannot resolve') ||
+              log.toLowerCase().includes('unexpected token')
+            );
+            
+            if (buildErrors.length > 0) {
+              detailedErrorMessage += `\n\n📋 构建错误日志:\n${buildErrors.join('\n')}`;
+            } else if (meaningfulLogs.length > 0) {
+              // 如果没有明显的错误，显示最后几行有意义的日志
+              const lastLogs = meaningfulLogs.slice(-10);
+              detailedErrorMessage += `\n\n📋 构建日志 (最后10行):\n${lastLogs.join('\n')}`;
+            } else {
+              // 如果连有意义的日志都没有，显示提示信息
+              detailedErrorMessage += `\n\n📋 构建日志获取问题:\n• 构建事件日志为空或格式异常\n• 建议查看 Vercel 控制台获取详细信息\n• 或使用 CLI: vercel logs ${deploymentId}`;
+            }
+          }
+          
+          // 添加其他错误详情
+          if (errorDetails) {
+            detailedErrorMessage += `\n\n🔍 错误详情: ${errorDetails}`;
+          }
+          
+          if (additionalInfo) {
+            detailedErrorMessage += additionalInfo;
+          }
+          
+          this.log(`❌ ${detailedErrorMessage}`);
           
           // 🚨 创建包含详细信息的错误对象，便于前端处理
-          const deploymentError = new Error(errorMessage);
+          const deploymentError = new Error(detailedErrorMessage);
           (deploymentError as any).deploymentId = deploymentId;
           (deploymentError as any).deploymentState = status.state;
           (deploymentError as any).errorDetails = errorDetails;
+          (deploymentError as any).buildLogs = buildLogs;
           (deploymentError as any).deploymentUrl = status.deploymentUrl;
           (deploymentError as any).isVercelError = true;
           
@@ -380,11 +472,52 @@ export class VercelPreviewService {
           continue;
         }
         
-        // 超过重试次数后，抛出错误并停止重试
+        // 🔧 网络错误重试失败后，尝试获取构建日志
+        this.log(`🔍 网络重试失败，尝试获取构建日志...`);
         this.updateStatus('error');
-        const networkError = new Error(`检查部署状态失败，已重试${attempts}次: ${error instanceof Error ? error.message : String(error)}`);
+        
+        let buildLogs: string[] = [];
+        let errorDetails: string | null = null;
+        
+        try {
+          // 尝试获取构建日志，即使网络不稳定
+          [errorDetails, buildLogs] = await Promise.all([
+            this.getDeploymentErrorDetails(deploymentId).catch(() => null),
+            this.getDeploymentLogs(deploymentId).catch(() => [])
+          ]);
+        } catch (logError) {
+          this.log(`⚠️ 获取构建日志也失败: ${logError}`);
+        }
+        
+        // 🔧 组合网络错误和构建日志
+        let networkErrorMessage = `检查部署状态失败，已重试${attempts}次: ${error instanceof Error ? error.message : String(error)}`;
+        
+        // 如果获取到了构建日志，添加到错误信息中
+        if (buildLogs && buildLogs.length > 0) {
+          const buildErrors = buildLogs.filter(log => 
+            log.toLowerCase().includes('error') || 
+            log.toLowerCase().includes('failed') ||
+            log.toLowerCase().includes('module not found') ||
+            log.toLowerCase().includes('build failed')
+          );
+          
+          if (buildErrors.length > 0) {
+            networkErrorMessage += `\n\n📋 构建错误日志:\n${buildErrors.join('\n')}`;
+          } else {
+            const lastLogs = buildLogs.slice(-10);
+            networkErrorMessage += `\n\n📋 构建日志 (最后10行):\n${lastLogs.join('\n')}`;
+          }
+        }
+        
+        if (errorDetails) {
+          networkErrorMessage += `\n\n🔍 错误详情: ${errorDetails}`;
+        }
+        
+        const networkError = new Error(networkErrorMessage);
         (networkError as any).isNetworkError = true;
         (networkError as any).originalError = error;
+        (networkError as any).buildLogs = buildLogs;
+        (networkError as any).deploymentId = deploymentId;
         throw networkError;
       }
     }
@@ -658,13 +791,23 @@ export class VercelPreviewService {
         event.type === 'stderr' ||
         event.type === 'building' ||
         event.type === 'created' ||
-        event.type === 'ready'
+        event.type === 'ready' ||
+        event.type === 'error' ||
+        event.type === 'fatal'
       ).map(event => {
-        const timestamp = event.created_at ? new Date(event.created_at).toISOString() : 'Unknown';
+        const timestamp = this.parseEventTimestamp(event);
         const type = event.type.toUpperCase().padEnd(8);
-        const message = event.payload?.text || `Event: ${event.type}`;
+        const message = this.parseEventText(event);
+        
+        // 🔧 过滤掉无意义的消息
+        if (message.includes('stdout 事件 (无详细文本内容)') || 
+            message.includes('Event: stdout') ||
+            message.trim().length < 5) {
+          return null; // 返回 null，稍后过滤掉
+        }
+        
         return `[${timestamp}] ${type} ${message}`;
-      });
+      }).filter((log): log is string => log !== null); // 过滤掉 null 值并断言类型
 
       this.log(`📋 获取到 ${logEvents.length} 条构建日志`);
       return logEvents;
@@ -812,53 +955,92 @@ export class VercelPreviewService {
    * 🆕 解析事件文本内容
    */
   private parseEventText(event: any): string {
-    // 尝试多种文本字段
-    if (event.payload?.text) {
-      return event.payload.text;
+    // 🔧 更全面的文本字段解析
+    const textSources = [
+      event.payload?.text,
+      event.payload?.message,
+      event.payload?.output,
+      event.payload?.log,
+      event.payload?.content,
+      event.payload?.data,
+      event.text,
+      event.message,
+      event.output,
+      event.log,
+      event.content
+    ];
+    
+    // 寻找第一个有效的文本
+    for (const text of textSources) {
+      if (text && typeof text === 'string' && text.trim().length > 0) {
+        // 🔧 清理文本内容
+        const cleanText = text
+          .replace(/\x1b\[[0-9;]*m/g, '') // 移除 ANSI 颜色代码
+          .replace(/\r?\n/g, '\n') // 统一换行符
+          .trim();
+        
+        if (cleanText.length > 0) {
+          return cleanText;
+        }
+      }
     }
     
-    if (event.text) {
-      return event.text;
-    }
-    
-    if (event.message) {
-      return event.message;
-    }
-    
-    if (event.payload?.message) {
-      return event.payload.message;
-    }
-    
-    // 尝试解析其他可能的字段
-    if (event.payload) {
-      const payload = event.payload;
-      if (typeof payload === 'string') {
-        return payload;
+    // 🔧 尝试从 payload 对象中提取更多信息
+    if (event.payload && typeof event.payload === 'object') {
+      // 检查是否有错误相关的字段
+      const errorFields = ['error', 'stderr', 'errorMessage', 'errorText'];
+      for (const field of errorFields) {
+        if (event.payload[field] && typeof event.payload[field] === 'string') {
+          return event.payload[field];
+        }
       }
       
-      // 如果payload是对象，尝试获取有用信息
-      if (typeof payload === 'object') {
-        const possibleFields = ['output', 'log', 'content', 'data'];
-        for (const field of possibleFields) {
-          if (payload[field] && typeof payload[field] === 'string') {
-            return payload[field];
+      // 🔧 如果是 stdout 事件，可能数据在其他地方
+      if (event.type === 'stdout' || event.type === 'stderr') {
+        // 尝试查找任何包含有用信息的字段
+        const keys = Object.keys(event.payload);
+        for (const key of keys) {
+          const value = event.payload[key];
+          if (typeof value === 'string' && value.trim().length > 5) {
+            // 避免无意义的短字符串
+            return value.trim();
           }
         }
         
-        // 最后尝试stringify
-        try {
-          const jsonStr = JSON.stringify(payload);
-          if (jsonStr !== '{}' && jsonStr !== 'null') {
-            return jsonStr;
-          }
-        } catch {
-          // ignore
+        // 如果是构建输出，但没有具体内容，返回空以便过滤
+        return '';
+      }
+      
+      // 最后尝试stringify，但避免空对象
+      try {
+        const jsonStr = JSON.stringify(event.payload);
+        if (jsonStr !== '{}' && jsonStr !== 'null' && jsonStr.length > 10) {
+          return jsonStr;
         }
+      } catch {
+        // ignore
       }
     }
     
-    // 最后的fallback：使用事件类型作为描述
-    return `${event.type} 事件 (无详细文本内容)`;
+    // 🔧 为不同类型的事件提供更有意义的描述
+    switch (event.type) {
+      case 'building':
+        return '正在构建项目...';
+      case 'ready':
+        return '构建完成';
+      case 'error':
+        return '构建过程中发生错误';
+      case 'fatal':
+        return '构建遇到致命错误';
+      case 'created':
+        return '部署已创建';
+      case 'stdout':
+      case 'stderr':
+        // 对于空的 stdout/stderr 事件，返回空字符串以便过滤
+        return '';
+      default:
+        return `${event.type} 事件`;
+    }
   }
 
   /**

@@ -15,7 +15,7 @@ import {
   TestimonialsSection,
   FinalCtaSection
 } from "@/components/landing"
-import VisionSection from "./components/sections/vision-section"
+import VisionSection from "@/app/components/sections/vision-section"
 import { Linkedin, Twitter, MessageCircle } from "lucide-react"
 
 // Footer Section Component - 简化版

@@ -18,7 +18,7 @@ export interface DatabaseFileResult {
   error?: string;
 }
 
-export class DatabaseFileTools {
+class DatabaseFileTools {
   
   /**
    * 🛠️ 从文件路径检测语言类型
@@ -62,8 +62,9 @@ export class DatabaseFileTools {
   
   /**
    * 🆕 创建文件工具 - 数据库版本
+   * 🔧 支持会话ID上下文传递
    */
-  static getCreateFileTool() {
+  static getCreateFileTool(sessionContext?: { sessionId?: string }) {
     return tool({
       description: 'Create a new file in the database project storage. This will be synced with chat_sessions.',
       inputSchema: z.object({
@@ -83,9 +84,10 @@ export class DatabaseFileTools {
             throw new Error('用户未认证，无法创建文件');
           }
           
-          // 获取当前会话ID（从上下文或其他方式）
-          // 这里需要从调用上下文获取sessionId，暂时使用临时方案
-          const sessionId = `temp-session-${Date.now()}`;
+          // 🎯 修复：优先使用传入的会话ID，否则使用临时方案
+          const sessionId = sessionContext?.sessionId || `temp-session-${Date.now()}`;
+          
+          console.log(`📋 [会话关联] 使用会话ID: ${sessionId}${sessionContext?.sessionId ? ' (真实会话)' : ' (临时会话)'}`);
           
           // 创建文件记录
           const projectFile = {
@@ -132,7 +134,7 @@ export class DatabaseFileTools {
   /**
    * ✏️ 编辑文件工具 - 数据库版本
    */
-  static getEditFileTool() {
+  static getEditFileTool(sessionContext?: { sessionId?: string }) {
     return tool({
       description: 'Edit an existing file in the database project storage by replacing specific content.',
       inputSchema: z.object({
@@ -146,17 +148,89 @@ export class DatabaseFileTools {
         console.log(`🗄️ [数据库编辑文件] ${file_path} - ${operation}`);
         
         try {
-          // 这里暂时返回成功，实际的数据库操作在后续实现
-          const result: DatabaseFileResult = {
+          // 🔧 实际的数据库操作实现
+          const { safeCheckAuthStatus } = await import('@/lib/utils/auth-helper');
+          const { userId, isAuthenticated } = await safeCheckAuthStatus();
+          
+          if (!isAuthenticated || !userId) {
+            throw new Error('用户未认证，无法编辑文件');
+          }
+          
+          const sessionId = sessionContext?.sessionId || `temp-session-${Date.now()}`;
+          console.log(`📋 [会话关联] 编辑文件，使用会话ID: ${sessionId}`);
+          
+          // 首先获取当前文件内容
+          const { SessionProjectManager } = await import('@/lib/services/session-project-manager');
+          const manager = new SessionProjectManager();
+          
+          // 通过版本系统获取文件内容
+          const projectId = await manager.getOrCreateSessionProject(sessionId, userId);
+          const versions = await manager.getSessionProjectVersions(sessionId, userId);
+          
+          // 获取最新版本的文件
+          const latestVersion = versions.versions[0]; // 已按时间倒序排列
+          let currentFileContent = '';
+          
+          if (latestVersion) {
+            const files = await manager.getVersionFiles(sessionId, userId, latestVersion.version);
+            const targetFile = files.find((f: any) => f.filename === file_path);
+            currentFileContent = targetFile?.content || '';
+          }
+          
+          if (!currentFileContent && operation === 'replace') {
+            throw new Error(`文件 ${file_path} 不存在或内容为空，无法进行替换操作`);
+          }
+          
+          // 执行编辑操作
+          let updatedContent = '';
+          switch (operation) {
+            case 'replace':
+              if (old_content) {
+                if (!currentFileContent.includes(old_content)) {
+                  throw new Error(`在文件 ${file_path} 中未找到要替换的内容`);
+                }
+                updatedContent = currentFileContent.replace(old_content, new_content);
+              } else {
+                updatedContent = new_content;
+              }
+              break;
+            case 'append':
+              updatedContent = currentFileContent + new_content;
+              break;
+            case 'prepend':
+              updatedContent = new_content + currentFileContent;
+              break;
+          }
+          
+          // 创建修改后的文件记录
+          const projectFile = {
+            filename: file_path,
+            content: updatedContent,
+            language: DatabaseFileTools.detectLanguageFromPath(file_path),
+            file_type: DatabaseFileTools.mapFileType(file_path),
+            description: description || `${operation} 操作: ${file_path}`,
+            change_type: 'modified' as const
+          };
+          
+          // 保存到项目存储
+          const result = await projectFileStorage.saveIncrementalEdit(
+            sessionId,
+            userId,
+            `编辑文件: ${file_path} (${operation})`,
+            [projectFile],
+            'DatabaseFileTools'
+          );
+          
+          console.log(`✅ [数据库文件编辑成功] ${file_path} -> 项目: ${result.projectId}`);
+          
+          return {
             success: true,
             file_path,
             action: 'modified',
-            size: new_content.length,
-            description: description || `执行了 ${operation} 操作`
+            size: updatedContent.length,
+            description: description || `执行了 ${operation} 操作`,
+            content: updatedContent
           };
-          
-          console.log(`✅ [数据库文件编辑成功] ${file_path}`);
-          return result;
           
         } catch (error) {
           console.error(`❌ [数据库文件编辑失败] ${file_path}:`, error);
@@ -356,11 +430,12 @@ export class DatabaseFileTools {
 
   /**
    * 🔄 获取所有数据库工具
+   * 🔧 支持会话上下文传递
    */
-  static getAllDatabaseTools() {
+  static getAllDatabaseTools(sessionContext?: { sessionId?: string }) {
     return {
-      create_file: this.getCreateFileTool(),
-      edit_file: this.getEditFileTool(),
+      create_file: this.getCreateFileTool(sessionContext),
+      edit_file: this.getEditFileTool(sessionContext),
       read_file: this.getReadFileTool(),
       list_files: this.getListFilesTool(),
       delete_file: this.getDeleteFileTool()
@@ -617,6 +692,9 @@ export class ChatSessionProjectSync {
   }
 }
 
-// 导出工具实例
-export const databaseFileTools = DatabaseFileTools.getAllDatabaseTools();
+// 导出工具类和同步服务
+export { DatabaseFileTools };
 export const chatSessionSync = ChatSessionProjectSync;
+
+// 向后兼容的默认导出（无会话上下文）
+export const databaseFileTools = DatabaseFileTools.getAllDatabaseTools();

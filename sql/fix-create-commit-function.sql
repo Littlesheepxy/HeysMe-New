@@ -1,5 +1,8 @@
--- 修复 create_commit 函数中的列引用模糊问题
--- 问题：UPDATE 语句中的 files_added, files_modified, files_deleted 列名与函数变量名冲突
+-- 修复 create_commit 函数
+-- 问题：UPDATE 语句中的列名与函数变量名冲突
+-- 解决：重命名函数内部变量，避免与表列名冲突
+
+DROP FUNCTION IF EXISTS create_commit(TEXT, TEXT, TEXT, jsonb, TEXT, TEXT, TEXT);
 
 CREATE OR REPLACE FUNCTION create_commit(
   project_id_param TEXT,
@@ -64,13 +67,16 @@ BEGIN
     END CASE;
   END LOOP;
   
-  -- 更新提交统计 (修复：使用局部变量)
-  UPDATE public.project_commits SET
-    files_added = var_files_added,
-    files_modified = var_files_modified,
-    files_deleted = var_files_deleted
+  -- 更新提交统计 (使用重命名的局部变量)
+  UPDATE public.project_commits 
+  SET files_added = var_files_added,
+      files_modified = var_files_modified,
+      files_deleted = var_files_deleted
   WHERE id = commit_id;
   
   RETURN commit_id;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- 验证函数创建
+SELECT 'create_commit function recreated successfully' as status;

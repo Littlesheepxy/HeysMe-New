@@ -454,7 +454,16 @@ export function CodePreviewToggle({
 
 
 
+  // 🔧 调试：检查传入的files参数
+  React.useEffect(() => {
+    console.log('🔍 [CodePreviewToggle] 接收到的files:', files);
+    console.log('🔍 [CodePreviewToggle] files长度:', files?.length || 0);
+    console.log('🔍 [CodePreviewToggle] files类型:', typeof files);
+    console.log('🔍 [CodePreviewToggle] files是数组:', Array.isArray(files));
+  }, [files]);
+
   if (!files || files.length === 0) {
+    console.log('🚨 [CodePreviewToggle] 显示等待状态，files:', files);
     return (
       <Card className={`w-full h-full flex items-center justify-center transition-all duration-300 ${
         theme === "light" 
