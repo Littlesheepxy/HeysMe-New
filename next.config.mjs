@@ -9,6 +9,21 @@ const nextConfig = {
   images: {
     unoptimized: true,
   },
+  serverExternalPackages: [
+    'metascraper',
+    'metascraper-author',
+    'metascraper-date', 
+    'metascraper-description',
+    'metascraper-image',
+    'metascraper-logo',
+    'metascraper-title',
+    'metascraper-url',
+    're2',
+    '@mozilla/readability',
+    'pdf-parse',
+    'mammoth',
+    'xlsx'
+  ],
   // WebContainer 需要的跨域隔离头部
   async headers() {
     return [
@@ -27,21 +42,6 @@ const nextConfig = {
       },
     ];
   },
-  serverExternalPackages: [
-    'metascraper',
-    'metascraper-author',
-    'metascraper-date', 
-    'metascraper-description',
-    'metascraper-image',
-    'metascraper-logo',
-    'metascraper-title',
-    'metascraper-url',
-    're2',
-    '@mozilla/readability',
-    'pdf-parse',
-    'mammoth',
-    'xlsx'
-  ],
   webpack: (config, { isServer }) => {
     if (isServer) {
       // 服务端：允许原生模块
