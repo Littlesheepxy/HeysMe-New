@@ -7,15 +7,12 @@ import {
   HeaderSection,
   HeroSection,
   MissionSection,
-  ValueSection,
   FeaturesSection,
-  CreatorHubSection,
-  PlazaSection,
-  UseCasesSection,
+  ValueAndUseCasesSection,
+  PlazaAndCreatorSection,
   TestimonialsSection,
   FinalCtaSection
 } from "@/components/landing"
-import VisionSection from "@/app/components/sections/vision-section"
 import { Linkedin, Twitter, MessageCircle } from "lucide-react"
 
 // Footer Section Component - 简化版
@@ -44,13 +41,26 @@ function FooterSectionComponent() {
 
   return (
     <footer className="relative z-10 overflow-hidden">
-      {/* 渐变背景层 */}
-      <div className="absolute inset-0 bg-gradient-to-t from-emerald-900/20 via-cyan-800/10 to-transparent"></div>
-      <div className="absolute inset-0 bg-white/80 backdrop-blur-xl"></div>
+      {/* 与Hero呼应的渐变背景 */}
+      <div className="absolute inset-0 bg-gradient-to-t from-emerald-900/30 via-cyan-800/20 to-transparent"></div>
+      
+      {/* Flickering Grid 背景动效 - 与Hero呼应 */}
+      <div className="absolute inset-0">
+        <div 
+          className="absolute inset-0 opacity-10"
+          style={{
+            backgroundImage: `
+              linear-gradient(rgba(16, 185, 129, 0.1) 1px, transparent 1px),
+              linear-gradient(90deg, rgba(16, 185, 129, 0.1) 1px, transparent 1px)
+            `,
+            backgroundSize: '32px 32px'
+          }}
+        />
+      </div>
       
       {/* 装饰性元素 */}
-      <div className="absolute top-0 left-1/4 w-32 h-32 bg-emerald-400/10 rounded-full blur-3xl"></div>
-      <div className="absolute bottom-0 right-1/4 w-40 h-40 bg-cyan-400/10 rounded-full blur-3xl"></div>
+      <div className="absolute top-0 left-1/4 w-32 h-32 bg-emerald-400/15 rounded-full blur-3xl"></div>
+      <div className="absolute bottom-0 right-1/4 w-40 h-40 bg-cyan-400/15 rounded-full blur-3xl"></div>
       
       <div className="relative z-10">
         {/* 主要内容区域 */}
@@ -67,10 +77,10 @@ function FooterSectionComponent() {
                   <div className="absolute -inset-1 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-2xl blur opacity-20"></div>
                 </div>
                 <div>
-                  <h3 className="text-xl font-bold bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent">
+                  <h3 className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">
                     HeysMe
                   </h3>
-                  <p className="text-sm text-gray-600">{t('footer.brandSubtitle')}</p>
+                  <p className="text-sm text-white/80">{t('footer.brandSubtitle')}</p>
                 </div>
               </div>
             </div>
@@ -78,7 +88,7 @@ function FooterSectionComponent() {
             {/* 中间：品牌标语 */}
             <div className="lg:col-span-1 text-center">
               <div>
-                <p className="text-lg font-medium text-gray-700 mb-2">
+                <p className="text-lg font-medium text-white/90 mb-2">
                   {t('footer.slogan')}
                 </p>
                 <div className="w-16 h-1 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-full mx-auto"></div>
@@ -88,7 +98,7 @@ function FooterSectionComponent() {
             {/* 右侧：社交媒体 */}
             <div className="lg:col-span-1 flex justify-center lg:justify-end">
               <div className="flex items-center space-x-6">
-                <span className="text-sm font-medium text-gray-600 hidden sm:block">{t('footer.followUs')}</span>
+                <span className="text-sm font-medium text-white/80 hidden sm:block">{t('footer.followUs')}</span>
                 <div className="flex space-x-3">
                   {socialLinks.map((social, index) => {
                     const IconComponent = social.icon
@@ -98,7 +108,7 @@ function FooterSectionComponent() {
                       href={social.href}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={`group relative p-3 bg-white/60 backdrop-blur-sm rounded-xl border border-white/40 text-gray-600 transition-all duration-300 hover:bg-white hover:shadow-lg ${social.color}`}
+                      className={`group relative p-3 bg-white/20 backdrop-blur-sm rounded-xl border border-white/30 text-white/80 transition-all duration-300 hover:bg-white/30 hover:shadow-lg hover:text-white ${social.color}`}
                     >
                       <IconComponent className="w-5 h-5" />
                       
@@ -119,16 +129,16 @@ function FooterSectionComponent() {
         </div>
 
         {/* 底部版权信息 */}
-        <div className="border-t border-gradient-to-r from-transparent via-gray-300/30 to-transparent">
+        <div className="border-t border-white/20">
           <div className="container mx-auto px-6 py-6">
             <div className="flex flex-col sm:flex-row items-center justify-between space-y-4 sm:space-y-0">
-              <div className="flex items-center space-x-4 text-sm text-gray-600">
+              <div className="flex items-center space-x-4 text-sm text-white/70">
                 <span className="font-semibold">{t('footer.company')}</span>
-                <span className="w-1 h-1 bg-gray-400 rounded-full"></span>
+                <span className="w-1 h-1 bg-white/50 rounded-full"></span>
                 <span>{t('footer.copyright')}</span>
               </div>
               
-              <div className="text-xs text-gray-500">
+              <div className="text-xs text-white/60">
                 <span>{t('footer.poweredBy')}</span>
                 <span className="mx-2">•</span>
                 <span>{t('footer.builtWith')}</span>
@@ -172,34 +182,19 @@ function HomePage() {
           <MissionSection />
         </section>
 
-        {/* Vision Section */}
-        <section id="vision">
-          <VisionSection />
-        </section>
-
-        {/* Value Section */}
-        <section id="value">
-          <ValueSection />
-        </section>
-
         {/* Features Section */}
         <section id="features">
           <FeaturesSection />
         </section>
 
-        {/* Creator Hub Section */}
-        <section id="creator-hub">
-          <CreatorHubSection />
+        {/* Value and Use Cases Section */}
+        <section id="value">
+          <ValueAndUseCasesSection />
         </section>
 
-        {/* Digital Identity Plaza Section */}
+        {/* Plaza and Creator Section */}
         <section id="plaza">
-          <PlazaSection />
-        </section>
-
-        {/* Use Cases Section */}
-        <section id="use-cases">
-          <UseCasesSection />
+          <PlazaAndCreatorSection />
         </section>
 
         {/* Testimonials Section */}

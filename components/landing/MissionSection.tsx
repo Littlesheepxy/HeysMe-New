@@ -3,15 +3,25 @@
 import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { useI18n } from "@/contexts/i18n-context"
+import { FlickeringGrid } from "@/components/ui/flickering-grid"
 import { Sparkles, Zap, Users, Lightbulb } from "lucide-react"
 
 export function MissionSection() {
   const { t } = useI18n()
 
   return (
-    <section className="min-h-screen flex items-center py-32 bg-white relative overflow-hidden">
+    <section className="py-20 bg-white relative overflow-hidden">
+      {/* Flickering Grid 背景动效 */}
+      <FlickeringGrid
+        className="absolute inset-0 z-0"
+        squareSize={3}
+        gridGap={6}
+        color="rgb(16, 185, 129)"
+        maxOpacity={0.1}
+        flickerChance={0.03}
+      />
       {/* 背景装饰 */}
-      <div className="absolute inset-0">
+      <div className="absolute inset-0 z-10">
         <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-brand-400 via-secondary-400 to-accent-400"></div>
         <div className="absolute top-10 left-1/4 w-32 h-32 bg-brand-200/30 rounded-full blur-3xl"></div>
         <div className="absolute bottom-10 right-1/4 w-32 h-32 bg-secondary-200/30 rounded-full blur-3xl"></div>
@@ -87,7 +97,7 @@ export function MissionSection() {
 
             {/* 为什么做 HeysMe 区域 */}
             <motion.div
-              className="bg-white/80 backdrop-blur-sm rounded-3xl p-8 shadow-xl border border-white/60"
+              className="bg-white/20 backdrop-blur-lg rounded-3xl p-8 shadow-xl border border-white/30"
               initial={{ opacity: 0, y: 30 }}
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
@@ -102,7 +112,7 @@ export function MissionSection() {
               
               {/* 品牌理念区域 */}
               <motion.div
-                className="bg-gradient-to-r from-brand-50 via-secondary-50 to-accent-50 rounded-2xl p-6 mb-6 border-l-4 border-gradient-to-b from-brand-400 to-secondary-400"
+                className="bg-gradient-to-r from-emerald-100/50 via-teal-100/40 to-cyan-100/50 backdrop-blur-md rounded-2xl p-6 mb-6 border-l-4 border-emerald-400 shadow-md border border-white/30"
                 initial={{ opacity: 0, scale: 0.95 }}
                 whileInView={{ opacity: 1, scale: 1 }}
                 viewport={{ once: true }}
@@ -135,7 +145,7 @@ export function MissionSection() {
             viewport={{ once: true }}
             transition={{ duration: 0.8, delay: 0.4 }}
           >
-            <div className="relative bg-white/90 backdrop-blur-sm rounded-3xl p-8 shadow-2xl border border-white/60">
+            <div className="relative bg-white/20 backdrop-blur-lg rounded-3xl p-8 shadow-2xl border border-white/30">
               {/* 顶部：AI革命说明 */}
               <motion.div
                 className="text-center mb-5"
@@ -144,7 +154,7 @@ export function MissionSection() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: 0.5 }}
               >
-                <div className="inline-flex items-center gap-2 bg-gradient-to-r from-brand-50 to-secondary-50 rounded-xl px-4 py-2 border border-brand-200/50">
+                <div className="inline-flex items-center gap-2 bg-emerald-100/60 backdrop-blur-md rounded-xl px-4 py-2 border border-emerald-200/40">
                   <Lightbulb className="w-4 h-4 text-brand-500" />
                   <span className="text-xs font-medium text-gray-700">AI时代的身份进化</span>
                 </div>
@@ -176,7 +186,7 @@ export function MissionSection() {
                       return itemsArray.map((item, index) => (
                         <div
                           key={item}
-                          className="bg-gray-100 rounded-lg p-4 text-center text-sm font-medium text-gray-600 min-h-[50px] flex items-center justify-center"
+                          className="bg-white/40 backdrop-blur-sm rounded-lg p-4 text-center text-sm font-medium text-gray-700 min-h-[50px] flex items-center justify-center border border-white/30 shadow-md"
                         >
                           {item}
                         </div>
@@ -197,7 +207,7 @@ export function MissionSection() {
                     <Zap className="w-5 h-5 text-white" />
                   </div>
                   <div className="text-center">
-                    <p className="text-xs font-medium text-gray-500 bg-gray-50 rounded-full px-3 py-1">
+                    <p className="text-xs font-medium text-gray-600 bg-white/50 backdrop-blur-sm rounded-full px-3 py-1 border border-white/30">
                       AI赋能进化
                     </p>
                   </div>
@@ -224,12 +234,17 @@ export function MissionSection() {
                     {(() => {
                       const items = t('mission.comparison.ai.items')
                       const itemsArray = Array.isArray(items) ? items : ['Creator', 'Job Seeker', 'Freelancer', 'Collaborator']
-                      const gradients = ['from-brand-400 to-brand-500', 'from-secondary-400 to-secondary-500', 'from-accent-400 to-accent-500', 'from-brand-500 to-secondary-500']
+                      const buttonStyles = [
+                        'bg-emerald-500/20 border-emerald-300/40 text-emerald-700 hover:bg-emerald-500/30',
+                        'bg-teal-500/20 border-teal-300/40 text-teal-700 hover:bg-teal-500/30', 
+                        'bg-cyan-500/20 border-cyan-300/40 text-cyan-700 hover:bg-cyan-500/30',
+                        'bg-gradient-to-r from-emerald-500/20 to-cyan-500/20 border-emerald-300/30 text-emerald-700 hover:from-emerald-500/30 hover:to-cyan-500/30'
+                      ]
                       
                       return itemsArray.map((item, index) => (
                         <motion.div
                           key={`ai-item-${index}-${item}`}
-                          className={`bg-gradient-to-r ${gradients[index]} rounded-lg p-4 text-center text-sm font-medium text-white shadow-md min-h-[50px] flex items-center justify-center`}
+                          className={`${buttonStyles[index]} backdrop-blur-md rounded-2xl p-4 text-center text-sm font-semibold shadow-lg border min-h-[60px] flex items-center justify-center transition-all duration-300 cursor-pointer`}
                           initial={{ opacity: 0, scale: 0.8 }}
                           whileInView={{ opacity: 1, scale: 1 }}
                           viewport={{ once: true }}

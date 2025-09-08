@@ -6,7 +6,14 @@ const config: Config = {
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
     "./app/**/*.{js,ts,jsx,tsx,mdx}",
+    "./src/**/*.{js,ts,jsx,tsx,mdx}",
     "*.{js,ts,jsx,tsx,mdx}"
+  ],
+  safelist: [
+    'animate-marquee',
+    'animate-marquee-vertical',
+    '[animation-direction:reverse]',
+    'group-hover:[animation-play-state:paused]'
   ],
   theme: {
   	extend: {
@@ -397,6 +404,14 @@ const config: Config = {
 				"100%": {
 					transform: "rotate(360deg)",
 				},
+			},
+			marquee: {
+				from: { transform: "translateX(0%)" },
+				to: { transform: "translateX(-100%)" },
+			},
+			"marquee-vertical": {
+				from: { transform: "translateY(0%)" },
+				to: { transform: "translateY(-100%)" },
 			}
   		},
   		animation: {
@@ -424,6 +439,10 @@ const config: Config = {
 			'moveInCircleSlow': 'moveInCircleSlow 40s linear infinite',
 			'moveHorizontal': 'moveHorizontal 40s ease infinite',
 			'moveInCircleFast': 'moveInCircleFast 20s ease infinite',
+			marquee: "marquee var(--duration) linear infinite",
+			"marquee-vertical": "marquee-vertical var(--duration) linear infinite",
+			"animate-marquee": "marquee var(--duration) linear infinite",
+			"animate-marquee-vertical": "marquee-vertical var(--duration) linear infinite",
   		},
 		// 🎨 字体系统
 		fontFamily: {

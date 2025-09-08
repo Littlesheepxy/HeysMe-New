@@ -98,3 +98,4 @@ test-env.js
 # ngrok development files
 .ngrok-url
 ngrok.log
+.vercel

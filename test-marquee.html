@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Marquee Test</title>
+    <style>
+        .marquee-container {
+            display: flex;
+            overflow: hidden;
+            width: 100%;
+            --duration: 10s;
+            --gap: 1rem;
+            gap: var(--gap);
+        }
+        
+        .marquee-content {
+            display: flex;
+            flex-shrink: 0;
+            gap: var(--gap);
+            animation: marquee var(--duration) linear infinite;
+        }
+        
+        .marquee-content.reverse {
+            animation-direction: reverse;
+        }
+        
+        .card {
+            width: 300px;
+            padding: 20px;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            border: 1px solid #e5e7eb;
+            flex-shrink: 0;
+        }
+        
+        @keyframes marquee {
+            from {
+                transform: translateX(0);
+            }
+            to {
+                transform: translateX(calc(-100% - var(--gap)));
+            }
+        }
+        
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            background: #f9fafb;
+        }
+    </style>
+</head>
+<body>
+    <h1>Marquee Test</h1>
+    
+    <div style="margin-bottom: 20px;">
+        <h2>第一行 - 向右滚动</h2>
+        <div class="marquee-container">
+            <div class="marquee-content">
+                <div class="card">卡片 1</div>
+                <div class="card">卡片 2</div>
+                <div class="card">卡片 3</div>
+                <div class="card">卡片 4</div>
+                <div class="card">卡片 5</div>
+            </div>
+            <div class="marquee-content">
+                <div class="card">卡片 1</div>
+                <div class="card">卡片 2</div>
+                <div class="card">卡片 3</div>
+                <div class="card">卡片 4</div>
+                <div class="card">卡片 5</div>
+            </div>
+        </div>
+    </div>
+    
+    <div>
+        <h2>第二行 - 向左滚动</h2>
+        <div class="marquee-container" style="--duration: 12s;">
+            <div class="marquee-content reverse">
+                <div class="card">卡片 A</div>
+                <div class="card">卡片 B</div>
+                <div class="card">卡片 C</div>
+                <div class="card">卡片 D</div>
+                <div class="card">卡片 E</div>
+            </div>
+            <div class="marquee-content reverse">
+                <div class="card">卡片 A</div>
+                <div class="card">卡片 B</div>
+                <div class="card">卡片 C</div>
+                <div class="card">卡片 D</div>
+                <div class="card">卡片 E</div>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

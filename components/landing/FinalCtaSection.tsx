@@ -4,23 +4,29 @@ import { motion } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { useI18n } from "@/contexts/i18n-context"
+import { FlickeringGrid } from "@/components/ui/flickering-grid"
 import { Sparkles, ArrowRight, Rocket } from "lucide-react"
 
 export function FinalCtaSection() {
   const { t } = useI18n()
 
   return (
-    <section className="min-h-screen flex items-center py-32 relative overflow-hidden">
-      {/* 动态背景渐变 */}
-      <div className="absolute inset-0 bg-gradient-to-br from-brand-600 via-secondary-600 to-accent-600"></div>
-      <div className="absolute inset-0 bg-gradient-to-tl from-brand-500/30 via-transparent to-accent-500/30"></div>
-      
-      {/* 动画背景元素 */}
-      <div className="absolute inset-0">
-        <div className="absolute top-20 left-20 w-72 h-72 bg-white/10 rounded-full mix-blend-screen filter blur-xl opacity-50 animate-pulse"></div>
-        <div className="absolute bottom-20 right-20 w-96 h-96 bg-white/10 rounded-full mix-blend-screen filter blur-xl opacity-50 animate-pulse" style={{animationDelay: '1000ms'}}></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-64 h-64 bg-white/5 rounded-full mix-blend-screen filter blur-xl opacity-50 animate-pulse" style={{animationDelay: '2000ms'}}></div>
+    <section className="min-h-screen flex items-center py-32 relative overflow-hidden bg-white">
+      {/* Flickering Grid 背景动效 */}
+      <FlickeringGrid
+        className="absolute inset-0 z-0"
+        squareSize={4}
+        gridGap={6}
+        color="rgb(16, 185, 129)"
+        maxOpacity={0.1}
+        flickerChance={0.05}
+      />
+      {/* 简化背景装饰 */}
+      <div className="absolute inset-0 z-10">
+        <div className="absolute top-20 left-20 w-40 h-40 bg-emerald-200/30 rounded-full blur-3xl" />
+        <div className="absolute bottom-20 right-20 w-40 h-40 bg-cyan-200/30 rounded-full blur-3xl" />
       </div>
+      
 
       <div className="container mx-auto px-6 relative z-10">
         <motion.div
@@ -30,11 +36,11 @@ export function FinalCtaSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
         >
-          <Card className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl shadow-2xl overflow-hidden">
+          <Card className="bg-white/90 backdrop-blur-xl border border-white/60 rounded-3xl shadow-2xl overflow-hidden">
             <CardContent className="p-12 md:p-16">
               {/* 主标题 */}
               <motion.h2 
-                className="text-4xl md:text-6xl font-bold mb-6 text-white leading-tight"
+                className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-emerald-600 via-cyan-600 to-emerald-600 bg-clip-text text-transparent leading-tight"
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -45,7 +51,7 @@ export function FinalCtaSection() {
 
               {/* 副标题 */}
               <motion.p 
-                className="text-xl md:text-2xl mb-12 text-white/90 leading-relaxed max-w-2xl mx-auto"
+                className="text-xl md:text-2xl mb-12 text-gray-600 leading-relaxed max-w-2xl mx-auto"
                 initial={{ opacity: 0, y: 30 }}
                 whileInView={{ opacity: 1, y: 0 }}
                 viewport={{ once: true }}
@@ -65,7 +71,7 @@ export function FinalCtaSection() {
                 <Button
                   size="lg"
                   onClick={() => window.location.href = '/chat'}
-                  className="group relative px-12 py-6 text-xl font-bold bg-white text-brand-600 hover:bg-gray-50 rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105 overflow-hidden"
+                  className="group relative px-12 py-6 text-xl font-bold bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105 overflow-hidden"
                 >
                   <span className="relative z-10 flex items-center">
                     <Sparkles className="w-6 h-6 mr-3 group-hover:animate-spin" />
@@ -73,13 +79,13 @@ export function FinalCtaSection() {
                     <ArrowRight className="w-6 h-6 ml-3 group-hover:translate-x-1 transition-transform duration-300" />
                   </span>
                   {/* 动画背景 */}
-                  <div className="absolute inset-0 bg-gradient-to-r from-brand-400/20 to-secondary-400/20 translate-x-full group-hover:translate-x-0 transition-transform duration-500"></div>
+                  <div className="absolute inset-0 bg-gradient-to-r from-emerald-400/20 to-cyan-400/20 translate-x-full group-hover:translate-x-0 transition-transform duration-500"></div>
                 </Button>
 
                 <Button
                   variant="outline"
                   size="lg"
-                  className="px-12 py-6 text-xl font-bold text-white border-2 border-white/30 hover:border-white/50 bg-white/10 hover:bg-white/20 rounded-2xl backdrop-blur-sm transition-all duration-300 transform hover:scale-105"
+                  className="px-12 py-6 text-xl font-bold text-gray-700 border-2 border-gray-300 hover:border-gray-400 bg-white/80 hover:bg-white rounded-2xl backdrop-blur-sm transition-all duration-300 transform hover:scale-105"
                 >
                   <Rocket className="w-6 h-6 mr-3" />
                   {t('finalCta.secondaryCta')}
@@ -94,11 +100,11 @@ export function FinalCtaSection() {
                 viewport={{ once: true }}
                 transition={{ duration: 0.6, delay: 0.8 }}
               >
-                <div className="flex flex-wrap justify-center gap-8 text-white/80">
+                <div className="flex flex-wrap justify-center gap-8 text-gray-600">
                   {(() => {
                     const features = t('finalCta.features')
                     const featuresArray = Array.isArray(features) ? features : ['Free to Start', '3-Minute Creation', 'AI Smart Generation', 'Always Editable']
-                    const colors = ['bg-brand-400', 'bg-secondary-400', 'bg-accent-400', 'bg-brand-500']
+                    const colors = ['bg-emerald-400', 'bg-cyan-400', 'bg-blue-400', 'bg-emerald-500']
                     return featuresArray.map((feature, index) => (
                       <div key={feature} className="flex items-center gap-2">
                         <div className={`w-2 h-2 ${colors[index]} rounded-full`}></div>
@@ -116,7 +122,7 @@ export function FinalCtaSection() {
                   viewport={{ once: true }}
                   transition={{ duration: 1, delay: 1 }}
                 >
-                  <p className="text-lg text-white/60 italic">
+                  <p className="text-lg text-gray-500 italic">
                     "{(() => {
                       const slogans = t('slogans')
                       const slogansArray = Array.isArray(slogans) ? slogans : []

@@ -7,6 +7,7 @@ import { Sparkles, Play } from "lucide-react"
 import { useI18n } from "@/contexts/i18n-context"
 import CardSwap, { Card as SwapCard } from "@/components/ui/CardSwap/CardSwap"
 import RotatingText from "@/components/ui/RotatingText"
+import { FlickeringGrid } from "@/components/ui/flickering-grid"
 import { Brain, Target, Palette, Shield } from "lucide-react"
 
 export function HeroSection() {
@@ -26,6 +27,15 @@ export function HeroSection() {
 
   return (
     <section className="relative z-10 overflow-hidden min-h-screen flex items-center">
+      {/* Flickering Grid 背景动效 */}
+      <FlickeringGrid
+        className="absolute inset-0 z-0"
+        squareSize={4}
+        gridGap={8}
+        color="rgb(16, 185, 129)"
+        maxOpacity={0.15}
+        flickerChance={0.05}
+      />
       <div className="container mx-auto px-4 py-32 relative z-10">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:items-start">
           {/* Left side: Hero content */}
@@ -128,25 +138,25 @@ export function HeroSection() {
                 pauseOnHover={true}
               >
                 <SwapCard
-                  customClass="bg-gradient-to-br from-emerald-50 to-emerald-100 border-emerald-200 shadow-2xl"
+                  customClass="bg-gradient-to-br from-emerald-400/15 via-emerald-300/10 to-white/20 backdrop-blur-lg border-emerald-200/30 shadow-2xl"
                   className="text-gray-900 overflow-hidden"
                 >
                   {/* 浏览器标题栏 */}
-                  <div className="bg-gradient-to-r from-emerald-100 to-emerald-50 border-b border-emerald-200 px-4 py-3 flex items-center gap-3">
+                  <div className="bg-emerald-100/60 backdrop-blur-sm border-b border-emerald-200/30 px-4 py-3 flex items-center gap-3">
                     <div className="flex gap-2">
                       <div className="w-3 h-3 bg-red-500 rounded-full shadow-sm"></div>
                       <div className="w-3 h-3 bg-yellow-500 rounded-full shadow-sm"></div>
                       <div className="w-3 h-3 bg-green-500 rounded-full shadow-sm"></div>
                     </div>
                     <div className="flex-1 flex justify-center">
-                      <div className="bg-white/80 backdrop-blur-sm rounded-lg px-4 py-2 text-xs text-emerald-700 border border-emerald-300 max-w-52 flex items-center gap-2 shadow-sm">
+                      <div className="bg-emerald-50/80 backdrop-blur-md rounded-lg px-4 py-2 text-xs text-emerald-700 border border-emerald-200/40 max-w-52 flex items-center gap-2 shadow-sm">
                         <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
                         <span className="font-medium">HeysMe.ai/digital-twin</span>
                       </div>
                     </div>
                   </div>
                   {/* 内容区域 */}
-                  <div className="p-6 text-center bg-gradient-to-b from-white to-emerald-50/50">
+                  <div className="p-6 text-center bg-gradient-to-b from-emerald-50/40 to-white/30 backdrop-blur-sm">
                     <div className="mb-4 inline-block">
                       <Brain className="w-8 h-8 text-emerald-600" strokeWidth={1.5} />
                     </div>
@@ -159,25 +169,25 @@ export function HeroSection() {
                 </SwapCard>
                 
                 <SwapCard
-                  customClass="bg-gradient-to-br from-teal-50 to-teal-100 border-teal-200 shadow-2xl"
+                  customClass="bg-gradient-to-br from-teal-400/15 via-teal-300/10 to-white/20 backdrop-blur-lg border-teal-200/30 shadow-2xl"
                   className="text-gray-900 overflow-hidden"
                 >
                   {/* 浏览器标题栏 */}
-                  <div className="bg-gradient-to-r from-teal-100 to-teal-50 border-b border-teal-200 px-4 py-3 flex items-center gap-3">
+                  <div className="bg-teal-100/60 backdrop-blur-sm border-b border-teal-200/30 px-4 py-3 flex items-center gap-3">
                     <div className="flex gap-2">
                       <div className="w-3 h-3 bg-red-500 rounded-full shadow-sm"></div>
                       <div className="w-3 h-3 bg-yellow-500 rounded-full shadow-sm"></div>
                       <div className="w-3 h-3 bg-green-500 rounded-full shadow-sm"></div>
                     </div>
                     <div className="flex-1 flex justify-center">
-                      <div className="bg-white/80 backdrop-blur-sm rounded-lg px-4 py-2 text-xs text-teal-700 border border-teal-300 max-w-52 flex items-center gap-2 shadow-sm">
+                      <div className="bg-teal-50/80 backdrop-blur-md rounded-lg px-4 py-2 text-xs text-teal-700 border border-teal-200/40 max-w-52 flex items-center gap-2 shadow-sm">
                         <div className="w-3 h-3 bg-teal-500 rounded-full"></div>
                         <span className="font-medium">HeysMe.ai/monetization</span>
                       </div>
                     </div>
                   </div>
                   {/* 内容区域 */}
-                  <div className="p-6 text-center bg-gradient-to-b from-white to-teal-50/50">
+                  <div className="p-6 text-center bg-gradient-to-b from-teal-50/40 to-white/30 backdrop-blur-sm">
                     <div className="mb-4 inline-block">
                       <Target className="w-8 h-8 text-teal-600" strokeWidth={1.5} />
                     </div>
@@ -190,25 +200,25 @@ export function HeroSection() {
                 </SwapCard>
                 
                 <SwapCard
-                  customClass="bg-gradient-to-br from-cyan-50 to-cyan-100 border-cyan-200 shadow-2xl"
+                  customClass="bg-gradient-to-br from-cyan-400/15 via-cyan-300/10 to-white/20 backdrop-blur-lg border-cyan-200/30 shadow-2xl"
                   className="text-gray-900 overflow-hidden"
                 >
                   {/* 浏览器标题栏 */}
-                  <div className="bg-gradient-to-r from-cyan-100 to-cyan-50 border-b border-cyan-200 px-4 py-3 flex items-center gap-3">
+                  <div className="bg-cyan-100/60 backdrop-blur-sm border-b border-cyan-200/30 px-4 py-3 flex items-center gap-3">
                     <div className="flex gap-2">
                       <div className="w-3 h-3 bg-red-500 rounded-full shadow-sm"></div>
                       <div className="w-3 h-3 bg-yellow-500 rounded-full shadow-sm"></div>
                       <div className="w-3 h-3 bg-green-500 rounded-full shadow-sm"></div>
                     </div>
                     <div className="flex-1 flex justify-center">
-                      <div className="bg-white/80 backdrop-blur-sm rounded-lg px-4 py-2 text-xs text-cyan-700 border border-cyan-300 max-w-52 flex items-center gap-2 shadow-sm">
+                      <div className="bg-cyan-50/80 backdrop-blur-md rounded-lg px-4 py-2 text-xs text-cyan-700 border border-cyan-200/40 max-w-52 flex items-center gap-2 shadow-sm">
                         <div className="w-3 h-3 bg-cyan-500 rounded-full"></div>
                         <span className="font-medium">HeysMe.ai/dynamic</span>
                       </div>
                     </div>
                   </div>
                   {/* 内容区域 */}
-                  <div className="p-6 text-center bg-gradient-to-b from-white to-cyan-50/50">
+                  <div className="p-6 text-center bg-gradient-to-b from-cyan-50/40 to-white/30 backdrop-blur-sm">
                     <div className="mb-4 inline-block">
                       <Palette className="w-8 h-8 text-cyan-600" strokeWidth={1.5} />
                     </div>
@@ -221,25 +231,25 @@ export function HeroSection() {
                 </SwapCard>
                 
                 <SwapCard
-                  customClass="bg-gradient-to-br from-brand-50 to-brand-100 border-brand-200 shadow-2xl"
+                  customClass="bg-gradient-to-br from-emerald-400/12 via-cyan-300/8 to-white/20 backdrop-blur-lg border-emerald-200/25 shadow-2xl"
                   className="text-gray-900 overflow-hidden"
                 >
                   {/* 浏览器标题栏 */}
-                  <div className="bg-gradient-to-r from-brand-100 to-brand-50 border-b border-brand-200 px-4 py-3 flex items-center gap-3">
+                  <div className="bg-gradient-to-r from-emerald-100/50 to-cyan-100/50 backdrop-blur-sm border-b border-emerald-200/25 px-4 py-3 flex items-center gap-3">
                     <div className="flex gap-2">
                       <div className="w-3 h-3 bg-red-500 rounded-full shadow-sm"></div>
                       <div className="w-3 h-3 bg-yellow-500 rounded-full shadow-sm"></div>
                       <div className="w-3 h-3 bg-green-500 rounded-full shadow-sm"></div>
                     </div>
                     <div className="flex-1 flex justify-center">
-                      <div className="bg-white/80 backdrop-blur-sm rounded-lg px-4 py-2 text-xs text-brand-700 border border-brand-300 max-w-52 flex items-center gap-2 shadow-sm">
-                        <div className="w-3 h-3 bg-brand-500 rounded-full"></div>
+                      <div className="bg-gradient-to-r from-emerald-50/70 to-cyan-50/70 backdrop-blur-md rounded-lg px-4 py-2 text-xs text-emerald-700 border border-emerald-200/35 max-w-52 flex items-center gap-2 shadow-sm">
+                        <div className="w-3 h-3 bg-gradient-to-r from-emerald-500 to-cyan-500 rounded-full"></div>
                         <span className="font-medium">HeysMe.ai/multi-identity</span>
                       </div>
                     </div>
                   </div>
                   {/* 内容区域 */}
-                  <div className="p-6 text-center bg-gradient-to-b from-white to-brand-50/50">
+                  <div className="p-6 text-center bg-gradient-to-b from-emerald-50/30 via-cyan-50/20 to-white/30 backdrop-blur-sm">
                     <div className="mb-4 inline-block">
                       <Shield className="w-8 h-8 text-brand-600" strokeWidth={1.5} />
                     </div>
