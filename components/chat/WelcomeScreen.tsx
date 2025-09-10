@@ -8,6 +8,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Sparkles, Send, Paperclip, Upload, X } from 'lucide-react';
 import { useTheme } from '@/contexts/theme-context';
+import { ModeSelector } from './ModeSelector';
 
 
 
@@ -244,6 +245,9 @@ const useTypewriter = (phrases: string[], baseText: string = "", typingSpeed: nu
 export const WelcomeScreen = memo(function WelcomeScreen({ onSendMessage, isGenerating, chatMode, onFileUpload, onSendWithFiles, sessionId, isPrivacyMode = false }: WelcomeScreenProps) {
   const { theme } = useTheme();
   
+  // 🎯 界面模式状态
+  const [interfaceMode, setInterfaceMode] = useState<'selection' | 'professional' | 'guided'>('selection');
+  
   // 🚀 内部状态管理 - 避免父组件重渲染
   const [inputValue, setInputValue] = useState("");
 
@@ -272,6 +276,11 @@ export const WelcomeScreen = memo(function WelcomeScreen({ onSendMessage, isGene
       e.preventDefault();
       handleSendMessage();
     }
+  };
+
+  // 处理模式选择
+  const handleModeSelect = (mode: 'guided' | 'professional') => {
+    setInterfaceMode(mode);
   };
 
   // 处理发送消息（包含文件）
@@ -616,7 +625,7 @@ export const WelcomeScreen = memo(function WelcomeScreen({ onSendMessage, isGene
       <style jsx>{dynamicTextStyles}</style>
       
       <div className={`flex-1 flex flex-col items-center justify-center px-6 ${
-        theme === "light" ? "bg-white" : "bg-gray-900"
+        theme === "light" ? "bg-white" : "bg-[#181818]"
       }`}>
         <div className="w-full max-w-3xl mx-auto text-center">
           {/* 🎨 欢迎文本 - 打字机效果 */}
@@ -686,17 +695,34 @@ export const WelcomeScreen = memo(function WelcomeScreen({ onSendMessage, isGene
             </div>
           </motion.div>
 
-          {/* 🎨 输入框 - 简约设计，品牌色仅用于边框 */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.5, duration: 0.3 }} // 缩短动画时间
-            className="w-full"
-            style={{ 
-              transform: 'translateZ(0)', // 启用硬件加速
-              willChange: 'transform, opacity' // 提示浏览器优化
-            }}
-          >
+          {/* 🎯 根据界面模式渲染不同内容 */}
+          <AnimatePresence mode="wait">
+            {interfaceMode === 'selection' && (
+              <motion.div
+                key="mode-selection"
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.4 }}
+                className="w-full"
+              >
+                <ModeSelector onModeSelect={handleModeSelect} />
+              </motion.div>
+            )}
+
+            {interfaceMode === 'professional' && (
+              <motion.div
+                key="professional-mode"
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -30 }}
+                transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
+                className="w-full"
+                style={{ 
+                  transform: 'translateZ(0)', // 启用硬件加速
+                  willChange: 'transform, opacity' // 提示浏览器优化
+                }}
+              >
             {/* 🎨 快捷发送按钮 - 横向滑动布局 */}
             <div className="mb-4 relative">
               {/* 左侧渐变遮罩 */}
@@ -990,7 +1016,37 @@ export const WelcomeScreen = memo(function WelcomeScreen({ onSendMessage, isGene
                 <span>按 Enter 发送消息，开始创建你的专属页面</span>
               </div>
             </div>
-          </motion.div>
+              </motion.div>
+            )}
+
+            {interfaceMode === 'guided' && (
+              <motion.div
+                key="guided-mode"
+                initial={{ opacity: 0, y: 30 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -30 }}
+                transition={{ duration: 0.5, type: "spring", stiffness: 100 }}
+                className="w-full"
+              >
+                {/* 🎯 TODO: 这里将添加渐进式表单组件 */}
+                <div className="text-center p-8 bg-gradient-to-br from-blue-50 to-purple-50 dark:from-blue-950/30 dark:to-purple-950/30 rounded-3xl border border-blue-200 dark:border-blue-800">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-4">
+                    🚧 智能引导模式开发中
+                  </h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-6">
+                    渐进式问答表单正在开发中，即将为您提供更智能的创建体验！
+                  </p>
+                  <Button
+                    onClick={() => setInterfaceMode('selection')}
+                    variant="outline"
+                    className="border-blue-300 text-blue-600 hover:bg-blue-50 dark:border-blue-700 dark:text-blue-400 dark:hover:bg-blue-950/50"
+                  >
+                    返回模式选择
+                  </Button>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* 隐私模式提示 */}

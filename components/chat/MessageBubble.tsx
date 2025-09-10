@@ -477,7 +477,7 @@ export const MessageBubble = React.memo(function MessageBubble({
       <div className={`flex-1 min-w-0 ${actualIsUser && !isCompactMode ? "flex justify-end" : ""}`}>
         <div className={`inline-block ${isCompactMode ? "w-full" : "max-w-full"} text-left ${
           isCompactMode && actualIsUser 
-            ? "bg-blue-50 dark:bg-blue-900/20 rounded-lg p-2 border-l-2 border-blue-200 dark:border-blue-700" 
+            ? "bg-blue-50 dark:bg-[#212121] rounded-lg p-2 border-l-2 border-blue-200 dark:border-emerald-500" 
             : ""
         } ${actualIsUser ? "text-gray-800 dark:text-gray-200" : "text-gray-800 dark:text-gray-200"}`} style={isCompactMode ? { maxWidth: '100%' } : {}}>
           

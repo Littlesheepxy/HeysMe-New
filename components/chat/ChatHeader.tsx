@@ -48,7 +48,7 @@ export function ChatHeader({
       className={`transition-all duration-300 backdrop-blur-xl ${
         theme === "light" 
           ? "bg-white/90" 
-          : "bg-gray-900/90"
+          : "bg-[#181818]/90"
       }`}
     >
       <div className="px-4 py-3">

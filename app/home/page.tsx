@@ -13,19 +13,15 @@ import { ChatHeader } from "@/components/chat/ChatHeader"
 import { ChatSidebar } from "@/components/chat/ChatSidebar"
 import { WelcomeScreen } from "@/components/chat/WelcomeScreen"
 import { ChatModeView } from "@/components/chat/ChatModeView"
-import { ModeSelector } from "@/components/chat/ModeSelector"
-import { ProjectFormMode } from "@/components/chat/ProjectFormMode"
 
 import { CodeModeView } from "@/components/chat/CodeModeView"
 import { ErrorMonitor } from "@/components/ui/error-monitor"
 import { VercelStatusIndicator } from "@/components/ui/vercel-status-indicator"
 import { useVercelErrorMonitor } from "@/hooks/use-vercel-error-monitor"
 import { SessionDebugPanel } from "@/components/debug/SessionDebugPanel"
-import { ProjectRequirement } from "@/lib/routers/simple-message-router"
 import { useRouter } from "next/navigation"
 
 
-type HomePageMode = 'mode_selection' | 'normal_form' | 'professional_chat';
 
 export default function HomePage() {
   const { theme } = useTheme()
@@ -38,8 +34,6 @@ export default function HomePage() {
   const [showAuthDialog, setShowAuthDialog] = useState(false)
   const [pendingMessage, setPendingMessage] = useState<string>('')
   
-  // 🎯 模式选择状态
-  const [homePageMode, setHomePageMode] = useState<HomePageMode>('mode_selection')
   
   const {
     sessions = [],
@@ -410,38 +404,6 @@ export default function HomePage() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [isSidebarCollapsed])
 
-  // 发送消息
-  // 🎯 模式选择处理函数
-  const handleModeSelect = (mode: 'normal' | 'professional') => {
-    if (mode === 'normal') {
-      setHomePageMode('normal_form')
-    } else {
-      setHomePageMode('professional_chat')
-    }
-  }
-
-  const handleBackToModeSelection = () => {
-    setHomePageMode('mode_selection')
-  }
-
-  const handleFormSubmit = (requirement: ProjectRequirement, generatedPrompt: string) => {
-    // 跳转到coding页面并携带prompt
-    const searchParams = new URLSearchParams({
-      mode: 'normal',
-      prompt: generatedPrompt,
-      projectData: JSON.stringify(requirement)
-    })
-    router.push(`/coding?${searchParams.toString()}`)
-  }
-
-  const handleProfessionalMessage = (message: string) => {
-    // 跳转到coding页面并携带prompt
-    const searchParams = new URLSearchParams({
-      mode: 'professional',
-      prompt: message
-    })
-    router.push(`/coding?${searchParams.toString()}`)
-  }
 
   const handleSendMessage = async (messageContent: string) => {
     if (!messageContent.trim()) return
@@ -1313,50 +1275,18 @@ ${fileWithPreview.parsedContent ? `内容: ${fileWithPreview.parsedContent}` : '
             </div>
           )}
           
-          {/* 🎯 首先检查home页面模式 */}
-          {homePageMode === 'mode_selection' ? (
-            /* 模式选择界面 */
-            <div className="flex-1 flex items-center justify-center p-4">
-              <ModeSelector onModeSelect={handleModeSelect} />
-            </div>
-          ) : homePageMode === 'normal_form' ? (
-            /* 普通模式表单界面 */
-            <div className="flex-1 flex items-center justify-center p-4">
-              <ProjectFormMode 
-                onBack={handleBackToModeSelection}
-                onSubmit={handleFormSubmit}
-              />
-            </div>
-          ) : homePageMode === 'professional_chat' && !hasStartedChat ? (
-            /* 专业模式聊天界面 */
-            <div className="flex-1 flex items-center justify-center p-4">
-              <div className="w-full max-w-4xl">
-                <div className="mb-8 text-center">
-                  <button
-                    onClick={handleBackToModeSelection}
-                    className="mb-4 text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-                  >
-                    ← 返回模式选择
-                  </button>
-                  <h1 className="text-3xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-2">
-                    专业模式
-                  </h1>
-                  <p className="text-gray-600 dark:text-gray-400">
-                    直接描述您的项目需求，我会帮您生成代码
-                  </p>
-                </div>
-                
-                <WelcomeScreen
-                  onSendMessage={handleProfessionalMessage}
-                  isGenerating={false}
-                  chatMode="professional"
-                  onFileUpload={() => {}}
-                  onSendWithFiles={() => {}}
-                  sessionId={undefined}
-                  isPrivacyMode={false}
-                />
-              </div>
-            </div>
+          {/* 🎯 根据模式显示不同内容 */}
+          {!hasStartedChat ? (
+            /* 欢迎界面 - 包含内置模式选择 */
+            <WelcomeScreen
+              onSendMessage={sendMessage}
+              isGenerating={isGenerating}
+              chatMode={chatMode}
+              onFileUpload={handleFileUpload}
+              onSendWithFiles={handleSendWithFiles}
+              sessionId={currentSession?.id}
+              isPrivacyMode={isPrivacyMode}
+            />
           ) : isCodeMode ? (
             /* 代码模式 */
             <CodeModeView

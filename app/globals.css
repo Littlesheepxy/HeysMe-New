@@ -93,44 +93,44 @@
   }
 
   .dark {
-    --background: 222.2 84% 4.9%;
+    --background: 0 0% 9.4%; /* #181818 */
     --foreground: 210 40% 98%;
-    --card: 222.2 84% 4.9%;
+    --card: 0 0% 13.1%; /* #212121 */
     --card-foreground: 210 40% 98%;
-    --popover: 222.2 84% 4.9%;
+    --popover: 0 0% 13.1%; /* #212121 */
     --popover-foreground: 210 40% 98%;
     --primary: 160 84% 39%;
-    --primary-foreground: 222.2 47.4% 11.2%;
-    --secondary: 217.2 32.6% 17.5%;
+    --primary-foreground: 0 0% 9.4%;
+    --secondary: 0 0% 16.5%; /* #2a2a2a */
     --secondary-foreground: 210 40% 98%;
-    --muted: 217.2 32.6% 17.5%;
+    --muted: 0 0% 16.5%; /* #2a2a2a */
     --muted-foreground: 215 20.2% 65.1%;
-    --accent: 217.2 32.6% 17.5%;
+    --accent: 0 0% 16.5%; /* #2a2a2a */
     --accent-foreground: 210 40% 98%;
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 210 40% 98%;
-    --border: 217.2 32.6% 17.5%;
-    --input: 217.2 32.6% 17.5%;
+    --border: 0 0% 16.5%; /* #2a2a2a */
+    --input: 0 0% 16.5%; /* #2a2a2a */
     --ring: 160 84% 39%;
     --chart-1: 220 70% 50%;
     --chart-2: 160 60% 45%;
     --chart-3: 30 80% 55%;
     --chart-4: 280 65% 60%;
     --chart-5: 340 75% 55%;
-    --sidebar-background: 240 5.9% 10%;
+    --sidebar-background: 0 0% 9.4%; /* #181818 */
     --sidebar-foreground: 240 4.8% 95.9%;
     --sidebar-primary: 160 84% 39%;
-    --sidebar-primary-foreground: 220.9 39.3% 11%;
-    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-primary-foreground: 0 0% 9.4%;
+    --sidebar-accent: 0 0% 16.5%; /* #2a2a2a */
     --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-border: 0 0% 16.5%; /* #2a2a2a */
     --sidebar-ring: 160 84% 39%;
 
     --brand-primary: 160 84% 39%;
     --brand-secondary: 188 78% 41%;
     --brand-accent: 188 61% 41%;
-    --brand-light: 240 5.9% 10%;
-    --brand-surface: 240 3.7% 15.9%;
+    --brand-light: 0 0% 9.4%; /* #181818 */
+    --brand-surface: 0 0% 16.5%; /* #2a2a2a */
   }
   .theme {
     --animate-marquee: marquee var(--duration) infinite linear;
@@ -330,15 +330,15 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 .dark html {
-  scrollbar-color: #10B981 #1F2937;
+  scrollbar-color: #10B981 #181818;
 }
 
 .dark html::-webkit-scrollbar-track {
-  background: #1F2937;
+  background: #181818;
 }
 
 .dark html::-webkit-scrollbar-thumb {
-  border-color: #1F2937;
+  border-color: #181818;
 }
 
 /* 🎨 品牌渐变背景 */
@@ -347,7 +347,7 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 .bg-gradient-dark {
-  background: linear-gradient(135deg, #0F172A 0%, #164E63 50%, #065F46 100%);
+  background: linear-gradient(135deg, #181818 0%, #212121 50%, #2a2a2a 100%);
 }
 
 /* 🎨 品牌色卡片样式 */
@@ -356,7 +356,7 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 .card-dark {
-  @apply bg-gray-800/90 backdrop-blur-xl border-emerald-700/30 shadow-brand-sm;
+  @apply bg-[#212121]/90 backdrop-blur-xl border-[#2a2a2a] shadow-brand-sm;
 }
 
 /* 🎨 品牌渐变按钮 */
@@ -416,9 +416,9 @@ html::-webkit-scrollbar-thumb:hover {
 }
 
 .dark .message-ai {
-  background: #1E293B;
+  background: #212121;
   color: #E2E8F0;
-  border-color: #334155;
+  border-color: #2a2a2a;
   border-left-color: #10B981;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
 }

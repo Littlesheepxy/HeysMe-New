@@ -158,9 +158,9 @@ const config: Config = {
 			// 玻璃拟态效果
 			'glass-brand': 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(6, 182, 212, 0.1) 100%)',
 			'glass-brand-dark': 'linear-gradient(135deg, rgba(16, 185, 129, 0.15) 0%, rgba(6, 182, 212, 0.15) 100%)',
-			// 页面背景渐变
+			// 页面背景渐变 - 使用新的暗色调
 			'page-gradient-light': 'linear-gradient(135deg, #F0FDFA 0%, #ECFEFF 50%, #F0F9FF 100%)',
-			'page-gradient-dark': 'linear-gradient(135deg, #0F172A 0%, #164E63 50%, #065F46 100%)',
+			'page-gradient-dark': 'linear-gradient(135deg, #181818 0%, #212121 50%, #2a2a2a 100%)',
 		},
 		boxShadow: {
 			// 🎨 品牌色阴影系统

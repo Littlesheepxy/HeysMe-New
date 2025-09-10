@@ -102,7 +102,7 @@ export function ChatSidebar({
       className={`border-r flex flex-col backdrop-blur-xl overflow-hidden sidebar-transition relative ${
         theme === "light" 
           ? "bg-white/95 border-emerald-200/40 shadow-sm" 
-          : "bg-gray-950/95 border-emerald-700/30 shadow-xl"
+          : "bg-[#181818] border-[#2a2a2a] shadow-xl"
       } ${isCodeMode ? 'hidden' : ''}`}
       style={{
         minWidth: isCodeMode ? 0 : isCollapsed ? (isMobile ? 0 : 64) : (isMobile ? 240 : 260),
@@ -110,10 +110,10 @@ export function ChatSidebar({
       }}
     >
       {/* 🎨 微妙的背景纹理 - 使用品牌色 */}
-      <div className={`absolute inset-0 opacity-20 ${
+      <div className={`absolute inset-0 opacity-5 ${
         theme === "light" 
           ? "bg-gradient-to-br from-emerald-50/30 via-teal-50/20 to-cyan-50/30" 
-          : "bg-gradient-to-br from-emerald-950/30 via-teal-950/20 to-cyan-950/30"
+          : "bg-gradient-to-br from-emerald-900/10 via-teal-900/5 to-cyan-900/10"
       }`} />
       
       {/* 🎨 顶部Logo区域 */}

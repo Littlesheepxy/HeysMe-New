@@ -1,13 +1,11 @@
 "use client"
 
 import { useState } from "react"
-import { motion } from "framer-motion"
-import { Button } from "@/components/ui/button"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Brain, MessageSquare, Sparkles, Zap } from "lucide-react"
+import { motion, AnimatePresence } from "framer-motion"
+import { Brain, Zap, Sparkles, MessageSquare } from "lucide-react"
 
 interface ModeSelectorProps {
-  onModeSelect: (mode: 'normal' | 'professional') => void
+  onModeSelect: (mode: 'guided' | 'professional') => void
 }
 
 export function ModeSelector({ onModeSelect }: ModeSelectorProps) {
@@ -15,120 +13,183 @@ export function ModeSelector({ onModeSelect }: ModeSelectorProps) {
 
   const modes = [
     {
-      id: 'normal',
+      id: 'guided',
       title: '普通模式',
-      description: '通过表单填写项目需求，系统帮您生成专业的开发提示',
-      icon: Brain,
-      features: ['智能表单引导', 'AI辅助填写', '自动生成提示词', '适合新手用户'],
-      gradient: 'from-blue-500 to-cyan-500',
-      hoverGradient: 'from-blue-600 to-cyan-600'
+      subtitle: '智能引导创建',
+      description: '通过智能问答引导，AI帮您一步步构建完美项目',
+      icon: Sparkles,
+      features: ['智能问答引导', 'AI选项推荐', '零门槛上手', '适合新手用户'],
+      gradient: 'from-blue-500 via-purple-500 to-pink-500',
+      bgColor: 'bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500',
+      delay: 0.1
     },
     {
-      id: 'professional',
+      id: 'professional', 
       title: '专业模式',
-      description: '直接对话描述需求，快速开始项目开发',
+      subtitle: '直接对话创建',
+      description: '自由描述需求，即时开始专业级项目开发',
       icon: Zap,
-      features: ['自由对话输入', '即时响应', '灵活交互', '适合有经验的开发者'],
-      gradient: 'from-emerald-500 to-teal-500',
-      hoverGradient: 'from-emerald-600 to-teal-600'
+      features: ['自由对话输入', '即时响应', '专业级功能', '适合有经验用户'],
+      gradient: 'from-emerald-500 via-teal-500 to-cyan-500',
+      bgColor: 'bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500',
+      delay: 0.2
     }
   ]
 
   return (
-    <div className="w-full max-w-6xl mx-auto px-4">
-      <div className="text-center mb-12">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-        >
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-4">
-            选择您的使用模式
-          </h1>
-          <p className="text-lg text-gray-600 dark:text-gray-400 max-w-2xl mx-auto">
-            根据您的经验水平和使用习惯，选择最适合的交互方式开始您的AI开发之旅
-          </p>
-        </motion.div>
-      </div>
+    <div className="w-full max-w-4xl mx-auto px-6">
+      {/* 标题区域 */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.6 }}
+        className="text-center mb-8"
+      >
+        <h2 className="text-2xl font-bold bg-gradient-to-r from-emerald-600 to-teal-600 bg-clip-text text-transparent mb-2">
+          选择您的创建模式
+        </h2>
+        <p className="text-gray-600 dark:text-gray-400">
+          根据您的使用习惯，选择最适合的方式开始AI项目创建
+        </p>
+      </motion.div>
 
-      <div className="grid md:grid-cols-2 gap-8">
-        {modes.map((mode, index) => {
-          const Icon = mode.icon
+      {/* 斜边拼接按钮容器 */}
+      <div className="relative flex justify-center items-center">
+        <div className="relative flex">{modes.map((mode, index) => {
+          const isLeft = index === 0
+          const isHovered = hoveredMode === mode.id
           
           return (
             <motion.div
               key={mode.id}
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: index * 0.1 }}
+              initial={{ opacity: 0, x: isLeft ? -30 : 30 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{ 
+                duration: 0.6, 
+                delay: mode.delay,
+                type: "spring",
+                stiffness: 100
+              }}
               onHoverStart={() => setHoveredMode(mode.id)}
               onHoverEnd={() => setHoveredMode(null)}
-              className="h-full"
+              className="relative"
             >
-              <Card className="h-full cursor-pointer group hover:shadow-xl transition-all duration-300 border-2 hover:border-transparent overflow-hidden relative">
-                {/* Gradient border effect */}
-                <div className={`absolute inset-0 bg-gradient-to-r ${mode.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300`} />
-                <div className="absolute inset-[2px] bg-white dark:bg-gray-900 rounded-[calc(var(--radius)-2px)]" />
+              {/* 按钮主体 */}
+              <motion.button
+                onClick={() => onModeSelect(mode.id as 'guided' | 'professional')}
+                className={`
+                  relative h-20 px-8 flex items-center justify-center
+                  font-medium transition-all duration-300 cursor-pointer
+                  ${isLeft 
+                    ? 'rounded-l-3xl pr-6' 
+                    : 'rounded-r-3xl pl-6 -ml-4'
+                  }
+                  ${isHovered 
+                    ? 'text-white shadow-2xl' 
+                    : 'text-gray-700 dark:text-gray-300 bg-white dark:bg-[#212121] border-2 border-gray-200 dark:border-[#2a2a2a] shadow-lg'
+                  }
+                  hover:scale-105
+                  group
+                `}
+                style={{
+                  clipPath: isLeft 
+                    ? 'polygon(0 0, 100% 0, calc(100% - 25px) 100%, 0 100%)'
+                    : 'polygon(25px 0, 100% 0, 100% 100%, 0 100%)',
+                  minWidth: '300px'
+                }}
+                whileHover={{ 
+                  scale: 1.05,
+                  boxShadow: `0 20px 40px ${mode.id === 'guided' ? 'rgba(99, 102, 241, 0.3)' : 'rgba(16, 185, 129, 0.3)'}`
+                }}
+                whileTap={{ scale: 0.98 }}
+              >
+                {/* 悬停时的渐变背景 */}
+                <motion.div
+                  className={`absolute inset-0 bg-gradient-to-r ${mode.gradient} transition-opacity duration-300 ${
+                    isLeft ? 'rounded-l-3xl' : 'rounded-r-3xl'
+                  }`}
+                  style={{
+                    clipPath: isLeft 
+                      ? 'polygon(0 0, 100% 0, calc(100% - 25px) 100%, 0 100%)'
+                      : 'polygon(25px 0, 100% 0, 100% 100%, 0 100%)',
+                    opacity: isHovered ? 1 : 0
+                  }}
+                />
                 
-                <div className="relative z-10">
-                  <CardHeader className="text-center pb-4">
-                    <div className={`w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-r ${mode.gradient} p-4 flex items-center justify-center group-hover:scale-110 transition-transform duration-300`}>
-                      <Icon className="w-8 h-8 text-white" />
+                {/* 内容 */}
+                <div className="relative z-10 flex items-center gap-4">
+                  <motion.div
+                    className={`w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-300 ${
+                      isHovered 
+                        ? 'bg-white/20' 
+                        : `bg-gradient-to-r ${mode.gradient}`
+                    }`}
+                    whileHover={{ rotate: 5 }}
+                  >
+                    <mode.icon className={`w-5 h-5 ${isHovered ? 'text-white' : 'text-white'}`} />
+                  </motion.div>
+                  
+                  <div className="text-left">
+                    <div className="font-bold text-lg">{mode.title}</div>
+                    <div className={`text-sm transition-all duration-300 ${
+                      isHovered ? 'text-white/90' : 'text-gray-500 dark:text-gray-400'
+                    }`}>
+                      {mode.subtitle}
                     </div>
-                    
-                    <CardTitle className="text-2xl font-bold mb-2">
-                      {mode.title}
-                    </CardTitle>
-                    
-                    <CardDescription className="text-base">
+                    <div className={`text-xs mt-1 transition-all duration-300 ${
+                      isHovered ? 'text-white/75' : 'text-gray-400 dark:text-gray-500'
+                    }`}>
                       {mode.description}
-                    </CardDescription>
-                  </CardHeader>
+                    </div>
+                  </div>
+                </div>
+              </motion.button>
 
-                  <CardContent>
-                    <div className="space-y-3 mb-8">
+              {/* 悬停时显示的特性标签 */}
+              <AnimatePresence>
+                {isHovered && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: 10 }}
+                    transition={{ duration: 0.2, delay: 0.1 }}
+                    className="absolute top-24 left-1/2 transform -translate-x-1/2 z-50"
+                  >
+                    <div className="flex flex-wrap gap-2 justify-center max-w-xs">
                       {mode.features.map((feature, featureIndex) => (
                         <motion.div
                           key={featureIndex}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ duration: 0.4, delay: 0.3 + featureIndex * 0.1 }}
-                          className="flex items-center space-x-3"
+                          initial={{ opacity: 0, scale: 0.8 }}
+                          animate={{ opacity: 1, scale: 1 }}
+                          transition={{ 
+                            duration: 0.2, 
+                            delay: 0.1 + featureIndex * 0.05 
+                          }}
+                          className={`px-3 py-1 rounded-full text-xs font-medium bg-gradient-to-r ${mode.gradient} text-white shadow-lg`}
                         >
-                          <div className={`w-2 h-2 rounded-full bg-gradient-to-r ${mode.gradient}`} />
-                          <span className="text-sm text-gray-600 dark:text-gray-300">
-                            {feature}
-                          </span>
+                          {feature}
                         </motion.div>
                       ))}
                     </div>
-
-                    <Button
-                      onClick={() => onModeSelect(mode.id as 'normal' | 'professional')}
-                      className={`w-full text-white font-semibold py-3 rounded-lg transition-all duration-300 transform group-hover:scale-105 bg-gradient-to-r ${
-                        hoveredMode === mode.id ? mode.hoverGradient : mode.gradient
-                      } hover:shadow-lg`}
-                    >
-                      <Sparkles className="w-4 h-4 mr-2" />
-                      选择{mode.title}
-                    </Button>
-                  </CardContent>
-                </div>
-              </Card>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </motion.div>
           )
         })}
+        </div>
       </div>
 
+      {/* 底部提示 */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.6, delay: 0.4 }}
-        className="text-center mt-12"
+        transition={{ duration: 0.6, delay: 0.5 }}
+        className="text-center mt-8"
       >
-        <div className="inline-flex items-center space-x-2 text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 px-4 py-2 rounded-full">
+        <div className="inline-flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-[#212121] px-4 py-2 rounded-full border border-gray-200 dark:border-[#2a2a2a]">
           <MessageSquare className="w-4 h-4" />
-          <span>无论选择哪种模式，都可以随时切换</span>
+          <span>选择后可随时切换模式</span>
         </div>
       </motion.div>
     </div>

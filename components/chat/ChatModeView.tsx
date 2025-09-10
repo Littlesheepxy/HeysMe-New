@@ -196,7 +196,7 @@ export const ChatModeView = memo(function ChatModeView({
             className={`max-w-4xl mx-auto rounded-xl relative overflow-hidden shadow-sm border ${
               theme === "light" 
                 ? "bg-gradient-to-r from-emerald-50 to-blue-50 border-emerald-200" 
-                : "bg-gradient-to-r from-emerald-900/30 to-blue-900/30 border-emerald-700"
+                : "bg-gradient-to-r from-[#212121] to-[#2a2a2a] border-[#2a2a2a]"
             }`}
           >
             {/* 背景装饰 */}
@@ -204,7 +204,7 @@ export const ChatModeView = memo(function ChatModeView({
               <div className={`absolute right-0 top-0 w-32 h-full ${
                 theme === "light" 
                   ? "bg-gradient-to-l from-emerald-100/50 to-transparent" 
-                  : "bg-gradient-to-l from-emerald-800/20 to-transparent"
+                  : "bg-gradient-to-l from-[#2a2a2a]/50 to-transparent"
               }`}></div>
             </div>
             

@@ -227,7 +227,7 @@ export default function DashboardPage() {
         className={`backdrop-blur-xl px-6 py-4 transition-all duration-300 ${
           theme === "light" 
             ? "bg-white/80 shadow-brand-sm" 
-            : "bg-gray-900/80 shadow-brand-sm"
+            : "bg-[#181818]/80 shadow-brand-sm"
         }`}
       >
         <div className="flex items-center justify-between">

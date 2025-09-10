@@ -535,6 +535,14 @@ export function useChatSystemV2() {
         }
 
         // 🔧 修复：立即更新会话历史并强制状态更新
+        // 🔧 确保 metrics 对象存在
+        const currentMetrics = targetSession.metadata?.metrics || {
+          totalTime: 0,
+          userInteractions: 0,
+          agentTransitions: 0,
+          errorsEncountered: 0
+        }
+
         const updatedSession = {
           ...targetSession,
           conversationHistory: [...targetSession.conversationHistory, userMessage],
@@ -542,8 +550,8 @@ export function useChatSystemV2() {
             ...targetSession.metadata,
             lastActive: new Date(),
             metrics: {
-              ...targetSession.metadata.metrics,
-              userInteractions: targetSession.metadata.metrics.userInteractions + 1
+              ...currentMetrics,
+              userInteractions: currentMetrics.userInteractions + 1
             }
           }
         }
@@ -652,8 +660,24 @@ export function useChatSystemV2() {
         
         // 增加错误计数
         if (currentSession) {
-          currentSession.metadata.metrics.errorsEncountered++
-          setCurrentSession({ ...currentSession })
+          const currentMetrics = currentSession.metadata?.metrics || {
+            totalTime: 0,
+            userInteractions: 0,
+            agentTransitions: 0,
+            errorsEncountered: 0
+          }
+          
+          const updatedSession = {
+            ...currentSession,
+            metadata: {
+              ...currentSession.metadata,
+              metrics: {
+                ...currentMetrics,
+                errorsEncountered: currentMetrics.errorsEncountered + 1
+              }
+            }
+          }
+          setCurrentSession(updatedSession)
         }
         
         // 如果重试次数少于3次，可以自动重试
@@ -1180,8 +1204,24 @@ export function useChatSystemV2() {
         const errorMessage = error instanceof Error ? error.message : "生成页面失败"
         setCurrentError(errorMessage)
         
-        session.metadata.metrics.errorsEncountered++
-        setCurrentSession({ ...session })
+        const currentMetrics = session.metadata?.metrics || {
+          totalTime: 0,
+          userInteractions: 0,
+          agentTransitions: 0,
+          errorsEncountered: 0
+        }
+        
+        const updatedSession = {
+          ...session,
+          metadata: {
+            ...session.metadata,
+            metrics: {
+              ...currentMetrics,
+              errorsEncountered: currentMetrics.errorsEncountered + 1
+            }
+          }
+        }
+        setCurrentSession(updatedSession)
       } finally {
         setIsGenerating(false)
       }
