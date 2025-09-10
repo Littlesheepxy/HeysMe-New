@@ -47,31 +47,26 @@ export function PlazaAndCreatorSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
         >
-          <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
-            <Building className="w-4 h-4" />
-            创造与连接的数字世界
-          </div>
+          {/* Removed "创造与连接的数字世界" badge as requested */}
           <h2 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-emerald-600 via-cyan-600 to-purple-600 bg-clip-text text-transparent">
-            数字身份生态系统
+            {t('plaza.title')}
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            连接创作者与机会，打造专业展示与合作的全方位平台
+            {t('plaza.subtitle')}
           </p>
         </motion.div>
 
-        <div className="grid lg:grid-cols-2 gap-20 items-center">
+        <div className="grid lg:grid-cols-2 gap-20 items-start">
           {/* 左侧：数字身份广场 */}
           <motion.div
             initial={{ opacity: 0, x: -50 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8 }}
+            className="flex flex-col h-full"
           >
             <div className="text-center lg:text-left mb-12">
-              <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
-                <Building className="w-4 h-4" />
-                连接与机会
-              </div>
+              {/* Removed "连接与机会" badge as requested */}
               <h3 className="text-3xl md:text-4xl font-bold mb-6 bg-gradient-to-r from-emerald-600 to-cyan-600 bg-clip-text text-transparent">
                 {t('plaza.title')}
               </h3>
@@ -80,7 +75,7 @@ export function PlazaAndCreatorSection() {
               </p>
             </div>
 
-            <div className="space-y-6 mb-8">
+            <div className="space-y-6 mb-8 flex-1">
               {[
                 { icon: Building, title: t('plaza.features.0.title'), description: t('plaza.features.0.description'), color: 'from-emerald-500 to-emerald-600' },
                 { icon: Users, title: t('plaza.features.1.title'), description: t('plaza.features.1.description'), color: 'from-cyan-500 to-cyan-600' },
@@ -134,21 +129,19 @@ export function PlazaAndCreatorSection() {
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.8, delay: 0.4 }}
+            className="flex flex-col h-full"
           >
             <div className="text-center lg:text-left mb-12">
-              <div className="inline-flex items-center gap-2 bg-purple-100 text-purple-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
-                <Palette className="w-4 h-4" />
-                创作与变现
-              </div>
+              {/* Removed "创作与变现" badge as requested */}
               <h3 className="text-3xl md:text-4xl font-bold mb-6 bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent">
                 {t('creator.title')}
               </h3>
               <p className="text-lg text-gray-600 mb-8 leading-relaxed">
-                释放创意潜能，在AI时代获得应有的价值回报
+                {t('creator.subtitle')}
               </p>
             </div>
 
-            <div className="space-y-6 mb-8">
+            <div className="space-y-6 mb-8 flex-1">
               {(() => {
                 const features = t('creator.features')
                 const featuresArray = Array.isArray(features) ? features : []

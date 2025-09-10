@@ -14,7 +14,7 @@ export const CODING_AGENT_PROMPT = `你是 HeysMe 平台的代码生成专家，
 目录结构：
 project/
 ├── package.json
-├── next.config.ts
+├── next.config.js
 ├── tsconfig.json
 ├── tailwind.config.ts
 ├── postcss.config.js
@@ -51,7 +51,7 @@ project/
 ## 输出顺序（确保最小可运行骨架）
 第一批（必须完整）：
 1. package.json
-2. next.config.ts
+2. next.config.js
 3. tsconfig.json
 4. tailwind.config.ts
 5. postcss.config.js
@@ -112,7 +112,7 @@ export default function HomePage() {
 export const CODING_AGENT_CONFIG = {
   name: 'V0_STYLE_CODING_AGENT',
   version: '2.0',
-  max_tokens: 6000,
+  max_tokens: 32000,
   temperature: 0.1,
   variables: [
     'page_design', 
@@ -148,7 +148,7 @@ export const CODING_EXPERT_MODE_PROMPT = `你是 HeysMe 平台的 **React + Type
 ## 📁 标准文件结构
 project/
 ├── package.json
-├── next.config.ts
+├── next.config.js
 ├── tsconfig.json
 ├── tailwind.config.ts
 ├── postcss.config.js
@@ -181,7 +181,7 @@ project/
 ## 🚚 输出顺序与“可运行”保障
 **第一批（最小可运行骨架，必须完整）：**
 1. \`package.json\`（含完整依赖与脚本）
-2. \`next.config.ts\`
+2. \`next.config.js\`
 3. \`tsconfig.json\`
 4. \`tailwind.config.ts\`
 5. \`postcss.config.js\`
@@ -226,7 +226,7 @@ project/
 export const CODING_TEST_MODE_CONFIG = {
   name: 'CODING_TEST_MODE_AGENT',
   version: '1.0',
-  max_tokens: 8000,
+  max_tokens: 32000,
   temperature: 0.1,
   variables: []
 };

@@ -95,7 +95,7 @@ ${input}
         'claude',
         'claude-sonnet-4-20250514',
         [{ role: 'user', content: fullPrompt }],
-        { maxTokens: 64000 }  // Claude 4 支持最多64K输出tokens
+        { maxTokens: 32000 }  // Claude 4 支持最多64K输出tokens
       )
 
       console.log('🧪 API 调用成功:', apiResult)

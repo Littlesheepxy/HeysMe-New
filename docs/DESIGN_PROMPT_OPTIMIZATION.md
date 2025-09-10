@@ -106,7 +106,7 @@
 export const DESIGN_AGENT_CONFIG = {
   name: 'ENHANCED_DESIGN_AGENT',
   version: '5.0',  // 版本升级
-  max_tokens: 64000,
+  max_tokens: 32000,
   temperature: 0.7,
   variables: [
     'collected_user_info',

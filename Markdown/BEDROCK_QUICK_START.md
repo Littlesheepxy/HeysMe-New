@@ -73,7 +73,7 @@ generateWithBedrockClaude("你的问题")
 generateWithBestAvailableModel("你的问题")
 
 // 3. 指定模型
-generateWithModel("bedrock", "anthropic.claude-3-5-sonnet-20241022-v2:0", "你的问题")
+generateWithModel("bedrock", "anthropic.claude-sonnet-4-20250514-v2:0", "你的问题")
 ```
 
 ## 🔑 获取 AWS 凭证

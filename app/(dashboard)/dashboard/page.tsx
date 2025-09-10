@@ -199,8 +199,12 @@ export default function DashboardPage() {
           animate={{ opacity: 1, scale: 1 }}
           className="text-center"
         >
-          <div className="w-16 h-16 bg-brand-gradient rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-brand animate-brand-breathe">
-            <Sparkles className="w-8 h-8 text-white" />
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-brand animate-brand-breathe overflow-hidden">
+            <img 
+              src="/logo.png" 
+              alt="HeysMe Logo" 
+              className="w-12 h-12 object-contain"
+            />
           </div>
           <p className={`text-lg font-medium ${theme === "light" ? "text-gray-600" : "text-gray-300"}`}>
             加载项目数据中...
@@ -232,8 +236,12 @@ export default function DashboardPage() {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
           >
-            <div className="w-12 h-12 bg-brand-gradient rounded-2xl flex items-center justify-center shadow-brand">
-              <Sparkles className="w-7 h-7 text-white" />
+            <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-brand overflow-hidden">
+              <img 
+                src="/logo.png" 
+                alt="HeysMe Logo" 
+                className="w-10 h-10 object-contain"
+              />
             </div>
             <div>
               <h1 className={`text-2xl font-bold ${theme === "light" ? "text-gray-900" : "text-white"}`}>

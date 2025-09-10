@@ -576,7 +576,7 @@ export abstract class BaseAgent {
       }
       
       // 流式调用AI模型
-      const callOptions: any = { maxTokens: options?.maxTokens || 4000 };
+      const callOptions: any = { maxTokens: options?.maxTokens || 8000 };
       if (options?.tools) {
         callOptions.tools = options.tools;
       }

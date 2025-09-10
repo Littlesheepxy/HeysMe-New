@@ -37,20 +37,15 @@ export function MissionSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
         >
-          <motion.div
-            className="flex items-center justify-center gap-3 mb-6"
+          <motion.h2 
+            className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-brand-600 via-secondary-600 to-accent-600 bg-clip-text text-transparent mb-6"
             initial={{ opacity: 0, scale: 0.8 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.2 }}
           >
-            <div className="p-3 bg-gradient-to-r from-brand-500 to-secondary-500 rounded-2xl shadow-lg">
-              <Lightbulb className="w-8 h-8 text-white" />
-            </div>
-            <h2 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-brand-600 via-secondary-600 to-accent-600 bg-clip-text text-transparent">
-              {t('mission.title')}
-            </h2>
-          </motion.div>
+            {t('mission.title')}
+          </motion.h2>
           
           <motion.p 
             className="text-xl text-gray-600 max-w-4xl mx-auto leading-relaxed"
@@ -156,7 +151,7 @@ export function MissionSection() {
               >
                 <div className="inline-flex items-center gap-2 bg-emerald-100/60 backdrop-blur-md rounded-xl px-4 py-2 border border-emerald-200/40">
                   <Lightbulb className="w-4 h-4 text-brand-500" />
-                  <span className="text-xs font-medium text-gray-700">AI时代的身份进化</span>
+                  <span className="text-xs font-medium text-gray-700">{t('mission.comparison.ai.subtitle')}</span>
                 </div>
               </motion.div>
 
@@ -208,7 +203,7 @@ export function MissionSection() {
                   </div>
                   <div className="text-center">
                     <p className="text-xs font-medium text-gray-600 bg-white/50 backdrop-blur-sm rounded-full px-3 py-1 border border-white/30">
-                      AI赋能进化
+                      {t('mission.comparison.ai.subtitle')}
                     </p>
                   </div>
                 </motion.div>

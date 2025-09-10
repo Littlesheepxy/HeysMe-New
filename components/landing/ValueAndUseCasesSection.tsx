@@ -110,10 +110,7 @@ export function ValueAndUseCasesSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
         >
-          <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
-            <Target className="w-4 h-4" />
-            产品价值主张
-          </div>
+          {/* Removed "产品价值主张" badge as requested */}
           <motion.h2 
             className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-emerald-600 via-cyan-600 to-purple-600 bg-clip-text text-transparent"
             initial={{ opacity: 0, y: 20 }}
@@ -210,15 +207,12 @@ export function ValueAndUseCasesSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
         >
-          <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
-            <Users className="w-4 h-4" />
-            目标用户群体
-          </div>
+          {/* Removed "目标用户群体" badge as requested */}
           <h2 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent">
             {t('useCases.title')}
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            无论你是哪种身份，我们都能为你量身定制专属的数字形象
+            {t('useCases.subtitle')}
           </p>
         </motion.div>
 

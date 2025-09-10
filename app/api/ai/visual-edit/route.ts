@@ -75,7 +75,7 @@ ${file.content}
       system: systemPrompt,
       prompt: userPrompt,
       temperature: 0.1, // 降低随机性，确保代码生成的一致性
-              maxTokens: 64000,
+              maxTokens: 32000,
     });
 
     // 解析 AI 响应

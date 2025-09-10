@@ -62,7 +62,7 @@ export async function POST(req: NextRequest) {
     // 第一步：调用工具
     console.log(`🔧 [第一步] 调用工具获取数据`);
     const toolResult = await generateText({
-      model: anthropic('claude-3-5-sonnet-20241022'),
+      model: anthropic('claude-sonnet-4-20250514'),
       messages,
       tools: {
         analyze_github: githubAnalyzeTool
@@ -113,7 +113,7 @@ ${githubData?.repositories?.slice(0, 5).map((repo: any) => `- ${repo.name}: ${re
 
       // 第二步：基于工具结果进行分析
       const analysisResult = await generateText({
-        model: anthropic('claude-3-5-sonnet-20241022'),
+        model: anthropic('claude-sonnet-4-20250514'),
         messages: [
           {
             role: 'system',

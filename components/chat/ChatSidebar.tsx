@@ -132,12 +132,13 @@ export function ChatSidebar({
             transition={{ duration: 0.2 }}
           >
             <motion.div 
-              className="w-10 h-10 rounded-[10px] flex items-center justify-center shadow-lg relative overflow-hidden"
-              style={{
-                background: 'linear-gradient(135deg, #34D399 0%, #2DD4BF 50%, #22D3EE 100%)',
-              }}
+              className="w-10 h-10 rounded-[10px] flex items-center justify-center shadow-lg relative overflow-hidden bg-white/10 backdrop-blur-sm"
             >
-              <Sparkles className="w-5 h-5 text-white relative z-10" />
+              <img 
+                src="/logo.png" 
+                alt="HeysMe Logo" 
+                className="w-6 h-6 object-contain relative z-10"
+              />
               
               {/* 微妙的光泽效果 */}
               <div className="absolute inset-0 bg-gradient-to-tr from-white/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />

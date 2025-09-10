@@ -140,10 +140,8 @@ export async function generateWithModel(
         schema: options.schema,
       }
       
-      // 仅在有值时添加 maxTokens
-      if (options.maxTokens) {
-        requestParams.maxTokens = options.maxTokens
-      }
+      // 设置 maxTokens，如果没有指定则使用默认值（考虑API限制）
+      requestParams.maxTokens = options.maxTokens || 8000
       
       const result = await generateObject(requestParams)
       console.log(`✅ [生成成功] 结构化对象生成完成 (Provider: ${provider})`);
@@ -159,10 +157,8 @@ export async function generateWithModel(
         system: isMessagesMode ? undefined : options?.system, // messages 模式下 system 已包含在 messages 中
       }
       
-      // 仅在有值时添加 maxTokens
-      if (options?.maxTokens) {
-        requestParams.maxTokens = options.maxTokens
-      }
+      // 设置 maxTokens，如果没有指定则使用默认值（考虑API限制）
+      requestParams.maxTokens = options?.maxTokens || 8000
       
       const result = await generateText(requestParams)
       console.log(`✅ [生成成功] 文本生成完成 (Provider: ${provider})`);
@@ -380,7 +376,7 @@ export async function* generateStreamWithModel(
       prompt: isMessagesMode ? undefined : input as string,
       messages: isMessagesMode ? input as any : undefined,
       system: isMessagesMode ? undefined : options?.system,
-      maxTokens: options?.maxTokens,
+      maxTokens: options?.maxTokens || 8000,
     };
     
     // 🆕 添加工具支持

@@ -8,82 +8,159 @@ import { AvatarCircles } from "@/components/ui/avatar-circles"
 import { FlickeringGrid } from "@/components/ui/flickering-grid"
 import { cn } from "@/lib/utils"
 
-// 使用渐变头像的测试数据
-const reviews = [
-  {
-    name: "张明",
-    role: "UI/UX设计师",
-    body: "AI数字分身让我能更好地展示专业能力，获得了更多合作机会。",
-    gradientFrom: "from-emerald-400",
-    gradientTo: "to-cyan-500",
-  },
-  {
-    name: "刘薇", 
-    role: "营销顾问",
-    body: "这个平台帮我建立了个人品牌，客户找到我变得更加容易。",
-    gradientFrom: "from-blue-400",
-    gradientTo: "to-emerald-500",
-  },
-  {
-    name: "陈浩",
-    role: "软件工程师", 
-    body: "技术很先进，生成的数字分身非常贴近真实的我。",
-    gradientFrom: "from-purple-400",
-    gradientTo: "to-pink-500",
-  },
-  {
-    name: "王丽",
-    role: "产品经理",
-    body: "界面设计很人性化，操作简单，效果惊艳。",
-    gradientFrom: "from-cyan-400", 
-    gradientTo: "to-blue-500",
-  },
-  {
-    name: "李强",
-    role: "创业者",
-    body: "客服支持很棒，遇到问题都能快速解决。",
-    gradientFrom: "from-orange-400",
-    gradientTo: "to-red-500",
-  },
-  {
-    name: "赵敏",
-    role: "设计师",
-    body: "这个工具改变了我展示作品的方式，非常推荐。",
-    gradientFrom: "from-pink-400",
-    gradientTo: "to-purple-500",
-  },
-  {
-    name: "孙杰",
-    role: "内容创作者",
-    body: "AI生成的内容质量超出预期，很有创意。",
-    gradientFrom: "from-green-400",
-    gradientTo: "to-emerald-500",
-  },
-  {
-    name: "周雨",
-    role: "自由职业者",
-    body: "使用体验流畅，功能强大且实用。",
-    gradientFrom: "from-indigo-400",
-    gradientTo: "to-cyan-500",
-  },
-  {
-    name: "吴晨",
-    role: "投资人",
-    body: "看好这个方向，产品体验很棒。",
-    gradientFrom: "from-teal-400",
-    gradientTo: "to-green-500",
-  },
-  {
-    name: "马琳",
-    role: "HR总监",
-    body: "帮助我们更好地筛选和展示人才。",
-    gradientFrom: "from-rose-400",
-    gradientTo: "to-orange-500",
+// Generate reviews based on locale
+const getReviewsData = (locale: string) => {
+  if (locale === 'zh') {
+    return [
+      {
+        name: "张明",
+        role: "UI/UX设计师",
+        body: "AI数字分身让我能更好地展示专业能力，获得了更多合作机会。",
+        gradientFrom: "from-emerald-400",
+        gradientTo: "to-cyan-500",
+      },
+      {
+        name: "刘薇", 
+        role: "营销顾问",
+        body: "这个平台帮我建立了个人品牌，客户找到我变得更加容易。",
+        gradientFrom: "from-blue-400",
+        gradientTo: "to-emerald-500",
+      },
+      {
+        name: "陈浩",
+        role: "软件工程师", 
+        body: "技术很先进，生成的数字分身非常贴近真实的我。",
+        gradientFrom: "from-purple-400",
+        gradientTo: "to-pink-500",
+      },
+      {
+        name: "王丽",
+        role: "产品经理",
+        body: "界面设计很人性化，操作简单，效果惊艳。",
+        gradientFrom: "from-cyan-400", 
+        gradientTo: "to-blue-500",
+      },
+      {
+        name: "李强",
+        role: "创业者",
+        body: "客服支持很棒，遇到问题都能快速解决。",
+        gradientFrom: "from-orange-400",
+        gradientTo: "to-red-500",
+      },
+      {
+        name: "赵敏",
+        role: "设计师",
+        body: "这个工具改变了我展示作品的方式，非常推荐。",
+        gradientFrom: "from-pink-400",
+        gradientTo: "to-purple-500",
+      },
+      {
+        name: "孙杰",
+        role: "内容创作者",
+        body: "AI生成的内容质量超出预期，很有创意。",
+        gradientFrom: "from-green-400",
+        gradientTo: "to-emerald-500",
+      },
+      {
+        name: "周雨",
+        role: "自由职业者",
+        body: "使用体验流畅，功能强大且实用。",
+        gradientFrom: "from-indigo-400",
+        gradientTo: "to-cyan-500",
+      },
+      {
+        name: "吴晨",
+        role: "投资人",
+        body: "看好这个方向，产品体验很棒。",
+        gradientFrom: "from-teal-400",
+        gradientTo: "to-green-500",
+      },
+      {
+        name: "马琳",
+        role: "HR总监",
+        body: "帮助我们更好地筛选和展示人才。",
+        gradientFrom: "from-rose-400",
+        gradientTo: "to-orange-500",
+      }
+    ]
   }
-]
+  
+  // English reviews
+  return [
+    {
+      name: "Michael Chen",
+      role: "UI/UX Designer",
+      body: "AI digital twin helps me showcase my professional skills better, leading to more collaboration opportunities.",
+      gradientFrom: "from-emerald-400",
+      gradientTo: "to-cyan-500",
+    },
+    {
+      name: "Sarah Wilson", 
+      role: "Marketing Consultant",
+      body: "This platform helped me build my personal brand, making it easier for clients to find me.",
+      gradientFrom: "from-blue-400",
+      gradientTo: "to-emerald-500",
+    },
+    {
+      name: "David Kim",
+      role: "Software Engineer", 
+      body: "The technology is advanced, the generated digital twin is very close to the real me.",
+      gradientFrom: "from-purple-400",
+      gradientTo: "to-pink-500",
+    },
+    {
+      name: "Emma Taylor",
+      role: "Product Manager",
+      body: "The interface design is user-friendly, simple to operate, with amazing results.",
+      gradientFrom: "from-cyan-400", 
+      gradientTo: "to-blue-500",
+    },
+    {
+      name: "Alex Rodriguez",
+      role: "Entrepreneur",
+      body: "Customer support is excellent, any issues are resolved quickly.",
+      gradientFrom: "from-orange-400",
+      gradientTo: "to-red-500",
+    },
+    {
+      name: "Lisa Zhang",
+      role: "Designer",
+      body: "This tool changed how I showcase my work, highly recommended.",
+      gradientFrom: "from-pink-400",
+      gradientTo: "to-purple-500",
+    },
+    {
+      name: "James Park",
+      role: "Content Creator",
+      body: "AI-generated content quality exceeds expectations, very creative.",
+      gradientFrom: "from-green-400",
+      gradientTo: "to-emerald-500",
+    },
+    {
+      name: "Anna Smith",
+      role: "Freelancer",
+      body: "Smooth user experience, powerful and practical features.",
+      gradientFrom: "from-indigo-400",
+      gradientTo: "to-cyan-500",
+    },
+    {
+      name: "Kevin Lee",
+      role: "Investor",
+      body: "Optimistic about this direction, great product experience.",
+      gradientFrom: "from-teal-400",
+      gradientTo: "to-green-500",
+    },
+    {
+      name: "Maria Garcia",
+      role: "HR Director",
+      body: "Helps us better screen and showcase talent.",
+      gradientFrom: "from-rose-400",
+      gradientTo: "to-orange-500",
+    }
+  ]
+}
 
-const firstRow = reviews.slice(0, reviews.length / 2)
-const secondRow = reviews.slice(reviews.length / 2)
+// This will be moved inside the component to access locale
 
 // 评价卡片组件
 const ReviewCard = ({
@@ -156,7 +233,12 @@ const avatarUrls = [
 ]
 
 export function TestimonialsSection() {
-  const { t } = useI18n()
+  const { t, locale } = useI18n()
+  
+  // Get reviews based on current locale
+  const reviews = getReviewsData(locale)
+  const firstRow = reviews.slice(0, reviews.length / 2)
+  const secondRow = reviews.slice(reviews.length / 2)
 
   return (
     <section className="min-h-screen flex items-center py-20 relative overflow-hidden bg-white">
@@ -228,7 +310,7 @@ export function TestimonialsSection() {
             />
             <div className="text-left">
               <p className="text-2xl font-bold text-gray-800">+2000</p>
-              <p className="text-emerald-600 text-sm">满意用户</p>
+              <p className="text-emerald-600 text-sm">{t('testimonials.stats.userCount')}</p>
             </div>
           </div>
           
@@ -239,21 +321,21 @@ export function TestimonialsSection() {
               whileHover={{ scale: 1.05 }}
             >
               <div className="text-3xl font-bold text-emerald-600 mb-2">98%</div>
-              <div className="text-gray-600 text-sm">用户满意度</div>
+              <div className="text-gray-600 text-sm">{t('testimonials.stats.satisfaction')}</div>
             </motion.div>
             <motion.div 
               className="text-center"
               whileHover={{ scale: 1.05 }}
             >
               <div className="text-3xl font-bold text-cyan-600 mb-2">24/7</div>
-              <div className="text-gray-600 text-sm">智能服务</div>
+              <div className="text-gray-600 text-sm">{t('testimonials.stats.support')}</div>
             </motion.div>
             <motion.div 
               className="text-center"
               whileHover={{ scale: 1.05 }}
             >
               <div className="text-3xl font-bold text-emerald-600 mb-2">3min</div>
-              <div className="text-gray-600 text-sm">快速创建</div>
+              <div className="text-gray-600 text-sm">{t('testimonials.stats.creation')}</div>
             </motion.div>
           </div>
         </motion.div>

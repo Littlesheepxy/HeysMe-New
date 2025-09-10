@@ -162,15 +162,12 @@ export function FeaturesSection() {
           viewport={{ once: true }}
           transition={{ duration: 0.8 }}
         >
-          <div className="inline-flex items-center gap-2 bg-emerald-100 text-emerald-700 px-4 py-2 rounded-full text-sm font-medium mb-6">
-            <Sparkles className="w-4 h-4" />
-            AI 驱动的核心功能
-          </div>
+          {/* Removed "AI 驱动的核心功能" badge as requested */}
           <h2 className="text-4xl md:text-6xl font-bold mb-6 bg-gradient-to-r from-emerald-600 via-cyan-600 to-emerald-600 bg-clip-text text-transparent">
             {t('features.title')}
           </h2>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto leading-relaxed">
-            基于最新AI技术，为你打造全方位的数字身份管理系统
+            {t('features.subtitle')}
           </p>
         </motion.div>
 

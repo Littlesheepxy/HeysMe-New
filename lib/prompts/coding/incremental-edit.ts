@@ -222,7 +222,7 @@ export const INCREMENTAL_EDIT_PROMPT = `你是HeysMe平台的代码增量编辑�
 export const INCREMENTAL_EDIT_CONFIG = {
   name: 'INCREMENTAL_EDIT_AGENT',
   version: '2.0',
-  max_tokens: 8000,
+  max_tokens: 32000,
   temperature: 0.1,
   variables: [
     'file_structure',

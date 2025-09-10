@@ -15,8 +15,8 @@
   "hero": {
     "title": "The AI-Powered Professional Platform",
     "subtitle": "Everyone deserves an AI-powered professional identity. Build multiple smart personas that evolve with you — showcase, connect, and earn, all in one place.",
-    "primaryCta": "Create Your AI Profile Now",
-    "secondaryCta": "Watch the Demo",
+    "primaryCta": "Get Started",
+    "secondaryCta": "Watch Demo",
     "badge": "🚀v0.1 MVP Version",
     "cards": {
       "digitalTwin": {
@@ -50,7 +50,7 @@
         "description": "Representing every persona of you, every version of yourself facing the world."
       }
     },
-    "cta": "Be Among the First to Launch Your AI Profile",
+    "cta": "Create Your Profile",
     "comparison": {
       "traditional": {
         "title": "The Old Way",
@@ -66,7 +66,7 @@
   },
   "value": {
     "title": "Why Choose HeysMe?",
-    "subtitle": "Use AI to build multiple identities and unlock new opportunities:",
+    "subtitle": "Use AI to build multiple identities and unlock new opportunities",
     "features": [
       {
         "title": "Showcase",
@@ -85,6 +85,7 @@
   },
   "features": {
     "title": "Our Core Features",
+    "subtitle": "Built on cutting-edge AI technology to create your comprehensive digital identity management system",
     "items": [
       {
         "title": "AI-Generated Personal Pages",
@@ -126,7 +127,8 @@
     }
   },
   "creator": {
-    "title": "The Creator Hub: Where Inspiration Meets Monetization",
+    "title": "Creator Hub",
+    "subtitle": "Unleash your creative potential and earn the value you deserve in the AI era",
     "features": [
       "Browse and use massive homepage & resume templates",
       "Create templates through Prompt format and easily monetize",
@@ -152,8 +154,8 @@
     }
   },
   "plaza": {
-    "title": "The Identity Plaza: Where Work Finds You",
-    "subtitle": "The new entry point for hiring, collaboration, and discovery",
+    "title": "Digital Identity Ecosystem",
+    "subtitle": "Connecting creators with opportunities to build a comprehensive platform for professional showcase and collaboration",
     "features": [
       {
         "title": "Recruiters",
@@ -172,6 +174,7 @@
   },
   "useCases": {
     "title": "Who Is HeysMe For?",
+    "subtitle": "No matter what your role is, we can create a custom digital persona tailored just for you",
     "cases": [
       {
         "title": "Job Seekers",
@@ -195,7 +198,7 @@
     "title": "What Users Are Saying",
     "items": [
       {
-        "content": "This isn’t just another resume builder — it’s an entirely new identity layer for the AI era.",
+        "content": "This isn't just another resume builder — it's an entirely new identity layer for the AI era.",
         "author": "Wendy L., Freelance Writer"
       },
       {
@@ -204,10 +207,16 @@
       }
     ],
     "userLabel": "HeysMe User",
-    "joinText": "Join thousands of people already building their AI-powered identities"
+    "joinText": "Join thousands of people already building their AI-powered identities",
+    "stats": {
+      "userCount": "Satisfied Users",
+      "satisfaction": "User Satisfaction",
+      "support": "AI Support",
+      "creation": "Quick Setup"
+    }
   },
   "finalCta": {
-    "title": "Start Building Your AI Digital Twin Now",
+    "title": "Build Your AI Digital Twin",
     "subtitle": "Your next opportunity starts here.",
     "primaryCta": "Get Started Now",
     "secondaryCta": "Learn More",

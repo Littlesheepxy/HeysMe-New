@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
 
     // 执行工具调用
     const result = await generateText({
-      model: anthropic('claude-3-5-sonnet-20241022'),
+      model: anthropic('claude-sonnet-4-20250514'),
       messages: [
         {
           role: 'user',
@@ -119,7 +119,6 @@ export async function POST(req: NextRequest) {
         }
       ],
       tools,
-      maxTokens: 4000,
       temperature: 0.1,
     });
 
@@ -134,11 +133,11 @@ export async function POST(req: NextRequest) {
       detectedLinks,
       toolCalls: result.toolCalls.map(tc => ({
         toolName: tc.toolName,
-        input: tc.args
+        input: tc.input
       })),
       toolResults: result.toolResults.map(tr => ({
         toolName: tr.toolName,
-        output: tr.result,
+        output: tr.output,
         success: true
       })),
       totalTools: result.toolCalls.length,

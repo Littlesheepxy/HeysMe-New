@@ -61,8 +61,8 @@ const mockConversations: TConversation[] = [
     title: 'JavaScript异步编程',
     endpoint: 'openAI',
     model: 'gpt-4',
-    createdAt: new Date(Date.now() - 86400000).toISOString(),
-    updatedAt: new Date(Date.now() - 86400000).toISOString(),
+    createdAt: new Date(Date.now() - 83200000).toISOString(),
+    updatedAt: new Date(Date.now() - 83200000).toISOString(),
     messages: [],
   },
   {

@@ -101,7 +101,7 @@ export function VercelStatusIndicator({
     const diff = now.getTime() - date.getTime();
     const minutes = Math.floor(diff / 60000);
     const hours = Math.floor(diff / 3600000);
-    const days = Math.floor(diff / 86400000);
+    const days = Math.floor(diff / 83200000);
 
     if (days > 0) return `${days}天前`;
     if (hours > 0) return `${hours}小时前`;

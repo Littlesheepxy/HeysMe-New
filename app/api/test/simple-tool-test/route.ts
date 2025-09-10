@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
     console.log(`📨 [Simple Tool Test] 收到消息: ${message}`);
 
     const result = await generateText({
-      model: anthropic('claude-3-5-sonnet-20241022'),
+      model: anthropic('claude-sonnet-4-20250514'),
       messages: [
         {
           role: 'system',

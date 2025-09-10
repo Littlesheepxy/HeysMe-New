@@ -760,7 +760,7 @@ ${projectContext}
 
       // 使用 Vercel AI SDK 的多步骤工具调用
       const result = await generateText({
-        model: anthropic('claude-3-5-sonnet-20241022'),
+        model: anthropic('claude-sonnet-4-20250514'),
         messages,
         tools: this.getVercelAITools(sessionData),
         stopWhen: stepCountIs(6), // 允许最多6步：分析 + 多个文件操作

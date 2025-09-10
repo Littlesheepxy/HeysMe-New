@@ -431,7 +431,7 @@ export class EnhancedPromptOutputAgent extends BaseAgent {
 
       const result = await this.callLLM(prompt, {
         schema: designSchema,
-        maxTokens: 64000,
+        maxTokens: 32000,
         system: "你是专业的页面设计策略专家，严格按照JSON schema格式基于内容展示策略分析生成详细的个性化设计方案。必须输出完整的JSON对象，包含所有必需字段和详细的设计规范。"
       });
 
@@ -537,7 +537,7 @@ export class EnhancedPromptOutputAgent extends BaseAgent {
 
       const result = await this.callLLM(prompt, {
         schema: enhancedDesignSchema,
-        maxTokens: 64000,
+        maxTokens: 32000,
         system: "你是专业的页面设计策略专家，整合内容展示策略生成完整的设计方案。"
       });
 

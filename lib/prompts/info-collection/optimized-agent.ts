@@ -654,7 +654,7 @@ REASONING: 通过深度对话收集到足够信息，用户确认满意
 export const OPTIMIZED_INFO_COLLECTION_CONFIG = {
   name: 'INTELLIGENT_INFO_COLLECTION',
   version: '6.2',
-  max_tokens: 64000,
+  max_tokens: 32000,
   temperature: 0.6,
   variables: [
     'user_role', 

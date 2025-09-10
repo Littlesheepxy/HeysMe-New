@@ -431,7 +431,7 @@ export class VercelAICodingAgent extends BaseAgent {
 
       // 使用 Vercel AI SDK 的多步骤工具调用
       const result = await generateText({
-        model: anthropic('claude-3-5-sonnet-20241022'),
+        model: anthropic('claude-sonnet-4-20250514'),
         messages,
         tools: this.getTools(sessionData),
         stopWhen: stepCountIs(8), // 允许最多8步：分析 + 多个文件操作

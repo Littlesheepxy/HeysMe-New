@@ -311,7 +311,7 @@ ${JSON.stringify(collectedData, null, 2)}
 确保信息完整、准确，并填补合理的默认值。`;
 
   const result = await generateText({
-    model: anthropic('claude-3-5-sonnet-20241022'),
+    model: anthropic('claude-sonnet-4-20250514'),
     messages: [{ role: 'user', content: structurePrompt }],
     temperature: 0.3,
     maxTokens: 4000

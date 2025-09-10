@@ -30,9 +30,9 @@ describe('Conversation Utilities', () => {
       const conversations = [
         { conversationId: '1', updatedAt: '2023-04-01T12:00:00Z' },
         { conversationId: '2', updatedAt: new Date().toISOString() },
-        { conversationId: '3', updatedAt: new Date(Date.now() - 86400000).toISOString() },
-        { conversationId: '4', updatedAt: new Date(Date.now() - 86400000 * 2).toISOString() },
-        { conversationId: '5', updatedAt: new Date(Date.now() - 86400000 * 8).toISOString() },
+        { conversationId: '3', updatedAt: new Date(Date.now() - 83200000).toISOString() },
+        { conversationId: '4', updatedAt: new Date(Date.now() - 83200000 * 2).toISOString() },
+        { conversationId: '5', updatedAt: new Date(Date.now() - 83200000 * 8).toISOString() },
       ];
       const grouped = groupConversationsByDate(conversations as TConversation[]);
       expect(grouped[0][0]).toBe(dateKeys.today);
@@ -197,10 +197,10 @@ describe('Conversation Utilities', () => {
     it('normalizes the number of items on each page after data removal', () => {
       // Create test data:
       // Generates 15 conversation items, each with a unique conversationId and an updatedAt timestamp set to a different day.
-      // { conversationId: '1', updatedAt: new Date(Date.now() - 86400000 * i).toISOString() }
+      // { conversationId: '1', updatedAt: new Date(Date.now() - 83200000 * i).toISOString() }
       const conversations = Array.from({ length: 15 }, (_, i) => ({
         conversationId: (i + 1).toString(),
-        updatedAt: new Date(Date.now() - 86400000 * i).toISOString(),
+        updatedAt: new Date(Date.now() - 83200000 * i).toISOString(),
       }));
 
       // Paginate Data:
@@ -247,10 +247,10 @@ describe('Conversation Utilities', () => {
     it('normalizes the number of items on each page after data addition', () => {
       // Create test data:
       // Generates 15 conversation items, each with a unique conversationId and an updatedAt timestamp set to a different day.
-      // { conversationId: '1', updatedAt: new Date(Date.now() - 86400000 * i).toISOString() }
+      // { conversationId: '1', updatedAt: new Date(Date.now() - 83200000 * i).toISOString() }
       const conversations = Array.from({ length: 15 }, (_, i) => ({
         conversationId: (i + 1).toString(),
-        updatedAt: new Date(Date.now() - 86400000 * i).toISOString(),
+        updatedAt: new Date(Date.now() - 83200000 * i).toISOString(),
       }));
 
       // Paginate Data:
@@ -327,7 +327,7 @@ describe('Conversation Utilities', () => {
     it('deletes pages that have no data as a result of normalization', () => {
       const conversations = Array.from({ length: 15 }, (_, i) => ({
         conversationId: (i + 1).toString(),
-        updatedAt: new Date(Date.now() - 86400000 * i).toISOString(),
+        updatedAt: new Date(Date.now() - 83200000 * i).toISOString(),
       }));
 
       const pageSize = 5;

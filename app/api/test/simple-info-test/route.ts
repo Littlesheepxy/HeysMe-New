@@ -82,7 +82,7 @@ ${message}
 
     // 执行分析
     const result = await generateText({
-      model: anthropic('claude-3-5-sonnet-20241022'),
+      model: anthropic('claude-sonnet-4-20250514'),
       messages: [{ role: 'user', content: prompt }],
       tools: hasGitHubLink ? { analyze_github: analyzeGitHub } : {},
       temperature: 0.7,

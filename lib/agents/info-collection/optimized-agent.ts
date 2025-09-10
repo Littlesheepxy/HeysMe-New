@@ -549,7 +549,7 @@ export class OptimizedInfoCollectionAgent extends BaseAgent {
         let accumulatedFallbackResponse = '';
         for await (const chunk of this.callLLMStreaming(userInput, {
           system: systemPrompt,
-          maxTokens: 64000,
+          maxTokens: 32000,
           sessionId: sessionData.id,
           useHistory: true
         })) {

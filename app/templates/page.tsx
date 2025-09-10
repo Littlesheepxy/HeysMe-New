@@ -658,8 +658,12 @@ export default function TemplatesPage() {
               initial={{ opacity: 0, x: -20 }}
               animate={{ opacity: 1, x: 0 }}
             >
-              <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-2xl flex items-center justify-center shadow-lg">
-                <BookTemplate className="w-6 h-6 text-white" />
+              <div className="w-10 h-10 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden">
+                <img 
+                  src="/logo.png" 
+                  alt="HeysMe Logo" 
+                  className="w-8 h-8 object-contain"
+                />
               </div>
               <div>
                 <h1 className={`text-xl font-bold ${

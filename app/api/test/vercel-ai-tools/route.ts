@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
 
     // 使用 Vercel AI SDK 调用 Claude
     const result = await generateText({
-      model: anthropic('claude-3-5-sonnet-20241022'),
+      model: anthropic('claude-sonnet-4-20250514'),
       messages,
       tools: {
         analyze_github: githubAnalyzeTool,

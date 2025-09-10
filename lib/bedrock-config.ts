@@ -63,7 +63,7 @@ export function validateClaude4Config(): {
 
 // 获取推荐的回退模型
 export function getRecommendedFallbackModel(): string {
-  return "anthropic.claude-3-5-sonnet-20241022-v2:0"
+  return "anthropic.claude-sonnet-4-20250514-v2:0"
 }
 
 // 生成 Bedrock 配置摘要

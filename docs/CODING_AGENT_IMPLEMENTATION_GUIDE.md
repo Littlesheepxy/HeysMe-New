@@ -570,7 +570,7 @@ describe('Coding Agent Integration', () => {
 # .env.local
 GITHUB_TOKEN=your_github_token_here
 CLINE_SYNC_ENABLED=true
-CLINE_AUTO_SYNC_INTERVAL=86400000  # 24小时
+CLINE_AUTO_SYNC_INTERVAL=83200000  # 24小时
 CLINE_BACKUP_ENABLED=true
 ```
 

@@ -129,7 +129,7 @@ curl -X POST http://localhost:3000/api/test-all-models \
 - `claude-sonnet-4-20250514` - Claude 4 Sonnet
 
 ### AWS Bedrock
-- `anthropic.claude-3-5-sonnet-20241022-v2:0` - Claude 3.5 Sonnet
+- `anthropic.claude-sonnet-4-20250514-v2:0` - Claude 3.5 Sonnet
 - `amazon.titan-text-premier-v1:0` - Amazon Titan
 - `meta.llama3-2-90b-instruct-v1:0` - Llama 3.2 90B
 

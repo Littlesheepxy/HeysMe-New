@@ -343,7 +343,7 @@ const displayConfig = {
 const agentConfig = {
   // AI 调用配置
   llm: {
-    maxTokens: 64000,
+    maxTokens: 32000,
     temperature: 0.7,
     model: 'claude-3-sonnet'
   },

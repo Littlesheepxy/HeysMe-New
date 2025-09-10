@@ -61,8 +61,12 @@ export function HeaderSection() {
             className="flex items-center"
           >
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-emerald-400 to-cyan-400 rounded-lg flex items-center justify-center shadow-lg">
-                <span className="text-white font-bold text-sm">H</span>
+              <div className="w-10 h-10 rounded-lg flex items-center justify-center overflow-hidden">
+                <img 
+                  src="/logo.png" 
+                  alt="HeysMe Logo" 
+                  className="w-full h-full object-contain"
+                />
               </div>
               <div>
                 <span className={`font-bold text-xl ${isScrolled ? 'bg-gradient-to-r from-emerald-500 to-cyan-500 bg-clip-text text-transparent' : 'text-white'}`}>

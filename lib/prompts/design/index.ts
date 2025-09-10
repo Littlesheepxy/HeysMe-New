@@ -466,7 +466,7 @@ export const DESIGN_AGENT_PROMPT = `你是HeysMe平台的智能页面设计专�
 export const DESIGN_AGENT_CONFIG = {
   name: 'ENHANCED_DESIGN_AGENT',
   version: '5.0',
-  max_tokens: 64000,
+  max_tokens: 32000,
   temperature: 0.7, // 提高温度，鼓励创意思考
   variables: [
     'collected_user_info',

@@ -242,7 +242,7 @@ export const googleSettings = {
   },
   maxOutputTokens: {
     min: 1 as const,
-    max: 64000 as const,
+    max: 32000 as const,
     step: 1 as const,
     default: 8192 as const,
   },
@@ -279,8 +279,8 @@ export const googleSettings = {
 };
 
 const ANTHROPIC_MAX_OUTPUT = 128000 as const;
-const DEFAULT_MAX_OUTPUT = 8192 as const;
-const LEGACY_ANTHROPIC_MAX_OUTPUT = 4096 as const;
+const DEFAULT_MAX_OUTPUT = 32000 as const;
+const LEGACY_ANTHROPIC_MAX_OUTPUT = 32000 as const;
 export const anthropicSettings = {
   model: {
     default: 'claude-3-5-sonnet-latest' as const,
@@ -312,10 +312,20 @@ export const anthropicSettings = {
       if (/claude-3[-.]5-sonnet/.test(modelName) || /claude-3[-.]7/.test(modelName)) {
         return DEFAULT_MAX_OUTPUT;
       }
+      
+      // 对于Claude 4，使用更高的限制
+      if (/claude-4/.test(modelName) || /claude-sonnet-4/.test(modelName)) {
+        return ANTHROPIC_MAX_OUTPUT; // 128000
+      }
 
-      return 4096;
+      return 32000;
     },
     set: (value: number, modelName: string) => {
+      // 对于Claude 4，允许更高的限制
+      if (/claude-4/.test(modelName) || /claude-sonnet-4/.test(modelName)) {
+        return Math.min(value, ANTHROPIC_MAX_OUTPUT);
+      }
+      
       if (
         !(/claude-3[-.]5-sonnet/.test(modelName) || /claude-3[-.]7/.test(modelName)) &&
         value > LEGACY_ANTHROPIC_MAX_OUTPUT

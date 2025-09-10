@@ -336,7 +336,7 @@ export class ConversationalWelcomeAgent extends BaseAgent {
       // 🆕 使用BaseAgent的统一流式方法
       yield* this.callLLMStreaming(finalUserInput, {
         system: WELCOME_SYSTEM_PROMPT,
-        maxTokens: 64000,
+        maxTokens: 32000,
         sessionId: sessionData.id,
         useHistory: true
       });
@@ -382,7 +382,7 @@ export class ConversationalWelcomeAgent extends BaseAgent {
           { role: 'system', content: WELCOME_SYSTEM_PROMPT },
           { role: 'user', content: userPrompt }
         ],
-        { maxTokens: 64000 }
+        { maxTokens: 32000 }
       );
 
       // 解析AI响应

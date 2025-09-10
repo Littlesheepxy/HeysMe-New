@@ -262,7 +262,7 @@ export class InfoCollectionAgent extends BaseAgent {
     const llmResponse = await this.callLLM(userInput_clean, {
       system: systemPrompt,
       schemaType: 'intentAnalysis',
-              maxTokens: 64000,
+              maxTokens: 32000,
       sessionId: sessionData.id,
       useHistory: false // 单次分析不需要历史
     });

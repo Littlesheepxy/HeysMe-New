@@ -15,7 +15,7 @@
   "hero": {
     "title": "AI驱动的新一代职业平台",
     "subtitle": "人人都能拥有智能数字分身。AI为你打造多维职业身份，自动展示、动态演进，从曝光到合作到变现，一步到位。",
-    "primaryCta": "立即创建你的数字分身",
+    "primaryCta": "立即开始",
     "secondaryCta": "观看演示",
     "badge": "🚀v0.1 MVP 版本",
     "cards": {
@@ -50,7 +50,7 @@
         "description": "代表你每一个分身、每一个面向世界的自己。"
       }
     },
-    "cta": "立即创建你的数字分身",
+    "cta": "创建数字分身",
     "comparison": {
       "traditional": {
         "title": "传统方式",
@@ -66,7 +66,7 @@
   },
   "value": {
     "title": "我们能为你带来什么",
-    "subtitle": "用AI为自己打造无限个职业分身：",
+    "subtitle": "用AI为自己打造无限个职业分身",
     "features": [
       {
         "title": "展示",
@@ -85,6 +85,7 @@
   },
   "features": {
     "title": "产品核心功能",
+    "subtitle": "基于最新AI技术，为你打造全方位的数字身份管理系统",
     "items": [
       {
         "title": "智能对话生成主页",
@@ -127,6 +128,7 @@
   },
   "creator": {
     "title": "灵感广场",
+    "subtitle": "释放创意潜能，在AI时代获得应有的价值回报",
     "features": [
       "浏览和使用海量主页 & 简历模板",
       "通过Prompt形式创作模板并轻松变现",
@@ -172,6 +174,7 @@
   },
   "useCases": {
     "title": "适用人群与场景",
+    "subtitle": "无论你是哪种身份，我们都能为你量身定制专属的数字形象",
     "cases": [
       {
         "title": "求职者",
@@ -204,10 +207,16 @@
       }
     ],
     "userLabel": "HeysMe 用户",
-    "joinText": "加入数万名满意用户，开启AI分身之旅"
+    "joinText": "加入数万名满意用户，开启AI分身之旅",
+    "stats": {
+      "userCount": "满意用户",
+      "satisfaction": "用户满意度",
+      "support": "智能服务",
+      "creation": "快速创建"
+    }
   },
   "finalCta": {
-    "title": "现在，就创建你的AI数字分身",
+    "title": "创建AI数字分身",
     "subtitle": "你的下一次机会，从这里开始。",
     "primaryCta": "立即开始",
     "secondaryCta": "了解更多",

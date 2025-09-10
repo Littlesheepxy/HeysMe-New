@@ -70,11 +70,12 @@ function FooterSectionComponent() {
             {/* 左侧：品牌信息 */}
             <div className="lg:col-span-1 text-center lg:text-left">
               <div className="flex items-center justify-center lg:justify-start space-x-4 mb-4">
-                <div className="relative">
-                  <div className="w-12 h-12 bg-gradient-to-br from-emerald-400 via-emerald-500 to-cyan-500 rounded-2xl flex items-center justify-center shadow-lg">
-                    <span className="text-white font-bold text-lg">H</span>
-                  </div>
-                  <div className="absolute -inset-1 bg-gradient-to-br from-emerald-400 to-cyan-500 rounded-2xl blur opacity-20"></div>
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg overflow-hidden bg-white/10 backdrop-blur-sm">
+                  <img 
+                    src="/logo.png" 
+                    alt="HeysMe Logo" 
+                    className="w-8 h-8 object-contain"
+                  />
                 </div>
                 <div>
                   <h3 className="text-xl font-bold bg-gradient-to-r from-emerald-400 to-cyan-400 bg-clip-text text-transparent">

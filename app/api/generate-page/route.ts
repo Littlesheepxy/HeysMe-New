@@ -134,7 +134,7 @@ ${JSON.stringify(collectedData, null, 2)}
         prompt,
         options: {
           schema: heysMePageSchema,
-          maxTokens: 64000,
+          maxTokens: 32000,
         }
       })
     })

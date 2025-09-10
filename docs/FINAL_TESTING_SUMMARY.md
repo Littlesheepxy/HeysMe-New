@@ -103,7 +103,7 @@ await executeToolManually(toolCall);
 
 // V3：SDK 原生支持
 const result = await generateText({
-  model: anthropic('claude-3-5-sonnet-20241022'),
+  model: anthropic('claude-sonnet-4-20250514'),
   tools: this.getTools(),
   stopWhen: stepCountIs(maxSteps)
 });

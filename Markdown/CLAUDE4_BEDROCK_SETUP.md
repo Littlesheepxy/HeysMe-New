@@ -58,7 +58,7 @@ curl http://localhost:3000/api/test-bedrock
 // 在代码中指定使用 Claude 3.5
 const result = await generateWithModel(
   "bedrock", 
-  "anthropic.claude-3-5-sonnet-20241022-v2:0", 
+  "anthropic.claude-sonnet-4-20250514-v2:0", 
   "您的问题"
 )
 ```

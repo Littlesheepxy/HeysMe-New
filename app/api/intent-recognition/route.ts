@@ -119,7 +119,7 @@ export async function POST(request: NextRequest) {
         prompt,
         options: {
           schema: intentSchema,
-          maxTokens: 64000,
+          maxTokens: 32000,
         }
       })
     })
