@@ -10,7 +10,6 @@
 
 import { SessionData } from '@/lib/types/session';
 import { StreamableAgentResponse } from '@/lib/types/streaming';
-import { CodingAgent } from '@/lib/agents/coding';
 
 // 用户档案接口
 export interface UserProfile {
@@ -55,11 +54,9 @@ export interface RouterInput {
  * 简单消息路由器类
  */
 export class SimpleMessageRouter {
-  private openLovableAgent: CodingAgent;
-
   constructor() {
-    // 现阶段先使用现有的CodingAgent，后续重构为OpenLovableAgent
-    this.openLovableAgent = new CodingAgent();
+    // 现在直接基于Open Lovable API，不依赖CodingAgent
+    // 避免在客户端环境中引入server-only模块
   }
 
   /**
