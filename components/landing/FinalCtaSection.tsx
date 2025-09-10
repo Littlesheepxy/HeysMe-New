@@ -70,7 +70,7 @@ export function FinalCtaSection() {
               >
                 <Button
                   size="lg"
-                  onClick={() => window.location.href = '/chat'}
+                  onClick={() => window.location.href = '/home'}
                   className="group relative px-12 py-6 text-xl font-bold bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white rounded-2xl shadow-2xl hover:shadow-3xl transition-all duration-300 transform hover:scale-105 overflow-hidden"
                 >
                   <span className="relative z-10 flex items-center">

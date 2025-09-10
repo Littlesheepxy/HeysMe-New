@@ -115,7 +115,7 @@ export function PlazaAndCreatorSection() {
               <Button
                 size="lg"
                 className="bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-600 hover:to-cyan-600 text-white px-8 py-4 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                onClick={() => window.location.href = '/chat'}
+                onClick={() => window.location.href = '/home'}
               >
                 <Rocket className="w-5 h-5 mr-2" />
                 {t('plaza.cta')}
@@ -184,7 +184,7 @@ export function PlazaAndCreatorSection() {
               <Button
                 size="lg"
                 className="bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white px-8 py-4 rounded-2xl shadow-lg hover:shadow-xl transition-all duration-300 transform hover:scale-105"
-                onClick={() => window.location.href = '/chat'}
+                onClick={() => window.location.href = '/home'}
               >
                 <TrendingUp className="w-5 h-5 mr-2" />
                 {t('creator.cta')}

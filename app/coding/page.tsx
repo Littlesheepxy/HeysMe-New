@@ -26,13 +26,7 @@ export default function CodingPage() {
   // 移除HomeScreen相关状态，直接显示聊天界面
   
   // Chat state
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
-    {
-      content: '🚀 欢迎来到HeysMe AI代码生成器！\n\n我可以根据您的需求生成完整的React应用。您可以：\n\n• 描述您想要的功能和设计\n• 我会自动创建开发环境\n• 实时预览生成的代码\n• 所有代码都可以下载使用\n\n请开始描述您的项目需求吧！',
-      type: 'system',
-      timestamp: new Date()
-    }
-  ]);
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
   const [aiChatInput, setAiChatInput] = useState('');
   
   // UI state
@@ -81,11 +75,43 @@ export default function CodingPage() {
   // Refs
   const iframeRef = useRef<HTMLIFrameElement | null>(null);
   
-  // Initialize sandbox on mount
+  // Initialize page and handle URL parameters
   useEffect(() => {
     let isMounted = true;
 
     const initializePage = async () => {
+      // 处理来自主页的prompt参数
+      const promptParam = searchParams.get('prompt');
+      const modeParam = searchParams.get('mode');
+      const projectDataParam = searchParams.get('projectData');
+      
+      if (promptParam) {
+        // 添加来自主页的prompt消息
+        const modeText = modeParam === 'normal' ? '普通模式' : '专业模式';
+        addChatMessage(`从${modeText}跳转而来，正在处理您的需求...`, 'system');
+        
+        if (projectDataParam) {
+          try {
+            const projectData = JSON.parse(decodeURIComponent(projectDataParam));
+            addChatMessage(`项目信息：${projectData.projectName}`, 'system');
+          } catch (e) {
+            console.warn('Failed to parse project data:', e);
+          }
+        }
+        
+        // 自动发送prompt
+        setTimeout(() => {
+          setAiChatInput(promptParam);
+          // 自动发送消息
+          setTimeout(() => {
+            sendChatMessage();
+          }, 500);
+        }, 1000);
+      } else {
+        // 没有prompt参数，显示欢迎消息
+        addChatMessage('🚀 欢迎来到HeysMe AI代码生成器！\n\n我可以根据您的需求生成完整的React应用。您可以：\n\n• 描述您想要的功能和设计\n• 我会自动创建开发环境\n• 实时预览生成的代码\n• 所有代码都可以下载使用\n\n请开始描述您的项目需求吧！', 'system');
+      }
+
       // Clear old conversation
       try {
         await fetch('/api/conversation-state', {

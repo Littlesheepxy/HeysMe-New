@@ -101,7 +101,7 @@ export function HeroSection() {
               <Button
                 variant="brand"
                 size="lg"
-                onClick={() => window.location.href = '/chat'}
+                onClick={() => window.location.href = '/home'}
                 className="text-lg px-8 py-4 rounded-2xl shadow-brand-xl hover:shadow-brand-glow transition-all duration-300 transform hover:scale-105"
                 style={{
                   background: 'linear-gradient(135deg, #34D399 0%, #2DD4BF 50%, #22D3EE 100%)',
