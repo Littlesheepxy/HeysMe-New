@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { agentOrchestrator } from '@/lib/utils/agent-orchestrator';
+import { simpleMessageRouter } from '@/lib/routers/simple-message-router';
 import { SessionData } from '@/lib/types/session';
 import { StreamableAgentResponse } from '@/lib/types/streaming';
 
@@ -22,11 +22,11 @@ export async function GET(request: NextRequest) {
       // 使用Agent编排器处理初始会话
       const processInitialStream = async () => {
         try {
-          // 发送初始欢迎消息，触发WelcomeAgent
-          const responseGenerator = agentOrchestrator.processUserInputStreaming(
+          // 发送初始欢迎消息，触发新的简单路由器
+          const responseGenerator = simpleMessageRouter.processUserInputStreaming(
             sessionId,
             '初始化', // 空消息来触发欢迎流程
-            undefined // 没有指定stage，让编排器自动确定
+            undefined // 没有指定stage，让路由器自动确定
           );
           
           for await (const response of responseGenerator) {
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
           
           if (effectiveForceAgent || testMode || isCodingMode) {
             // 获取现有会话数据
-            const existingSession = await agentOrchestrator.getSessionData(sessionId);
+            const existingSession = await simpleMessageRouter.getSessionData(sessionId);
             
             if (existingSession) {
               // 修改现有会话的阶段
@@ -161,8 +161,8 @@ export async function POST(req: NextRequest) {
             console.log('🎯 [API] 使用context传递模式信息:', finalContext);
           }
 
-          // 使用Agent编排器处理流式输入
-          const responseGenerator = agentOrchestrator.processUserInputStreaming(
+          // 使用新的简单路由器处理流式输入
+          const responseGenerator = simpleMessageRouter.processUserInputStreaming(
             sessionId,
             finalMessage,
             sessionData,
