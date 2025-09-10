@@ -634,13 +634,36 @@ ${userProfile ? `## 用户背景\n- 角色：${userProfile.role}\n- 经验水平
         }
       };
 
+      // 获取当前选择的模型配置
+      let modelConfig = {
+        provider: 'anthropic',
+        model: 'claude-3-5-sonnet-20241022'
+      };
+
+      // 尝试从本地存储获取模型配置
+      if (typeof window !== 'undefined') {
+        try {
+          const storedConfig = localStorage.getItem('heysme-model-config');
+          if (storedConfig) {
+            modelConfig = JSON.parse(storedConfig);
+            console.log('[OpenLovable] Using stored model config:', modelConfig);
+          }
+        } catch (e) {
+          console.warn('[OpenLovable] Failed to parse stored model config:', e);
+        }
+      }
+
       // 调用AI代码生成流式API
       const generateResponse = await fetch(`${baseUrl}/api/generate-ai-code-stream`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'x-model-config': JSON.stringify(modelConfig)
+        },
         body: JSON.stringify({
           prompt: message,
-          model: 'claude-3-5-sonnet-20241022', // 使用Claude模型
+          model: `${modelConfig.provider}/${modelConfig.model}`, // 动态模型
+          modelConfig, // 传递完整的模型配置
           context: {
             sandboxId: sandboxData.sandboxId,
             currentProject: 'HeysMe Generated Project',

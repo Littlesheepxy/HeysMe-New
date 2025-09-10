@@ -9,6 +9,7 @@ import { motion } from 'framer-motion';
 import { PrivacyToggle } from '@/components/ui/privacy-toggle';
 import { ThemeToggle } from '@/components/navigation/theme-toggle';
 import { FloatingStageIndicator } from '@/components/ui/stage-indicator';
+import ModelSelector from '@/components/chat/ModelSelector';
 
 interface ChatHeaderProps {
   chatMode?: 'normal' | 'professional';
@@ -73,56 +74,9 @@ export function ChatHeader({
               </Button>
             )}
             
-            {/* 下拉模式切换器 - 仅在非代码模式下显示 */}
+            {/* AI模型选择器 - 仅在非代码模式下显示 */}
             {!isCodeMode && (
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <motion.button
-                          className={`flex items-center gap-1 text-sm font-medium px-2 py-1 rounded-md transition-all duration-200 hover:bg-gray-100 dark:hover:bg-gray-800 ${
-                            theme === "light" ? "text-gray-700" : "text-gray-300"
-                          }`}
-                          whileHover={{ scale: 1.02 }}
-                          whileTap={{ scale: 0.98 }}
-                        >
-                          {chatMode === 'normal' ? '普通模式' : '专业模式'}
-                          <ChevronDown className="w-3 h-3" />
-                        </motion.button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start" className="w-48">
-                        <DropdownMenuItem 
-                          onClick={() => handleModeSelect('normal')}
-                          className="flex flex-col items-start gap-1 p-3"
-                        >
-                          <div className="font-medium">普通模式</div>
-                          <div className="text-xs text-gray-500">
-                            AI助手智能引导对话
-                          </div>
-                        </DropdownMenuItem>
-                        <DropdownMenuItem 
-                          onClick={() => handleModeSelect('professional')}
-                          className="flex flex-col items-start gap-1 p-3"
-                        >
-                          <div className="font-medium">专业模式</div>
-                          <div className="text-xs text-gray-500">
-                            直达代码生成引擎
-                          </div>
-                        </DropdownMenuItem>
-                      </DropdownMenuContent>
-                    </DropdownMenu>
-                  </TooltipTrigger>
-                  <TooltipContent side="right" className="max-w-xs">
-                    <div className="space-y-2">
-                      <div className="font-medium">模式切换</div>
-                      <div className="text-xs text-gray-600 dark:text-gray-400">
-                        选择适合您的对话模式：普通模式提供智能引导，专业模式直接生成代码
-                      </div>
-                    </div>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
+              <ModelSelector />
             )}
           </div>
           

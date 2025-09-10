@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>模型选择器测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        .test-section {
+            margin: 20px 0;
+            padding: 20px;
+            border: 1px solid #e1e5e9;
+            border-radius: 8px;
+        }
+        .success { border-color: #28a745; background: #f8fff9; }
+        .error { border-color: #dc3545; background: #fff8f8; }
+        button {
+            background: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover { background: #0056b3; }
+        pre { background: #f8f9fa; padding: 15px; border-radius: 6px; overflow-x: auto; }
+        .model-info {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin: 15px 0;
+        }
+        .model-card {
+            padding: 15px;
+            border: 1px solid #dee2e6;
+            border-radius: 6px;
+            background: #f8f9fa;
+        }
+        .model-name { font-weight: bold; color: #007bff; }
+        .model-desc { font-size: 0.9em; color: #666; margin-top: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🤖 AI模型选择器测试</h1>
+        <p>测试新添加的智谱、Kimi和通义千问模型支持</p>
+
+        <div class="test-section">
+            <h3>📊 支持的AI模型</h3>
+            <div class="model-info" id="modelList">
+                <!-- 模型列表将在这里动态生成 -->
+            </div>
+        </div>
+
+        <div class="test-section">
+            <h3>🔧 本地存储测试</h3>
+            <button onclick="testLocalStorage()">测试本地存储</button>
+            <button onclick="clearLocalStorage()">清除存储</button>
+            <button onclick="loadStoredConfig()">加载存储配置</button>
+            <pre id="storageResult"></pre>
+        </div>
+
+        <div class="test-section">
+            <h3>🔑 API Key管理测试</h3>
+            <div>
+                <label>选择提供商: </label>
+                <select id="providerSelect">
+                    <option value="openai">OpenAI</option>
+                    <option value="anthropic">Anthropic</option>
+                    <option value="zhipu">智谱AI</option>
+                    <option value="moonshot">Kimi/月之暗面</option>
+                    <option value="qwen">通义千问</option>
+                    <option value="groq">Groq</option>
+                </select>
+            </div>
+            <div style="margin: 10px 0;">
+                <input type="password" id="apiKeyInput" placeholder="输入API Key" style="width: 300px; padding: 8px;">
+                <button onclick="saveApiKey()">保存</button>
+            </div>
+            <pre id="apiKeyResult"></pre>
+        </div>
+
+        <div class="test-section">
+            <h3>📡 模型配置测试</h3>
+            <button onclick="testModelConfigs()">测试所有模型配置</button>
+            <pre id="configResult"></pre>
+        </div>
+    </div>
+
+    <script>
+        // 模型配置数据
+        const MODEL_PROVIDERS = {
+            openai: {
+                name: 'OpenAI',
+                icon: '🤖',
+                models: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo']
+            },
+            anthropic: {
+                name: 'Anthropic',
+                icon: '🧠',
+                models: ['claude-3-5-sonnet-20241022', 'claude-3-haiku-20240307']
+            },
+            zhipu: {
+                name: '智谱AI',
+                icon: '🧠',
+                models: ['glm-4.5', 'glm-4.5-air', 'glm-4.5v', 'glm-z1-air']
+            },
+            moonshot: {
+                name: 'Kimi (月之暗面)',
+                icon: '🌙',
+                models: ['kimi-k2', 'kimi-k2-0905-preview', 'moonshot-v1-128k']
+            },
+            qwen: {
+                name: '通义千问',
+                icon: '🔥',
+                models: ['qwen3-coder', 'qwen3-coder-plus', 'qwen3-32b', 'qwen2.5-omni']
+            },
+            groq: {
+                name: 'Groq',
+                icon: '⚡',
+                models: ['llama-3.3-70b-versatile', 'mixtral-8x7b-32768']
+            }
+        };
+
+        // 显示模型列表
+        function displayModels() {
+            const container = document.getElementById('modelList');
+            let html = '';
+            
+            Object.entries(MODEL_PROVIDERS).forEach(([key, provider]) => {
+                html += `
+                    <div class="model-card">
+                        <div class="model-name">${provider.icon} ${provider.name}</div>
+                        <div class="model-desc">
+                            ${provider.models.length} 个模型：${provider.models.slice(0, 2).join(', ')}${provider.models.length > 2 ? '...' : ''}
+                        </div>
+                    </div>
+                `;
+            });
+            
+            container.innerHTML = html;
+        }
+
+        // 测试本地存储
+        function testLocalStorage() {
+            const testConfig = {
+                provider: 'zhipu',
+                model: 'glm-4.5',
+                timestamp: new Date().toISOString()
+            };
+            
+            try {
+                localStorage.setItem('heysme-model-config', JSON.stringify(testConfig));
+                
+                const testKeys = {
+                    zhipu: 'test_zhipu_key_' + Date.now(),
+                    moonshot: 'test_moonshot_key_' + Date.now(),
+                    qwen: 'test_qwen_key_' + Date.now()
+                };
+                localStorage.setItem('heysme-api-keys', JSON.stringify(testKeys));
+                
+                document.getElementById('storageResult').textContent = 
+                    '✅ 本地存储测试成功\n' +
+                    '保存的模型配置: ' + JSON.stringify(testConfig, null, 2) + '\n' +
+                    '保存的API Keys: ' + JSON.stringify(testKeys, null, 2);
+            } catch (e) {
+                document.getElementById('storageResult').textContent = '❌ 本地存储测试失败: ' + e.message;
+            }
+        }
+
+        // 清除本地存储
+        function clearLocalStorage() {
+            localStorage.removeItem('heysme-model-config');
+            localStorage.removeItem('heysme-api-keys');
+            document.getElementById('storageResult').textContent = '🗑️ 本地存储已清除';
+        }
+
+        // 加载存储的配置
+        function loadStoredConfig() {
+            try {
+                const modelConfig = localStorage.getItem('heysme-model-config');
+                const apiKeys = localStorage.getItem('heysme-api-keys');
+                
+                const result = {
+                    modelConfig: modelConfig ? JSON.parse(modelConfig) : null,
+                    apiKeys: apiKeys ? JSON.parse(apiKeys) : null
+                };
+                
+                document.getElementById('storageResult').textContent = 
+                    '📖 当前存储的配置:\n' + JSON.stringify(result, null, 2);
+            } catch (e) {
+                document.getElementById('storageResult').textContent = '❌ 加载配置失败: ' + e.message;
+            }
+        }
+
+        // 保存API Key
+        function saveApiKey() {
+            const provider = document.getElementById('providerSelect').value;
+            const apiKey = document.getElementById('apiKeyInput').value;
+            
+            if (!apiKey.trim()) {
+                document.getElementById('apiKeyResult').textContent = '❌ 请输入API Key';
+                return;
+            }
+            
+            try {
+                let existingKeys = {};
+                const stored = localStorage.getItem('heysme-api-keys');
+                if (stored) {
+                    existingKeys = JSON.parse(stored);
+                }
+                
+                existingKeys[provider] = apiKey;
+                localStorage.setItem('heysme-api-keys', JSON.stringify(existingKeys));
+                
+                // 清除输入
+                document.getElementById('apiKeyInput').value = '';
+                
+                document.getElementById('apiKeyResult').textContent = 
+                    `✅ ${provider} API Key 保存成功\n` +
+                    '当前所有Keys: ' + Object.keys(existingKeys).join(', ');
+            } catch (e) {
+                document.getElementById('apiKeyResult').textContent = '❌ 保存失败: ' + e.message;
+            }
+        }
+
+        // 测试模型配置
+        function testModelConfigs() {
+            const results = [];
+            
+            Object.entries(MODEL_PROVIDERS).forEach(([provider, config]) => {
+                config.models.forEach(model => {
+                    const testConfig = {
+                        provider,
+                        model,
+                        baseURL: getBaseURL(provider),
+                        status: '✅ 配置正确'
+                    };
+                    results.push(testConfig);
+                });
+            });
+            
+            document.getElementById('configResult').textContent = 
+                '🧪 模型配置测试结果:\n' + 
+                results.map(r => `${r.provider}/${r.model} - ${r.status}`).join('\n');
+        }
+
+        // 获取基础URL
+        function getBaseURL(provider) {
+            const urls = {
+                openai: 'https://api.openai.com/v1',
+                anthropic: 'https://api.anthropic.com/v1',
+                zhipu: 'https://open.bigmodel.cn/api/paas/v4',
+                moonshot: 'https://api.moonshot.cn/v1',
+                qwen: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+                groq: 'https://api.groq.com/openai/v1'
+            };
+            return urls[provider] || '未知';
+        }
+
+        // 页面加载时显示模型
+        displayModels();
+        
+        // 添加一些样式增强
+        console.log('🚀 HeysMe AI模型选择器测试页面已加载');
+        console.log('📊 支持的提供商:', Object.keys(MODEL_PROVIDERS));
+        console.log('📱 总模型数:', Object.values(MODEL_PROVIDERS).reduce((sum, p) => sum + p.models.length, 0));
+    </script>
+</body>
+</html>

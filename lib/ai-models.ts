@@ -6,6 +6,33 @@ import { generateText, generateObject, streamText } from "ai"
 import type { ModelProvider } from "@/types/models"
 import { getClaude4ModelId, validateClaude4Config } from "./bedrock-config"
 
+// 创建动态提供商客户端函数
+function createProviderClient(provider: string, baseURL: string, apiKey: string) {
+  return createOpenAI({
+    baseURL,
+    apiKey,
+    name: provider,
+  })
+}
+
+// 获取本地存储的API配置
+function getStoredApiConfig() {
+  if (typeof window !== 'undefined') {
+    try {
+      const config = localStorage.getItem('heysme-model-config')
+      const apiKeys = localStorage.getItem('heysme-api-keys')
+      return {
+        modelConfig: config ? JSON.parse(config) : null,
+        apiKeys: apiKeys ? JSON.parse(apiKeys) : {}
+      }
+    } catch (e) {
+      console.error('Failed to parse stored config:', e)
+      return { modelConfig: null, apiKeys: {} }
+    }
+  }
+  return { modelConfig: null, apiKeys: {} }
+}
+
 // 智谱AI配置
 const zhipuAI = createOpenAI({
   baseURL: process.env.ZHIPU_BASE_URL || 'https://open.bigmodel.cn/api/paas/v4/',
@@ -13,58 +40,97 @@ const zhipuAI = createOpenAI({
   name: 'zhipu',
 })
 
+// Kimi配置
+const kimiAI = createOpenAI({
+  baseURL: process.env.MOONSHOT_BASE_URL || 'https://api.moonshot.cn/v1',
+  apiKey: process.env.MOONSHOT_API_KEY || '',
+  name: 'moonshot',
+})
+
+// 通义千问配置
+const qwenAI = createOpenAI({
+  baseURL: process.env.QWEN_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1',
+  apiKey: process.env.QWEN_API_KEY || '',
+  name: 'qwen',
+})
+
 // 验证 API keys 是否配置
 function validateApiKeys() {
+  // 首先检查环境变量
   const openaiKey = process.env.OPENAI_API_KEY
   const anthropicKey = process.env.ANTHROPIC_API_KEY
   const awsAccessKey = process.env.AWS_ACCESS_KEY_ID
   const awsSecretKey = process.env.AWS_SECRET_ACCESS_KEY
   const zhipuKey = process.env.ZHIPU_API_KEY
+  const moonshotKey = process.env.MOONSHOT_API_KEY
+  const qwenKey = process.env.QWEN_API_KEY
+
+  // 然后检查本地存储的API keys（仅在客户端）
+  const { apiKeys } = getStoredApiConfig()
+  
+  // 合并环境变量和本地存储的keys
+  const finalKeys = {
+    openaiKey: openaiKey || apiKeys.openai || '',
+    anthropicKey: anthropicKey || apiKeys.anthropic || '',
+    zhipuKey: zhipuKey || apiKeys.zhipu || '',
+    moonshotKey: moonshotKey || apiKeys.moonshot || '',
+    qwenKey: qwenKey || apiKeys.qwen || '',
+    groqKey: apiKeys.groq || '',
+    awsAccessKey,
+    awsSecretKey
+  }
 
   console.log("🔑 API Keys status:")
-  console.log("- OpenAI:", openaiKey ? `✅ Configured (${openaiKey.substring(0, 10)}...)` : "❌ Missing")
-  console.log("- Anthropic:", anthropicKey ? `✅ Configured (${anthropicKey.substring(0, 10)}...)` : "❌ Missing")
+  console.log("- OpenAI:", finalKeys.openaiKey ? `✅ Configured (${finalKeys.openaiKey.substring(0, 10)}...)` : "❌ Missing")
+  console.log("- Anthropic:", finalKeys.anthropicKey ? `✅ Configured (${finalKeys.anthropicKey.substring(0, 10)}...)` : "❌ Missing")
   console.log("- AWS Bedrock:", (awsAccessKey && awsSecretKey) ? `✅ Configured` : "❌ Missing")
-  console.log("- 智谱AI:", zhipuKey ? `✅ Configured (${zhipuKey.substring(0, 10)}...)` : "❌ Missing")
+  console.log("- 智谱AI:", finalKeys.zhipuKey ? `✅ Configured (${finalKeys.zhipuKey.substring(0, 10)}...)` : "❌ Missing")
+  console.log("- Kimi/月之暗面:", finalKeys.moonshotKey ? `✅ Configured (${finalKeys.moonshotKey.substring(0, 10)}...)` : "❌ Missing")
+  console.log("- 通义千问:", finalKeys.qwenKey ? `✅ Configured (${finalKeys.qwenKey.substring(0, 10)}...)` : "❌ Missing")
+  console.log("- Groq:", finalKeys.groqKey ? `✅ Configured (${finalKeys.groqKey.substring(0, 10)}...)` : "❌ Missing")
 
   return { 
-    openaiKey, 
-    anthropicKey, 
-    awsAccessKey, 
-    awsSecretKey, 
-    zhipuKey,
+    ...finalKeys,
     hasAws: !!(awsAccessKey && awsSecretKey)
   }
 }
 
 export function getModelClient(provider: ModelProvider, modelId: string) {
-  const { openaiKey, anthropicKey, hasAws, zhipuKey } = validateApiKeys()
+  const keys = validateApiKeys()
+  const { apiKeys } = getStoredApiConfig()
+
+  // 动态创建客户端的辅助函数
+  const createDynamicClient = (baseURL: string, apiKey: string, name: string) => {
+    return createProviderClient(name, baseURL, apiKey)(modelId)
+  }
 
   switch (provider) {
     case "openai":
-      if (!openaiKey) {
-        throw new Error("OpenAI API key is not configured. Please set OPENAI_API_KEY in your environment variables.")
+      if (!keys.openaiKey) {
+        throw new Error("OpenAI API key is not configured. Please configure it in the model selector.")
       }
       console.log(`🤖 Creating OpenAI client with model: ${modelId}`)
       return openai(modelId)
       
+    case "anthropic":
+      if (!keys.anthropicKey) {
+        throw new Error("Anthropic API key is not configured. Please configure it in the model selector.")
+      }
+      console.log(`🤖 Creating Anthropic client with model: ${modelId}`)
+      return anthropic(modelId)
+      
     case "claude":
-      if (!anthropicKey) {
-        throw new Error(
-          "Anthropic API key is not configured. Please set ANTHROPIC_API_KEY in your environment variables.",
-        )
+      if (!keys.anthropicKey) {
+        throw new Error("Anthropic API key is not configured. Please configure it in the model selector.")
       }
       console.log(`🤖 Creating Anthropic client with model: ${modelId}`)
       return anthropic(modelId)
       
     case "bedrock":
-      if (!hasAws) {
-        throw new Error(
-          "AWS credentials are not configured. Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in your environment variables.",
-        )
+      if (!keys.hasAws) {
+        throw new Error("AWS credentials are not configured. Please set AWS_ACCESS_KEY_ID and AWS_SECRET_ACCESS_KEY in your environment variables.")
       }
       
-      // 对于 Claude 4，使用智能模型ID选择
       let actualModelId = modelId
       if (modelId === "anthropic.claude-sonnet-4-20250514-v1:0") {
         actualModelId = getClaude4ModelId()
@@ -79,13 +145,44 @@ export function getModelClient(provider: ModelProvider, modelId: string) {
       return bedrock(actualModelId)
       
     case "zhipu":
-      if (!zhipuKey) {
-        throw new Error(
-          "智谱AI API key is not configured. Please set ZHIPU_API_KEY in your environment variables.",
-        )
+      if (!keys.zhipuKey) {
+        throw new Error("智谱AI API key is not configured. Please configure it in the model selector.")
       }
       console.log(`🤖 Creating 智谱AI client with model: ${modelId}`)
+      if (keys.zhipuKey !== process.env.ZHIPU_API_KEY) {
+        // 使用本地存储的API key
+        return createDynamicClient('https://open.bigmodel.cn/api/paas/v4/', keys.zhipuKey, 'zhipu')
+      }
       return zhipuAI(modelId)
+      
+    case "moonshot":
+      if (!keys.moonshotKey) {
+        throw new Error("Kimi/月之暗面 API key is not configured. Please configure it in the model selector.")
+      }
+      console.log(`🤖 Creating Kimi/月之暗面 client with model: ${modelId}`)
+      if (keys.moonshotKey !== process.env.MOONSHOT_API_KEY) {
+        // 使用本地存储的API key
+        return createDynamicClient('https://api.moonshot.cn/v1', keys.moonshotKey, 'moonshot')
+      }
+      return kimiAI(modelId)
+      
+    case "qwen":
+      if (!keys.qwenKey) {
+        throw new Error("通义千问 API key is not configured. Please configure it in the model selector.")
+      }
+      console.log(`🤖 Creating 通义千问 client with model: ${modelId}`)
+      if (keys.qwenKey !== process.env.QWEN_API_KEY) {
+        // 使用本地存储的API key
+        return createDynamicClient('https://dashscope.aliyuncs.com/compatible-mode/v1', keys.qwenKey, 'qwen')
+      }
+      return qwenAI(modelId)
+      
+    case "groq":
+      if (!keys.groqKey) {
+        throw new Error("Groq API key is not configured. Please configure it in the model selector.")
+      }
+      console.log(`🤖 Creating Groq client with model: ${modelId}`)
+      return createDynamicClient('https://api.groq.com/openai/v1', keys.groqKey, 'groq')
       
     default:
       throw new Error(`Unsupported model provider: ${provider}`)
