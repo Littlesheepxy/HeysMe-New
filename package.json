@@ -22,7 +22,6 @@
     "@codesandbox/sandpack-react": "^2.20.0",
     "@e2b/code-interpreter": "^2.0.0",
     "@hookform/resolvers": "^3.9.1",
-    "@lobehub/icons": "^2.32.1",
     "@monaco-editor/react": "^4.7.0",
     "@mozilla/readability": "^0.6.0",
     "@octokit/rest": "^20.0.0",

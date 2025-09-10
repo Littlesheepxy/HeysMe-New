@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>图标测试</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class'
+        }
+    </script>
+</head>
+<body class="p-8 bg-white dark:bg-gray-900 transition-colors">
+    <div class="max-w-2xl mx-auto space-y-8">
+        <div class="flex items-center gap-4">
+            <h1 class="text-2xl font-bold text-gray-900 dark:text-white">图标显示测试</h1>
+            <button 
+                onclick="document.documentElement.classList.toggle('dark')"
+                class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600"
+            >
+                切换主题
+            </button>
+        </div>
+        
+        <div class="grid gap-4">
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">AI 模型厂商图标</h2>
+            
+            <!-- OpenAI -->
+            <div class="flex items-center gap-4 p-4 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
+                <img 
+                    src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/openai.svg"
+                    alt="OpenAI" 
+                    width="24" 
+                    height="24" 
+                    class="inline-block align-middle filter dark:invert dark:brightness-0 dark:contrast-100"
+                />
+                <span class="text-gray-900 dark:text-white">OpenAI</span>
+            </div>
+            
+            <!-- Anthropic -->
+            <div class="flex items-center gap-4 p-4 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
+                <img 
+                    src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/anthropic.svg"
+                    alt="Anthropic" 
+                    width="24" 
+                    height="24" 
+                    class="inline-block align-middle filter dark:invert dark:brightness-0 dark:contrast-100"
+                />
+                <span class="text-gray-900 dark:text-white">Anthropic</span>
+            </div>
+            
+            <!-- 智谱AI -->
+            <div class="flex items-center gap-4 p-4 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
+                <img 
+                    src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/zhipu.svg"
+                    alt="智谱AI" 
+                    width="24" 
+                    height="24" 
+                    class="inline-block align-middle filter dark:invert dark:brightness-0 dark:contrast-100"
+                />
+                <span class="text-gray-900 dark:text-white">智谱AI</span>
+            </div>
+            
+            <!-- Moonshot -->
+            <div class="flex items-center gap-4 p-4 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
+                <img 
+                    src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/moonshot.svg"
+                    alt="Moonshot" 
+                    width="24" 
+                    height="24" 
+                    class="inline-block align-middle filter dark:invert dark:brightness-0 dark:contrast-100"
+                />
+                <span class="text-gray-900 dark:text-white">Moonshot</span>
+            </div>
+            
+            <!-- 通义千问 -->
+            <div class="flex items-center gap-4 p-4 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
+                <img 
+                    src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/qwen.svg"
+                    alt="通义千问" 
+                    width="24" 
+                    height="24" 
+                    class="inline-block align-middle filter dark:invert dark:brightness-0 dark:contrast-100"
+                />
+                <span class="text-gray-900 dark:text-white">通义千问</span>
+            </div>
+            
+            <!-- Groq -->
+            <div class="flex items-center gap-4 p-4 border dark:border-gray-600 rounded-lg bg-white dark:bg-gray-800">
+                <img 
+                    src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/groq.svg"
+                    alt="Groq" 
+                    width="24" 
+                    height="24" 
+                    class="inline-block align-middle filter dark:invert dark:brightness-0 dark:contrast-100"
+                />
+                <span class="text-gray-900 dark:text-white">Groq</span>
+            </div>
+        </div>
+        
+        <div class="mt-8 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg border dark:border-blue-800">
+            <p class="text-sm text-blue-700 dark:text-blue-300">
+                说明：点击"切换主题"按钮可以测试亮色模式（黑色图标）和暗色模式（白色图标）的显示效果
+            </p>
+        </div>
+    </div>
+</body>
+</html>

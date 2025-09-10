@@ -9,15 +9,66 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Eye, EyeOff, Settings, Cpu, Zap, Code, Sparkles } from 'lucide-react';
-import { 
-  OpenAI, 
-  Anthropic, 
-  Zhipu, 
-  Moonshot, 
-  Tongyi, 
-  Groq,
-  Aws 
-} from '@lobehub/icons';
+// 使用简单的图标组件，通过 CSS 控制暗色模式显示
+const IconWrapper = ({ src, alt, size = 16 }: { src: string; alt: string; size?: number }) => (
+  <img 
+    src={src} 
+    alt={alt} 
+    width={size} 
+    height={size} 
+    className="inline-block align-middle filter dark:invert dark:brightness-0 dark:contrast-100" 
+    style={{ display: 'inline-block', verticalAlign: 'middle' }}
+  />
+);
+
+// 使用 Lobe Icons 的 CDN 静态资源 - 使用原始彩色图标
+const OpenAI = ({ size = 16 }: { size?: number }) => (
+  <IconWrapper 
+    src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/openai.svg" 
+    alt="OpenAI" 
+    size={size} 
+  />
+);
+
+const Anthropic = ({ size = 16 }: { size?: number }) => (
+  <IconWrapper 
+    src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/anthropic.svg" 
+    alt="Anthropic" 
+    size={size} 
+  />
+);
+
+const Zhipu = ({ size = 16 }: { size?: number }) => (
+  <IconWrapper 
+    src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/zhipu.svg" 
+    alt="智谱AI" 
+    size={size} 
+  />
+);
+
+const Moonshot = ({ size = 16 }: { size?: number }) => (
+  <IconWrapper 
+    src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/moonshot.svg" 
+    alt="Moonshot" 
+    size={size} 
+  />
+);
+
+const Tongyi = ({ size = 16 }: { size?: number }) => (
+  <IconWrapper 
+    src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/qwen.svg" 
+    alt="通义千问" 
+    size={size} 
+  />
+);
+
+const Groq = ({ size = 16 }: { size?: number }) => (
+  <IconWrapper 
+    src="https://unpkg.com/@lobehub/icons-static-svg@latest/icons/groq.svg" 
+    alt="Groq" 
+    size={size} 
+  />
+);
 
 // 模型配置
 const MODEL_PROVIDERS = {
@@ -27,9 +78,12 @@ const MODEL_PROVIDERS = {
     baseUrl: 'https://api.openai.com/v1',
     models: [
       { id: 'gpt-4o', name: 'GPT-4o', type: 'general', description: '最新的多模态模型' },
-      { id: 'gpt-4o-mini', name: 'GPT-4o Mini', type: 'fast', description: '轻量级版本' },
-      { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', type: 'general', description: '增强版GPT-4' },
-      { id: 'gpt-3.5-turbo', name: 'GPT-3.5 Turbo', type: 'fast', description: '快速高效' }
+      { id: 'gpt-4o-mini', name: 'GPT-4o Mini', type: 'fast', description: '轻量级快速模型' },
+      { id: 'gpt-4-turbo', name: 'GPT-4 Turbo', type: 'general', description: '强大的通用模型' },
+      { id: 'gpt-4.1', name: 'GPT-4.1', type: 'general', description: '2025年最新模型' },
+      { id: 'o1', name: 'o1', type: 'reasoning', description: '推理专用模型' },
+      { id: 'o1-mini', name: 'o1-mini', type: 'reasoning', description: '轻量推理模型' },
+      { id: 'o3-mini', name: 'o3-mini', type: 'reasoning', description: '最新推理模型' }
     ]
   },
   anthropic: {
@@ -37,8 +91,11 @@ const MODEL_PROVIDERS = {
     icon: Anthropic,
     baseUrl: 'https://api.anthropic.com/v1',
     models: [
-      { id: 'claude-3-5-sonnet-20241022', name: 'Claude-3.5 Sonnet', type: 'general', description: '最新的Claude模型' },
-      { id: 'claude-3-haiku-20240307', name: 'Claude-3 Haiku', type: 'fast', description: '快速响应版本' }
+      { id: 'claude-4-sonnet-20250805', name: 'Claude 4 Sonnet', type: 'general', description: '最新Claude 4模型' },
+      { id: 'claude-sonnet-3-7', name: 'Claude Sonnet 3.7', type: 'general', description: '128K输出支持' },
+      { id: 'claude-3-5-sonnet-20241022', name: 'Claude 3.5 Sonnet v2', type: 'general', description: '增强版本' },
+      { id: 'claude-3-5-haiku-20241022', name: 'Claude 3.5 Haiku', type: 'fast', description: '最新快速模型' },
+      { id: 'claude-3-haiku-20240307', name: 'Claude 3 Haiku', type: 'fast', description: '经典快速版本' }
     ]
   },
   zhipu: {
@@ -94,7 +151,8 @@ const MODEL_TYPE_INFO = {
   code: { icon: Code, color: 'bg-purple-500', label: '编程' },
   vision: { icon: Eye, color: 'bg-orange-500', label: '视觉' },
   creative: { icon: Sparkles, color: 'bg-pink-500', label: '创意' },
-  preview: { icon: Sparkles, color: 'bg-yellow-500', label: '预览' }
+  preview: { icon: Sparkles, color: 'bg-yellow-500', label: '预览' },
+  reasoning: { icon: Sparkles, color: 'bg-indigo-500', label: '推理' }
 };
 
 interface ModelConfig {
@@ -190,7 +248,7 @@ export default function ModelSelector() {
         <Button 
           variant="outline" 
           size="sm" 
-          className="h-8 min-w-[120px] justify-start gap-2 border-gray-300 bg-white hover:bg-gray-50"
+          className="h-8 min-w-[120px] justify-start gap-2 border-gray-300 bg-white hover:bg-gray-50 dark:border-gray-600 dark:bg-gray-800 dark:hover:bg-gray-700 dark:text-white"
         >
           {currentProvider?.icon && <currentProvider.icon size={14} />}
           <span className="text-xs font-medium truncate">
@@ -200,33 +258,33 @@ export default function ModelSelector() {
         </Button>
       </DialogTrigger>
       
-      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden">
+      <DialogContent className="max-w-4xl max-h-[80vh] overflow-hidden bg-white dark:bg-gray-900 border dark:border-gray-700">
         <DialogHeader>
-          <DialogTitle className="flex items-center gap-2">
+          <DialogTitle className="flex items-center gap-2 text-gray-900 dark:text-white">
             <Settings className="h-5 w-5" />
             AI 模型配置
           </DialogTitle>
         </DialogHeader>
         
         <Tabs defaultValue="model-selection" className="w-full">
-          <TabsList className="grid w-full grid-cols-2">
-            <TabsTrigger value="model-selection">模型选择</TabsTrigger>
-            <TabsTrigger value="api-keys">API Keys</TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 bg-gray-100 dark:bg-gray-800">
+            <TabsTrigger value="model-selection" className="dark:text-gray-200 dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-white">模型选择</TabsTrigger>
+            <TabsTrigger value="api-keys" className="dark:text-gray-200 dark:data-[state=active]:bg-gray-700 dark:data-[state=active]:text-white">API Keys</TabsTrigger>
           </TabsList>
           
           <TabsContent value="model-selection" className="space-y-6 max-h-[60vh] overflow-y-auto">
             <div className="space-y-4">
               <div>
-                <Label htmlFor="provider" className="text-sm font-medium">
+                <Label htmlFor="provider" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   选择服务商
                 </Label>
                 <Select value={selectedConfig.provider} onValueChange={handleProviderChange}>
-                  <SelectTrigger className="w-full mt-1">
+                  <SelectTrigger className="w-full mt-1 bg-white dark:bg-gray-800 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white">
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent>
+                  <SelectContent className="bg-white dark:bg-gray-800 border dark:border-gray-600">
                     {Object.entries(MODEL_PROVIDERS).map(([key, provider]) => (
-                      <SelectItem key={key} value={key}>
+                      <SelectItem key={key} value={key} className="dark:text-gray-200 dark:focus:bg-gray-700 dark:focus:text-white">
                         <div className="flex items-center gap-2">
                           <provider.icon size={16} />
                           <span>{provider.name}</span>
@@ -238,7 +296,7 @@ export default function ModelSelector() {
               </div>
 
               <div>
-                <Label htmlFor="model" className="text-sm font-medium">
+                <Label htmlFor="model" className="text-sm font-medium text-gray-700 dark:text-gray-300">
                   选择模型
                 </Label>
                 <div className="grid grid-cols-1 gap-3 mt-3">
@@ -252,14 +310,14 @@ export default function ModelSelector() {
                         key={model.id}
                         className={`
                           relative border rounded-lg p-4 cursor-pointer transition-all hover:shadow-md
-                          ${isSelected ? 'border-blue-500 bg-blue-50' : 'border-gray-200 hover:border-gray-300'}
+                          ${isSelected ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20 dark:border-blue-400' : 'border-gray-200 dark:border-gray-600 bg-white dark:bg-gray-800 hover:border-gray-300 dark:hover:border-gray-500'}
                         `}
                         onClick={() => handleModelChange(model.id)}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <h3 className="font-medium text-sm">{model.name}</h3>
+                              <h3 className="font-medium text-sm text-gray-900 dark:text-white">{model.name}</h3>
                               <Badge variant="secondary" className={`text-xs text-white ${typeInfo.color}`}>
                                 <IconComponent className="w-3 h-3 mr-1" />
                                 {typeInfo.label}
@@ -270,7 +328,7 @@ export default function ModelSelector() {
                                 </Badge>
                               )}
                             </div>
-                            <p className="text-xs text-gray-600">{model.description}</p>
+                            <p className="text-xs text-gray-600 dark:text-gray-300">{model.description}</p>
                           </div>
                         </div>
                       </div>
@@ -283,15 +341,15 @@ export default function ModelSelector() {
           
           <TabsContent value="api-keys" className="space-y-6 max-h-[60vh] overflow-y-auto">
             <div className="space-y-4">
-              <div className="text-sm text-gray-600 bg-blue-50 p-3 rounded-lg">
+              <div className="text-sm text-gray-600 dark:text-gray-300 bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border dark:border-blue-800">
                 <p>🔒 API密钥仅保存在本地浏览器中，不会上传到服务器</p>
               </div>
               
               {Object.entries(MODEL_PROVIDERS).map(([key, provider]) => (
-                <div key={key} className="space-y-2 p-4 border rounded-lg">
+                <div key={key} className="space-y-2 p-4 border dark:border-gray-600 bg-white dark:bg-gray-800 rounded-lg">
                   <div className="flex items-center gap-2">
                     <provider.icon size={20} />
-                    <h3 className="font-medium">{provider.name}</h3>
+                    <h3 className="font-medium text-gray-900 dark:text-white">{provider.name}</h3>
                   </div>
                   
                   <div className="relative">
@@ -300,13 +358,13 @@ export default function ModelSelector() {
                       placeholder={`请输入 ${provider.name} API Key`}
                       value={apiKeys[key] || ''}
                       onChange={(e) => handleApiKeyChange(key, e.target.value)}
-                      className="pr-10"
+                      className="pr-10 bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600 text-gray-900 dark:text-white placeholder-gray-500 dark:placeholder-gray-400"
                     />
                     <Button
                       type="button"
                       variant="ghost"
                       size="sm"
-                      className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0"
+                      className="absolute right-1 top-1/2 transform -translate-y-1/2 h-6 w-6 p-0 text-gray-500 dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
                       onClick={() => toggleApiKeyVisibility(key)}
                     >
                       {showApiKey[key] ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
@@ -322,11 +380,11 @@ export default function ModelSelector() {
           </TabsContent>
         </Tabs>
         
-        <div className="flex justify-end gap-2 pt-4 border-t">
-          <Button variant="outline" onClick={() => setOpen(false)}>
+        <div className="flex justify-end gap-2 pt-4 border-t dark:border-gray-600">
+          <Button variant="outline" onClick={() => setOpen(false)} className="border-gray-300 dark:border-gray-600 text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700">
             取消
           </Button>
-          <Button onClick={() => setOpen(false)}>
+          <Button onClick={() => setOpen(false)} className="bg-blue-600 hover:bg-blue-700 text-white">
             保存配置
           </Button>
         </div>
