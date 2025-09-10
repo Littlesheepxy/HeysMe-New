@@ -9,12 +9,21 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Eye, EyeOff, Settings, Cpu, Zap, Code, Sparkles } from 'lucide-react';
+import { 
+  OpenAI, 
+  Anthropic, 
+  Zhipu, 
+  Moonshot, 
+  Tongyi, 
+  Groq,
+  Aws 
+} from '@lobehub/icons';
 
 // 模型配置
 const MODEL_PROVIDERS = {
   openai: {
     name: 'OpenAI',
-    icon: '🤖',
+    icon: OpenAI,
     baseUrl: 'https://api.openai.com/v1',
     models: [
       { id: 'gpt-4o', name: 'GPT-4o', type: 'general', description: '最新的多模态模型' },
@@ -25,7 +34,7 @@ const MODEL_PROVIDERS = {
   },
   anthropic: {
     name: 'Anthropic',
-    icon: '🧠',
+    icon: Anthropic,
     baseUrl: 'https://api.anthropic.com/v1',
     models: [
       { id: 'claude-3-5-sonnet-20241022', name: 'Claude-3.5 Sonnet', type: 'general', description: '最新的Claude模型' },
@@ -34,7 +43,7 @@ const MODEL_PROVIDERS = {
   },
   zhipu: {
     name: '智谱AI',
-    icon: '🧠',
+    icon: Zhipu,
     baseUrl: 'https://open.bigmodel.cn/api/paas/v4',
     models: [
       { id: 'glm-4.5', name: 'GLM-4.5', type: 'general', description: '3550亿参数 MoE 架构' },
@@ -46,7 +55,7 @@ const MODEL_PROVIDERS = {
   },
   moonshot: {
     name: 'Kimi (月之暗面)',
-    icon: '🌙',
+    icon: Moonshot,
     baseUrl: 'https://api.moonshot.cn/v1',
     models: [
       { id: 'kimi-k2', name: 'Kimi-K2', type: 'general', description: '1T参数 MoE 模型' },
@@ -58,7 +67,7 @@ const MODEL_PROVIDERS = {
   },
   qwen: {
     name: '通义千问',
-    icon: '🔥',
+    icon: Tongyi,
     baseUrl: 'https://dashscope.aliyuncs.com/compatible-mode/v1',
     models: [
       { id: 'qwen3-coder', name: 'Qwen3-Coder', type: 'code', description: '专业编程助手' },
@@ -70,7 +79,7 @@ const MODEL_PROVIDERS = {
   },
   groq: {
     name: 'Groq',
-    icon: '⚡',
+    icon: Groq,
     baseUrl: 'https://api.groq.com/openai/v1',
     models: [
       { id: 'llama-3.3-70b-versatile', name: 'Llama 3.3 70B', type: 'general', description: '多用途模型' },
@@ -183,7 +192,7 @@ export default function ModelSelector() {
           size="sm" 
           className="h-8 min-w-[120px] justify-start gap-2 border-gray-300 bg-white hover:bg-gray-50"
         >
-          <span className="text-sm">{currentProvider?.icon}</span>
+          {currentProvider?.icon && <currentProvider.icon size={14} />}
           <span className="text-xs font-medium truncate">
             {currentModel?.name || 'Select Model'}
           </span>
@@ -219,7 +228,7 @@ export default function ModelSelector() {
                     {Object.entries(MODEL_PROVIDERS).map(([key, provider]) => (
                       <SelectItem key={key} value={key}>
                         <div className="flex items-center gap-2">
-                          <span>{provider.icon}</span>
+                          <provider.icon size={16} />
                           <span>{provider.name}</span>
                         </div>
                       </SelectItem>
@@ -281,7 +290,7 @@ export default function ModelSelector() {
               {Object.entries(MODEL_PROVIDERS).map(([key, provider]) => (
                 <div key={key} className="space-y-2 p-4 border rounded-lg">
                   <div className="flex items-center gap-2">
-                    <span className="text-lg">{provider.icon}</span>
+                    <provider.icon size={20} />
                     <h3 className="font-medium">{provider.name}</h3>
                   </div>
                   

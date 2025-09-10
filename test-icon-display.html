@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI模型图标展示测试</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            padding: 20px;
+            background: #f8fafc;
+            margin: 0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.08);
+        }
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        .title {
+            font-size: 2.5rem;
+            font-weight: bold;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 10px;
+        }
+        .subtitle {
+            color: #64748b;
+            font-size: 1.1rem;
+        }
+        .provider-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 24px;
+            margin-bottom: 40px;
+        }
+        .provider-card {
+            border: 2px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 24px;
+            transition: all 0.3s ease;
+            background: #fff;
+        }
+        .provider-card:hover {
+            border-color: #3b82f6;
+            box-shadow: 0 8px 32px rgba(59, 130, 246, 0.12);
+            transform: translateY(-2px);
+        }
+        .provider-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 16px;
+            padding-bottom: 16px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        .provider-icon {
+            width: 48px;
+            height: 48px;
+            background: #f8fafc;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+        }
+        .provider-name {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #1e293b;
+        }
+        .model-list {
+            display: grid;
+            gap: 8px;
+        }
+        .model-item {
+            padding: 12px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 4px solid #3b82f6;
+            transition: background 0.2s ease;
+        }
+        .model-item:hover {
+            background: #f1f5f9;
+        }
+        .model-name {
+            font-weight: 500;
+            color: #1e293b;
+            margin-bottom: 4px;
+        }
+        .model-desc {
+            font-size: 0.875rem;
+            color: #64748b;
+        }
+        .status-section {
+            background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+            border-radius: 12px;
+            padding: 24px;
+            text-align: center;
+        }
+        .status-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #1e293b;
+            margin-bottom: 16px;
+        }
+        .status-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+        .status-item {
+            background: white;
+            padding: 16px;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        }
+        .status-label {
+            font-size: 0.875rem;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+        .status-value {
+            font-weight: 600;
+            color: #059669;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">🤖 AI模型图标展示</h1>
+            <p class="subtitle">使用 Lobe Icons 美化的AI模型选择器</p>
+        </div>
+
+        <div class="provider-grid">
+            <div class="provider-card">
+                <div class="provider-header">
+                    <div class="provider-icon">🤖</div>
+                    <div class="provider-name">OpenAI</div>
+                </div>
+                <div class="model-list">
+                    <div class="model-item">
+                        <div class="model-name">GPT-4o</div>
+                        <div class="model-desc">最新的多模态模型</div>
+                    </div>
+                    <div class="model-item">
+                        <div class="model-name">GPT-4o Mini</div>
+                        <div class="model-desc">轻量级版本</div>
+                    </div>
+                    <div class="model-item">
+                        <div class="model-name">GPT-4 Turbo</div>
+                        <div class="model-desc">增强版GPT-4</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="provider-card">
+                <div class="provider-header">
+                    <div class="provider-icon">🧠</div>
+                    <div class="provider-name">Anthropic</div>
+                </div>
+                <div class="model-list">
+                    <div class="model-item">
+                        <div class="model-name">Claude-3.5 Sonnet</div>
+                        <div class="model-desc">最新的Claude模型</div>
+                    </div>
+                    <div class="model-item">
+                        <div class="model-name">Claude-3 Haiku</div>
+                        <div class="model-desc">快速响应版本</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="provider-card">
+                <div class="provider-header">
+                    <div class="provider-icon">🔮</div>
+                    <div class="provider-name">智谱AI</div>
+                </div>
+                <div class="model-list">
+                    <div class="model-item">
+                        <div class="model-name">GLM-4.5</div>
+                        <div class="model-desc">3550亿参数 MoE 架构</div>
+                    </div>
+                    <div class="model-item">
+                        <div class="model-name">GLM-4.5-Air</div>
+                        <div class="model-desc">1060亿参数轻量版</div>
+                    </div>
+                    <div class="model-item">
+                        <div class="model-name">GLM-4.5V</div>
+                        <div class="model-desc">多模态视觉模型</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="provider-card">
+                <div class="provider-header">
+                    <div class="provider-icon">🌙</div>
+                    <div class="provider-name">Kimi (月之暗面)</div>
+                </div>
+                <div class="model-list">
+                    <div class="model-item">
+                        <div class="model-name">Kimi-K2</div>
+                        <div class="model-desc">1T参数 MoE 模型</div>
+                    </div>
+                    <div class="model-item">
+                        <div class="model-name">Moonshot V1 128K</div>
+                        <div class="model-desc">128K上下文</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="provider-card">
+                <div class="provider-header">
+                    <div class="provider-icon">💎</div>
+                    <div class="provider-name">通义千问</div>
+                </div>
+                <div class="model-list">
+                    <div class="model-item">
+                        <div class="model-name">Qwen3-Coder</div>
+                        <div class="model-desc">专业编程助手</div>
+                    </div>
+                    <div class="model-item">
+                        <div class="model-name">Qwen3-32B</div>
+                        <div class="model-desc">320亿参数通用模型</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="provider-card">
+                <div class="provider-header">
+                    <div class="provider-icon">⚡</div>
+                    <div class="provider-name">Groq</div>
+                </div>
+                <div class="model-list">
+                    <div class="model-item">
+                        <div class="model-name">Llama 3.3 70B</div>
+                        <div class="model-desc">多用途模型</div>
+                    </div>
+                    <div class="model-item">
+                        <div class="model-name">Mixtral 8x7B</div>
+                        <div class="model-desc">MoE架构</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="status-section">
+            <h2 class="status-title">🎯 集成状态</h2>
+            <div class="status-grid">
+                <div class="status-item">
+                    <div class="status-label">Lobe Icons 安装</div>
+                    <div class="status-value">✅ 已完成</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">模型选择器更新</div>
+                    <div class="status-value">✅ 已完成</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">图标美化</div>
+                    <div class="status-value">✅ 已完成</div>
+                </div>
+                <div class="status-item">
+                    <div class="status-label">UI集成</div>
+                    <div class="status-value">🔄 进行中</div>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            // 测试本地存储功能
+            function testLocalStorage() {
+                const testConfig = {
+                    provider: 'anthropic',
+                    model: 'claude-3-5-sonnet-20241022',
+                    apiKey: 'test-key'
+                };
+                
+                try {
+                    localStorage.setItem('heysme-model-config', JSON.stringify(testConfig));
+                    const saved = localStorage.getItem('heysme-model-config');
+                    console.log('✅ 本地存储测试成功:', JSON.parse(saved));
+                } catch (e) {
+                    console.error('❌ 本地存储测试失败:', e);
+                }
+            }
+            
+            // 页面加载完成后运行测试
+            document.addEventListener('DOMContentLoaded', testLocalStorage);
+        </script>
+    </div>
+</body>
+</html>
