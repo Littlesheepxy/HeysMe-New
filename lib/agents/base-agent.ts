@@ -7,7 +7,7 @@ import {
 } from '@/lib/types/streaming';
 import { SessionData } from '@/lib/types/session';
 import { NextRequest, NextResponse } from 'next/server';
-import { agentOrchestrator } from '@/lib/utils/agent-orchestrator';
+// import { agentOrchestrator } from '@/lib/utils/agent-orchestrator'; // 已替换为SimpleMessageRouter
 
 /**
  * 基础Agent抽象类

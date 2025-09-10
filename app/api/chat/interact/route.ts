@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { agentOrchestrator } from '@/lib/utils/agent-orchestrator';
+import { simpleMessageRouter } from '@/lib/routers/simple-message-router';
 
 /**
  * 将交互数据格式化为用户消息
@@ -46,7 +46,7 @@ async function recoverOrCreateSession(sessionId: string, data: any) {
   
   try {
     // 尝试重新创建会话
-    const newSessionId = await agentOrchestrator.createSession();
+    const newSessionId = await simpleMessageRouter.createSession();
     console.log(`✅ [会话恢复] 创建新会话: ${newSessionId}`);
     
     // 如果是重新生成请求，返回特殊标识
@@ -104,14 +104,14 @@ export async function POST(req: NextRequest) {
 
     // 获取会话数据 - 先尝试同步获取，失败则异步加载
     console.log(`🔍 [会话查找] 查找会话 ${sessionId}`);
-    let sessionData = agentOrchestrator.getSessionDataSync(sessionId);
+    let sessionData = simpleMessageRouter.getSessionDataSync(sessionId);
     
     if (!sessionData) {
       console.log(`⚠️ [会话查找] 同步查找失败，尝试异步加载会话 ${sessionId}`);
       
       // 尝试异步加载会话
       try {
-        sessionData = await agentOrchestrator.getSessionData(sessionId);
+        sessionData = await simpleMessageRouter.getSessionData(sessionId);
       } catch (loadError) {
         console.warn(`⚠️ [会话加载] 异步加载失败:`, loadError);
       }
@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
       
       // 🔍 调试信息：检查会话存储状态
       try {
-        const allSessions = await agentOrchestrator.getAllActiveSessions();
+        const allSessions = await simpleMessageRouter.getAllActiveSessions();
         console.log(`🔍 [调试] 当前活跃会话数: ${allSessions.length}`);
         console.log(`🔍 [调试] 会话ID列表:`, allSessions.map(s => s.id));
       } catch (debugError) {
@@ -154,8 +154,8 @@ export async function POST(req: NextRequest) {
     console.log(`✅ [会话找到] 当前阶段: ${sessionData.metadata.progress.currentStage}, 进度: ${sessionData.metadata.progress.percentage}%`);
 
     // 处理用户交互
-    console.log(`🎯 [开始处理] 调用 AgentOrchestrator.handleUserInteraction`);
-    const result = await agentOrchestrator.handleUserInteraction(
+    console.log(`🎯 [开始处理] 调用 SimpleMessageRouter.handleUserInteraction`);
+    const result = await simpleMessageRouter.handleUserInteraction(
       sessionId,
       interactionType,
       data,
@@ -300,8 +300,8 @@ export async function POST(req: NextRequest) {
             const userMessage = formatInteractionAsUserMessage(data, result);
             console.log(`📝 [流式消息] 用户消息: "${userMessage}"`);
             
-            // 使用AgentOrchestrator的流式处理
-            const streamGenerator = agentOrchestrator.processUserInputStreaming(
+            // 使用SimpleMessageRouter的流式处理
+            const streamGenerator = simpleMessageRouter.processUserInputStreaming(
               sessionId,
               userMessage,
               sessionData,

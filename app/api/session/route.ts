@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@clerk/nextjs/server';
-import { agentOrchestrator } from '@/lib/utils/agent-orchestrator';
+import { simpleMessageRouter } from '@/lib/routers/simple-message-router';
 
 // 创建新会话
 export async function POST(req: NextRequest) {
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
       await sessionManager.updateSession(sessionId, sessionData);
     } else {
       // 生成新的sessionId
-      sessionId = await agentOrchestrator.createSession(sessionConfig, { userId });
+      sessionId = await simpleMessageRouter.createSession();
     }
 
     console.log(`✅ [会话API] 用户 ${userId} 创建新会话: ${sessionId}`);
@@ -136,15 +136,15 @@ export async function GET(req: NextRequest) {
     console.log(`🔍 [会话API] 查询会话: ${sessionId}`);
 
     // 获取会话状态
-    const sessionStatus = await agentOrchestrator.getSessionStatus(sessionId);
+    const sessionStatus = await simpleMessageRouter.getSessionStatus(sessionId);
 
     if (!sessionStatus) {
       console.log(`❌ [会话API] 会话未找到: ${sessionId}`);
       
       // 如果开启调试模式，返回调试信息
       if (debug) {
-        const sessionData = await agentOrchestrator.getSessionData(sessionId);
-        const allSessions = await agentOrchestrator.getAllActiveSessions();
+        const sessionData = await simpleMessageRouter.getSessionData(sessionId);
+        const allSessions = await simpleMessageRouter.getAllActiveSessions();
         
         return NextResponse.json({
           error: 'Session not found',
@@ -197,7 +197,7 @@ export async function PATCH(req: NextRequest) {
     }
 
     // 重置会话
-    const success = await agentOrchestrator.resetSessionToStage(sessionId, targetStage);
+    const success = await simpleMessageRouter.resetSessionToStage(sessionId, targetStage);
 
     if (!success) {
       return NextResponse.json(

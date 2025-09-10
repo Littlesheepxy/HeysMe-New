@@ -508,6 +508,93 @@ ${userProfile ? `## 用户背景\n- 角色：${userProfile.role}\n- 经验水平
     // 调用主处理方法
     yield* this.process(routerInput, currentSession);
   }
+
+  /**
+   * 兼容性方法：同步获取会话数据
+   */
+  getSessionDataSync(sessionId: string): SessionData | null {
+    // TODO: 实现同步会话获取（暂时返回null）
+    return null;
+  }
+
+  /**
+   * 兼容性方法：创建新会话
+   */
+  async createSession(): Promise<string> {
+    const sessionId = `session-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    // TODO: 实现会话创建逻辑
+    return sessionId;
+  }
+
+  /**
+   * 兼容性方法：获取所有活跃会话
+   */
+  async getAllActiveSessions(): Promise<SessionData[]> {
+    // TODO: 实现获取活跃会话列表
+    return [];
+  }
+
+  /**
+   * 兼容性方法：处理用户交互
+   */
+  async handleUserInteraction(
+    sessionId: string,
+    interactionType: string,
+    data: any,
+    sessionData: SessionData
+  ): Promise<any> {
+    // 根据交互类型处理
+    if (interactionType === 'interaction') {
+      // 检查是否是保存用户档案的交互
+      if (data.user_role || data.use_case || data.style) {
+        return {
+          action: 'stream_response',
+          nextAgent: 'SimpleRouter',
+          message: '正在处理您的选择...'
+        };
+      }
+      
+      // 其他交互类型，返回流式响应
+      return {
+        action: 'stream_response',
+        nextAgent: 'SimpleRouter',
+        message: '正在处理您的请求...'
+      };
+    }
+
+    // 默认返回
+    return {
+      action: 'processed',
+      nextAgent: 'SimpleRouter'
+    };
+  }
+
+  /**
+   * 兼容性方法：获取会话状态
+   */
+  async getSessionStatus(sessionId: string): Promise<any> {
+    const sessionData = await this.getSessionData(sessionId);
+    if (!sessionData) {
+      return null;
+    }
+    
+    return {
+      id: sessionId,
+      currentStage: (sessionData.metadata as any)?.progress?.currentStage || 'start',
+      percentage: (sessionData.metadata as any)?.progress?.percentage || 0,
+      status: sessionData.status,
+      metadata: sessionData.metadata
+    };
+  }
+
+  /**
+   * 兼容性方法：重置会话到指定阶段
+   */
+  async resetSessionToStage(sessionId: string, targetStage: string): Promise<boolean> {
+    // TODO: 实现会话重置逻辑
+    console.log(`🔄 [会话重置] 重置会话 ${sessionId} 到阶段 ${targetStage}`);
+    return true;
+  }
 }
 
 // 导出单例实例
