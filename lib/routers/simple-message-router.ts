@@ -309,15 +309,15 @@ export class SimpleMessageRouter {
         }
       };
 
-      // 调用Open Lovable Agent
-      yield* this.openLovableAgent.process(
-        { user_input: generatedPrompt },
+      // 调用Open Lovable代码生成
+      yield* this.callOpenLovableGeneration(
+        generatedPrompt,
         sessionData,
-          { 
-            mode: 'form',
-            originalRequirement: projectRequirement,
-            userProfile: (sessionData.metadata as any)?.userProfile
-          }
+        { 
+          mode: 'form',
+          originalRequirement: projectRequirement,
+          userProfile: (sessionData.metadata as any)?.userProfile
+        }
       );
 
     } else {
@@ -350,9 +350,9 @@ export class SimpleMessageRouter {
     sessionData: SessionData
   ): AsyncGenerator<StreamableAgentResponse, void, unknown> {
     
-    // 直接将用户输入传递给Open Lovable Agent
-    yield* this.openLovableAgent.process(
-      { user_input: input.message },
+    // 直接将用户输入传递给Open Lovable代码生成
+    yield* this.callOpenLovableGeneration(
+      input.message,
       sessionData,
       { 
         mode: 'professional',
@@ -594,6 +594,157 @@ ${userProfile ? `## 用户背景\n- 角色：${userProfile.role}\n- 经验水平
     // TODO: 实现会话重置逻辑
     console.log(`🔄 [会话重置] 重置会话 ${sessionId} 到阶段 ${targetStage}`);
     return true;
+  }
+
+  /**
+   * Open Lovable 代码生成集成
+   */
+  async* callOpenLovableGeneration(
+    message: string,
+    sessionData: SessionData,
+    context?: any
+  ): AsyncGenerator<StreamableAgentResponse, void, unknown> {
+    try {
+      // 创建沙箱（如果不存在）
+      const sandboxResponse = await fetch('/api/create-ai-sandbox', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' }
+      });
+
+      if (!sandboxResponse.ok) {
+        throw new Error('Failed to create sandbox');
+      }
+
+      const sandboxData = await sandboxResponse.json();
+      
+      yield {
+        type: 'agent_response',
+        immediate_display: {
+          reply: `🚀 正在创建开发环境...\n沙箱ID: ${sandboxData.sandboxId}`,
+          agent_name: 'OpenLovable',
+          timestamp: new Date().toISOString()
+        },
+        system_state: {
+          intent: 'code_generation',
+          done: false,
+          progress: 25,
+          current_stage: '环境准备',
+          metadata: {
+            sandbox: sandboxData,
+            agent_type: 'OpenLovable'
+          }
+        }
+      };
+
+      // 调用AI代码生成流式API
+      const generateResponse = await fetch('/api/generate-ai-code-stream', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          message: message,
+          model: 'groq-llama-3.1-70b', // 使用快速模型
+          conversationState: {
+            currentProject: 'HeysMe Generated Project',
+            userPreferences: (sessionData.metadata as any)?.userProfile || {}
+          }
+        })
+      });
+
+      if (!generateResponse.ok) {
+        throw new Error('Failed to generate code');
+      }
+
+      // 流式处理AI响应
+      const reader = generateResponse.body?.getReader();
+      if (!reader) {
+        throw new Error('No response stream available');
+      }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              if (data.content) {
+                yield {
+                  type: 'agent_response',
+                  immediate_display: {
+                    reply: data.content,
+                    agent_name: 'OpenLovable',
+                    timestamp: new Date().toISOString()
+                  },
+                  system_state: {
+                    intent: 'code_generation',
+                    done: false,
+                    progress: 75,
+                    current_stage: 'AI代码生成中',
+                    metadata: {
+                      streaming: true,
+                      agent_type: 'OpenLovable'
+                    }
+                  }
+                };
+              }
+            } catch (e) {
+              // 忽略JSON解析错误，继续处理
+            }
+          }
+        }
+      }
+
+      // 完成
+      yield {
+        type: 'agent_response',
+        immediate_display: {
+          reply: `✅ 代码生成完成！\n\n🔗 实时预览：${sandboxData.url}`,
+          agent_name: 'OpenLovable',
+          timestamp: new Date().toISOString()
+        },
+        system_state: {
+          intent: 'code_generation',
+          done: true,
+          progress: 100,
+          current_stage: '完成',
+          metadata: {
+            sandbox: sandboxData,
+            preview_url: sandboxData.url,
+            agent_type: 'OpenLovable'
+          }
+        }
+      };
+
+    } catch (error) {
+      console.error('OpenLovable generation error:', error);
+      
+      yield {
+        type: 'agent_response',
+        immediate_display: {
+          reply: `❌ 代码生成失败：${error instanceof Error ? error.message : '未知错误'}`,
+          agent_name: 'OpenLovable',
+          timestamp: new Date().toISOString()
+        },
+        system_state: {
+          intent: 'error',
+          done: true,
+          metadata: {
+            error: error instanceof Error ? error.message : String(error),
+            agent_type: 'OpenLovable'
+          }
+        }
+      };
+    }
   }
 }
 

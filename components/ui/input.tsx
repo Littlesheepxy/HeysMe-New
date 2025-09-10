@@ -2,24 +2,15 @@ import * as React from "react"
 
 import { cn } from "@/lib/utils"
 
-export interface InputProps extends React.ComponentProps<"input"> {
-  variant?: "default" | "brand" | "brand-outline" | "brand-glass"
-}
+export type InputProps = React.InputHTMLAttributes<HTMLInputElement>
 
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
-  ({ className, type, variant = "default", ...props }, ref) => {
-    const variants = {
-      default: "flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm transition-all duration-300",
-      brand: "flex h-10 w-full rounded-md border border-emerald-200 bg-background px-3 py-2 text-base ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-emerald-400 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 focus:shadow-brand hover:border-emerald-300 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm transition-all duration-300",
-      "brand-outline": "flex h-10 w-full rounded-lg border-2 border-brand-primary/30 bg-transparent px-3 py-2 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-brand-primary/60 focus:border-brand-primary focus:ring-2 focus:ring-brand-primary/20 focus:shadow-brand-glow hover:border-brand-primary/50 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm transition-all duration-300",
-      "brand-glass": "flex h-10 w-full rounded-lg glass-brand px-3 py-2 text-base file:border-0 file:bg-transparent file:text-sm file:font-medium file:text-foreground placeholder:text-brand-primary/60 focus:ring-2 focus:ring-brand-primary/30 focus:shadow-brand hover:bg-brand-primary/10 disabled:cursor-not-allowed disabled:opacity-50 md:text-sm transition-all duration-300"
-    }
-
+  ({ className, type, ...props }, ref) => {
     return (
       <input
         type={type}
         className={cn(
-          variants[variant],
+          "flex h-10 w-full rounded-[10px] border border-zinc-300 bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 [box-shadow:inset_0px_-2px_0px_0px_#e4e4e7,_0px_1px_6px_0px_rgba(228,_228,_231,_30%)] hover:[box-shadow:inset_0px_-2px_0px_0px_#d4d4d8,_0px_1px_6px_0px_rgba(212,_212,_216,_40%)] focus-visible:[box-shadow:inset_0px_-2px_0px_0px_#f97316,_0px_1px_6px_0px_rgba(249,_115,_22,_30%)] transition-all duration-200",
           className
         )}
         ref={ref}

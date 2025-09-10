@@ -1,47 +1,26 @@
 import * as React from "react"
-import { Slot } from "@radix-ui/react-slot"
 import { cva, type VariantProps } from "class-variance-authority"
 
 import { cn } from "@/lib/utils"
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap rounded-md text-sm font-medium ring-offset-background transition-all duration-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 [&_svg]:pointer-events-none [&_svg]:size-4 [&_svg]:shrink-0 relative overflow-hidden",
+  "inline-flex items-center justify-center whitespace-nowrap rounded-[10px] text-sm font-medium transition-all duration-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
   {
     variants: {
       variant: {
-        // 品牌主要按钮 - 青绿渐变
-        default: "bg-brand-gradient text-white hover:shadow-brand-lg transform hover:scale-[1.02] active:scale-[0.98]",
-        // 品牌渐变按钮
-        brand: "bg-brand-gradient text-white hover:shadow-brand-lg hover:shadow-brand-glow transform hover:scale-[1.02] active:scale-[0.98] btn-ripple",
-        // 深色品牌渐变
-        "brand-dark": "bg-brand-gradient-dark text-white hover:shadow-brand-xl transform hover:scale-[1.02] active:scale-[0.98]",
-        // 品牌outline按钮
-        "brand-outline": "border-2 border-brand-primary text-brand-primary bg-transparent hover:bg-brand-primary hover:text-white hover:shadow-brand transform hover:scale-[1.02]",
-        // 品牌ghost按钮
-        "brand-ghost": "text-brand-primary hover:bg-brand-primary/10 hover:text-brand-primary transform hover:scale-[1.02]",
-        // 品牌次要按钮
-        "brand-secondary": "bg-brand-secondary text-white hover:bg-brand-accent hover:shadow-cyan-glow transform hover:scale-[1.02]",
-        destructive:
-          "bg-destructive text-destructive-foreground hover:bg-destructive/90 transform hover:scale-[1.02]",
-        outline:
-          "border border-input bg-background hover:bg-accent hover:text-accent-foreground transform hover:scale-[1.02]",
-        secondary:
-          "bg-secondary text-secondary-foreground hover:bg-secondary/80 transform hover:scale-[1.02]",
-        ghost: "hover:bg-accent hover:text-accent-foreground transform hover:scale-[1.02]",
-        link: "text-primary underline-offset-4 hover:underline",
-        // 玻璃拟态品牌按钮
-        "brand-glass": "glass-brand text-brand-primary hover:bg-brand-primary/20 hover:text-brand-primary transform hover:scale-[1.02]",
-        // 发光品牌按钮
-        "brand-glow": "bg-brand-gradient text-white hover:shadow-brand-glow animate-brand-pulse transform hover:scale-[1.05]",
+        default: "bg-zinc-900 text-white hover:bg-zinc-800 [box-shadow:inset_0px_-2px_0px_0px_#18181b,_0px_1px_6px_0px_rgba(24,_24,_27,_58%)] hover:translate-y-[1px] hover:scale-[0.98] hover:[box-shadow:inset_0px_-1px_0px_0px_#18181b,_0px_1px_3px_0px_rgba(24,_24,_27,_40%)] active:translate-y-[2px] active:scale-[0.97] active:[box-shadow:inset_0px_1px_1px_0px_#18181b,_0px_1px_2px_0px_rgba(24,_24,_27,_30%)] disabled:shadow-none disabled:hover:translate-y-0 disabled:hover:scale-100",
+        secondary: "bg-zinc-100 text-zinc-900 hover:bg-zinc-200 [box-shadow:inset_0px_-2px_0px_0px_#d4d4d8,_0px_1px_6px_0px_rgba(161,_161,_170,_58%)] hover:translate-y-[1px] hover:scale-[0.98] hover:[box-shadow:inset_0px_-1px_0px_0px_#d4d4d8,_0px_1px_3px_0px_rgba(161,_161,_170,_40%)] active:translate-y-[2px] active:scale-[0.97] active:[box-shadow:inset_0px_1px_1px_0px_#d4d4d8,_0px_1px_2px_0px_rgba(161,_161,_170,_30%)] disabled:shadow-none disabled:hover:translate-y-0 disabled:hover:scale-100",
+        outline: "border border-zinc-300 bg-transparent hover:bg-zinc-50 text-zinc-900 [box-shadow:inset_0px_-2px_0px_0px_#e4e4e7,_0px_1px_6px_0px_rgba(228,_228,_231,_58%)] hover:translate-y-[1px] hover:scale-[0.98] hover:[box-shadow:inset_0px_-1px_0px_0px_#e4e4e7,_0px_1px_3px_0px_rgba(228,_228,_231,_40%)] active:translate-y-[2px] active:scale-[0.97] active:[box-shadow:inset_0px_1px_1px_0px_#e4e4e7,_0px_1px_2px_0px_rgba(228,_228,_231,_30%)] disabled:shadow-none disabled:hover:translate-y-0 disabled:hover:scale-100",
+        destructive: "bg-red-500 text-white hover:bg-red-600 [box-shadow:inset_0px_-2px_0px_0px_#dc2626,_0px_1px_6px_0px_rgba(239,_68,_68,_58%)] hover:translate-y-[1px] hover:scale-[0.98] hover:[box-shadow:inset_0px_-1px_0px_0px_#dc2626,_0px_1px_3px_0px_rgba(239,_68,_68,_40%)] active:translate-y-[2px] active:scale-[0.97] active:[box-shadow:inset_0px_1px_1px_0px_#dc2626,_0px_1px_2px_0px_rgba(239,_68,_68,_30%)] disabled:shadow-none disabled:hover:translate-y-0 disabled:hover:scale-100",
+        code: "bg-[#36322F] text-white hover:bg-[#4a4542] [box-shadow:inset_0px_-2px_0px_0px_#171310,_0px_1px_6px_0px_rgba(58,_33,_8,_58%)] hover:translate-y-[1px] hover:scale-[0.98] hover:[box-shadow:inset_0px_-1px_0px_0px_#171310,_0px_1px_3px_0px_rgba(58,_33,_8,_40%)] active:translate-y-[2px] active:scale-[0.97] active:[box-shadow:inset_0px_1px_1px_0px_#171310,_0px_1px_2px_0px_rgba(58,_33,_8,_30%)] disabled:shadow-none disabled:hover:translate-y-0 disabled:hover:scale-100",
+        orange: "bg-orange-500 text-white hover:bg-orange-600 [box-shadow:inset_0px_-2px_0px_0px_#c2410c,_0px_1px_6px_0px_rgba(234,_88,_12,_58%)] hover:translate-y-[1px] hover:scale-[0.98] hover:[box-shadow:inset_0px_-1px_0px_0px_#c2410c,_0px_1px_3px_0px_rgba(234,_88,_12,_40%)] active:translate-y-[2px] active:scale-[0.97] active:[box-shadow:inset_0px_1px_1px_0px_#c2410c,_0px_1px_2px_0px_rgba(234,_88,_12,_30%)] disabled:shadow-none disabled:hover:translate-y-0 disabled:hover:scale-100",
+        ghost: "hover:bg-accent hover:text-accent-foreground",
       },
       size: {
         default: "h-10 px-4 py-2",
-        sm: "h-9 rounded-md px-3 text-xs",
-        lg: "h-12 rounded-lg px-8 text-base",
-        xl: "h-14 rounded-xl px-10 text-lg",
-        icon: "h-10 w-10",
-        "icon-sm": "h-8 w-8",
-        "icon-lg": "h-12 w-12",
+        sm: "h-8 px-3 py-1 text-sm",
+        icon: "h-8 w-8 p-0",
+        lg: "h-12 px-6 py-3",
       },
     },
     defaultVariants: {
@@ -55,48 +34,17 @@ export interface ButtonProps
   extends React.ButtonHTMLAttributes<HTMLButtonElement>,
     VariantProps<typeof buttonVariants> {
   asChild?: boolean
-  ripple?: boolean
-  shimmer?: boolean
 }
 
 const Button = React.forwardRef<HTMLButtonElement, ButtonProps>(
-  ({ className, variant, size, asChild = false, ripple = false, shimmer = false, children, ...props }, ref) => {
-    const Comp = asChild ? Slot : "button"
-    
-    const buttonClasses = cn(
-      buttonVariants({ variant, size }),
-      {
-        "btn-ripple": ripple || variant === "brand",
-        "relative overflow-hidden": shimmer,
-      },
-      className
-    )
-
-    const shimmerElement = shimmer && (
-      <div className="absolute inset-0 -translate-x-full animate-brand-shimmer bg-gradient-to-r from-transparent via-white/20 to-transparent" />
-    )
-
-    if (asChild) {
-      return (
-        <Comp
-          className={buttonClasses}
-          ref={ref}
-          {...props}
-        >
-          {children}
-        </Comp>
-      )
-    }
-
+  ({ className, variant, size, asChild = false, ...props }, ref) => {
+    const Comp = asChild ? "button" : "button"
     return (
       <Comp
-        className={buttonClasses}
+        className={cn(buttonVariants({ variant, size, className }))}
         ref={ref}
         {...props}
-      >
-        {children}
-        {shimmerElement}
-      </Comp>
+      />
     )
   }
 )
