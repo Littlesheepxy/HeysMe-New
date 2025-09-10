@@ -8,7 +8,6 @@ import { simpleMessageRouter } from '@/lib/routers/simple-message-router';
 import { ChatMessage, GenerationProgress, ConversationContext, SandboxData } from '@/types/openlovable';
 
 // Import our modular components
-import HomeScreen from '@/components/openlovable/HomeScreen';
 import TopBar from '@/components/openlovable/TopBar';
 import ChatPanel from '@/components/openlovable/ChatPanel';
 import MainContentPanel from '@/components/openlovable/MainContentPanel';
@@ -24,18 +23,12 @@ export default function CodingPage() {
   const [loading, setLoading] = useState(false);
   const [status, setStatus] = useState({ text: 'Not connected', active: false });
   
-  // Home screen state
-  const [showHomeScreen, setShowHomeScreen] = useState(true);
-  const [homeScreenFading, setHomeScreenFading] = useState(false);
-  const [homeUrlInput, setHomeUrlInput] = useState('');
-  const [homeContextInput, setHomeContextInput] = useState('');
-  const [selectedStyle, setSelectedStyle] = useState<string | null>(null);
-  const [showStyleSelector, setShowStyleSelector] = useState(false);
+  // 移除HomeScreen相关状态，直接显示聊天界面
   
   // Chat state
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>([
     {
-      content: 'Welcome! I can help you generate code with full context of your sandbox files and structure. Just start chatting - I\'ll automatically create a sandbox for you if needed!\n\nTip: If you see package errors like "react-router-dom not found", just type "npm install" or "check packages" to automatically install missing packages.',
+      content: '🚀 欢迎来到HeysMe AI代码生成器！\n\n我可以根据您的需求生成完整的React应用。您可以：\n\n• 描述您想要的功能和设计\n• 我会自动创建开发环境\n• 实时预览生成的代码\n• 所有代码都可以下载使用\n\n请开始描述您的项目需求吧！',
       type: 'system',
       timestamp: new Date()
     }
@@ -74,13 +67,8 @@ export default function CodingPage() {
     lastGeneratedCode: undefined
   });
   
-  // Other UI state
-  const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
-  const [urlScreenshot, setUrlScreenshot] = useState<string | null>(null);
-  const [isPreparingDesign, setIsPreparingDesign] = useState(false);
-  const [targetUrl, setTargetUrl] = useState<string>('');
+  // 简化UI状态，移除不需要的截图和URL相关状态
   const [loadingStage, setLoadingStage] = useState<'gathering' | 'planning' | 'generating' | null>(null);
-  const [screenshotError, setScreenshotError] = useState<string | null>(null);
   
   // Router and search params
   const searchParams = useSearchParams();
@@ -143,17 +131,7 @@ export default function CodingPage() {
     };
   }, []); // Run only on mount
   
-  // Handle escape key for home screen
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && showHomeScreen) {
-        handleHomeScreenClose();
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [showHomeScreen]);
+  // 移除HomeScreen相关的键盘事件处理，因为我们直接显示聊天界面
   
   // Utility functions
   const updateStatus = (text: string, active: boolean) => {
@@ -338,49 +316,7 @@ Tip: I automatically detect and install npm packages from your code imports (lik
     }
   };
   
-  // Home screen functions
-  const handleHomeScreenClose = () => {
-    setHomeScreenFading(true);
-    setTimeout(() => {
-      setShowHomeScreen(false);
-      setHomeScreenFading(false);
-    }, 500);
-  };
-
-  const handleHomeScreenSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!homeUrlInput.trim()) return;
-    
-    handleHomeScreenClose();
-    
-    // Add cloning message
-    let displayUrl = homeUrlInput.trim();
-    if (!displayUrl.match(/^https?:\/\//i)) {
-      displayUrl = 'https://' + displayUrl;
-    }
-    const cleanUrl = displayUrl.replace(/^https?:\/\//i, '');
-    addChatMessage(`Starting to clone ${cleanUrl}...`, 'system');
-    
-    // Here you would implement the website cloning logic
-    // For now, just simulate it
-    setLoadingStage('gathering');
-    setActiveTab('preview');
-    
-    setTimeout(() => {
-      setLoadingStage('planning');
-    }, 2000);
-    
-    setTimeout(() => {
-      setLoadingStage('generating');
-      setActiveTab('generation');
-    }, 4000);
-    
-    setTimeout(() => {
-      setLoadingStage(null);
-      addChatMessage(`Successfully recreated ${cleanUrl} as a modern React app!`, 'ai');
-      setActiveTab('preview');
-    }, 8000);
-  };
+  // 移除HomeScreen相关函数，因为我们直接使用聊天界面
 
   // File management
   const toggleFolder = (folderPath: string) => {
@@ -408,24 +344,6 @@ Tip: I automatically detect and install npm packages from your code imports (lik
     <div className="font-sans bg-background text-foreground h-screen flex flex-col">
       {/* Theme Toggle */}
       <ThemeToggle />
-      
-      {/* Home Screen Overlay */}
-      <HomeScreen
-        showHomeScreen={showHomeScreen}
-        homeScreenFading={homeScreenFading}
-        homeUrlInput={homeUrlInput}
-        setHomeUrlInput={setHomeUrlInput}
-        homeContextInput={homeContextInput}
-        setHomeContextInput={setHomeContextInput}
-        selectedStyle={selectedStyle}
-        setSelectedStyle={setSelectedStyle}
-        showStyleSelector={showStyleSelector}
-        setShowStyleSelector={setShowStyleSelector}
-        aiModel={aiModel}
-        setAiModel={setAiModel}
-        onSubmit={handleHomeScreenSubmit}
-        onClose={handleHomeScreenClose}
-      />
       
       {/* Top Bar */}
       <TopBar
@@ -460,12 +378,12 @@ Tip: I automatically detect and install npm packages from your code imports (lik
           generationProgress={generationProgress}
           sandboxData={sandboxData}
           loading={loading}
-          isCapturingScreenshot={isCapturingScreenshot}
-          urlScreenshot={urlScreenshot}
-          isPreparingDesign={isPreparingDesign}
-          targetUrl={targetUrl}
+          isCapturingScreenshot={false}
+          urlScreenshot={null}
+          isPreparingDesign={false}
+          targetUrl=""
           loadingStage={loadingStage}
-          screenshotError={screenshotError}
+          screenshotError={null}
           iframeRef={iframeRef}
           expandedFolders={expandedFolders}
           selectedFile={selectedFile}
