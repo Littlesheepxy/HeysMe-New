@@ -31,6 +31,7 @@ export function HeaderSection() {
     { name: t('header.navigation.features'), href: '#features' },
     { name: t('header.navigation.useCases'), href: '#use-cases' },
     { name: t('header.navigation.creatorHub'), href: '#creator-hub' },
+    { name: 'AI代码生成', href: '/coding' },
     { name: t('header.navigation.getStarted'), href: '#final-cta' },
   ]
 

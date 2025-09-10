@@ -606,7 +606,8 @@ ${userProfile ? `## 用户背景\n- 角色：${userProfile.role}\n- 经验水平
   ): AsyncGenerator<StreamableAgentResponse, void, unknown> {
     try {
       // 创建沙箱（如果不存在）
-      const sandboxResponse = await fetch('/api/create-ai-sandbox', {
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
+      const sandboxResponse = await fetch(`${baseUrl}/api/create-ai-sandbox`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' }
       });
@@ -637,13 +638,14 @@ ${userProfile ? `## 用户背景\n- 角色：${userProfile.role}\n- 经验水平
       };
 
       // 调用AI代码生成流式API
-      const generateResponse = await fetch('/api/generate-ai-code-stream', {
+      const generateResponse = await fetch(`${baseUrl}/api/generate-ai-code-stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          message: message,
-          model: 'groq-llama-3.1-70b', // 使用快速模型
-          conversationState: {
+          prompt: message,
+          model: 'claude-3-5-sonnet-20241022', // 使用Claude模型
+          context: {
+            sandboxId: sandboxData.sandboxId,
             currentProject: 'HeysMe Generated Project',
             userPreferences: (sessionData.metadata as any)?.userProfile || {}
           }
@@ -746,6 +748,7 @@ ${userProfile ? `## 用户背景\n- 角色：${userProfile.role}\n- 经验水平
       };
     }
   }
+
 }
 
 // 导出单例实例
